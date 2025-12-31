@@ -40,7 +40,7 @@
     <div class="home-card" id="start-chat-trigger">
       <div class="card-text">
         <strong id="card-msg-text">Send us a message</strong>
-        {% comment %} <span id="card-reply-time">Typically replies in 5 minutes</span> {% endcomment %}
+        <span id="card-reply-time">Typically replies in 5 minutes</span>
       </div>
       <div class="card-arrow" id="card-arrow-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -131,7 +131,7 @@
 .home-hero h1 { font-size: 1.8em; margin: 0 0 8px; font-weight: 700; }
 .home-hero p { font-size: 0.95em; opacity: 0.9; margin: 0; line-height: 1.4; }
 
-.home-card { background: white; margin: -30px 15px 15px; padding: 30px 18px; border-radius: 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 10px 25px rgba(0,0,0,0.06); cursor: pointer; border: 1px solid #f0f0f0; transition: transform 0.2s; }
+.home-card { background: white; margin: -30px 15px 15px; padding: 18px; border-radius: 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 10px 25px rgba(0,0,0,0.06); cursor: pointer; border: 1px solid #f0f0f0; transition: transform 0.2s; }
 .home-card:hover { transform: translateY(-2px); }
 .card-text strong { display: block; font-size: 0.95em; margin-bottom: 2px; }
 .card-text span { font-size: 0.8em; color: #64748b; }
@@ -235,7 +235,7 @@ async function fetchAndApplySettings() {
 
         // Action Card (Send us a message)
         const cardTitle = document.getElementById("card-msg-text");
-        // const cardSub = document.getElementById("card-reply-time");
+        const cardSub = document.getElementById("card-reply-time");
         if(cardTitle) cardTitle.style.color = s.cardTitleColor;
         if(cardSub) cardSub.style.color = s.cardSubtitleColor;
 
@@ -255,7 +255,7 @@ async function fetchAndApplySettings() {
         document.getElementById("welcome-h1").innerText = s.welcomeText;
         document.getElementById("welcome-p").innerText = s.welcomeSubtext;
         document.getElementById("card-msg-text").innerText = s.startConversationText;
-        // document.getElementById("card-reply-time").innerText = s.replyTimeText;
+        document.getElementById("card-reply-time").innerText = s.replyTimeText;
         if(s.welcomeImg) document.getElementById("main-support-avatar").src = s.welcomeImg;
       }
     } catch (e) { console.error("Sync failed", e); }
