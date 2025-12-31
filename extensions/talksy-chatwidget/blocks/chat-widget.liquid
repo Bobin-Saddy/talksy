@@ -1,0 +1,402 @@
+{%- assign primary_color = section.settings.primary_color | default: '#6366f1' -%}
+
+<div id="chat-launcher" aria-label="Open Chat" style="background: {{ primary_color }};">
+  <div id="launcher-icon">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+  </div>
+  <div id="close-launcher-icon" style="display:none;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+  </div>
+</div>
+
+<div id="chat-widget" class="chat-hidden">
+  <div id="chat-header">
+    <div class="header-content">
+      <div id="header-avatar-container" class="avatar-stack">
+        <div class="avatar-status"></div>
+        <img id="main-support-avatar" src="https://ui-avatars.com/api/?name=Support&background=fff&color={{ primary_color | remove: '#' }}" alt="Support">
+      </div>
+      <div class="header-text">
+        <span id="header-title-text" class="header-title">Live Support</span>
+        <span id="header-subtitle-text" class="header-subtitle"><span class="pulse"></span> Online now</span>
+      </div>
+    </div>
+    <button id="chat-close" title="Minimize">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+  </div>
+
+  <div id="tab-home" class="tab-content">
+    <div class="home-hero" id="home-hero-bg"> 
+      <div class="hero-avatars">
+        <img src="https://ui-avatars.com/api/?name=J&background=ddd" class="overlap">
+        <img src="https://ui-avatars.com/api/?name=S&background=eee" class="overlap">
+        <img src="https://ui-avatars.com/api/?name=M&background=fff" class="overlap">
+      </div>
+      <h1 id="welcome-h1">Hi there 👋</h1>
+      <p id="welcome-p">We are here to help you! Ask us anything.</p>
+    </div>
+    
+    <div class="home-card" id="start-chat-trigger">
+      <div class="card-text">
+        <strong id="card-msg-text">Send us a message</strong>
+        <span id="card-reply-time">Typically replies in 5 minutes</span>
+      </div>
+      <div class="card-arrow" id="card-arrow-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-chat" class="tab-content" style="display:none;">
+    <div id="chat-onboarding-step" class="step-container">
+      <div class="welcome-card">
+        <h3 id="onboarding-title">Start a conversation</h3>
+        <p id="onboarding-p">Please provide your details to begin.</p>
+        <div class="input-group">
+          <input id="chat-fname" type="text" placeholder="First Name" />
+          <input id="chat-email" type="email" placeholder="Email Address" />
+          <button id="chat-submit-info">Continue to Chat</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="chat-chat-step" class="step-container" style="display:none;">
+      <div id="chat-messages"></div>
+      <div id="chat-footer">
+        <div id="emoji-picker" class="hidden-picker"></div>
+        <div class="input-wrapper">
+          <button id="emoji-btn" class="tool-btn">😊</button>
+          <button id="file-btn" class="tool-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+          </button>
+          <input id="chat-file-input" type="file" style="display:none;" accept="image/*, .pdf, .svg" />
+          <input id="chat-input" placeholder="Write a message..." autocomplete="off" />
+          <button id="chat-send">
+             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="chat-nav">
+    <div class="nav-item active" data-tab="home">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+      <span>Home</span>
+    </div>
+    <div class="nav-item" data-tab="chat">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      <span>Messages</span>
+    </div>
+  </div>
+</div>
+
+<style>
+:root { 
+  --chat-primary: {{ primary_color }}; 
+  --chat-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --chat-base-size: 15px; 
+}
+
+#chat-widget * { box-sizing: border-box; font-family: var(--chat-font-family) !important; }
+
+/* LAUNCHER */
+#chat-launcher { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 999999; box-shadow: 0 8px 25px rgba(0,0,0,0.2); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+#chat-launcher:hover { transform: scale(1.1); }
+
+/* WIDGET BASE */
+#chat-widget { position: fixed; bottom: 100px; right: 25px; width: 370px; height: 600px; max-height: calc(100vh - 130px); background: #ffffff; border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.15); z-index: 999998; transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); border: 1px solid rgba(0,0,0,0.05); font-size: var(--chat-base-size); }
+.chat-hidden { opacity: 0; transform: translateY(20px) scale(0.95); pointer-events: none; }
+.chat-visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: all; }
+
+/* HEADER */
+#chat-header { padding: 20px; color: #fff; display: flex; justify-content: space-between; align-items: center; background: var(--chat-primary); flex-shrink: 0; }
+.header-content { display: flex; align-items: center; gap: 12px; }
+.avatar-stack { position: relative; width: 40px; height: 40px; }
+.avatar-stack img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.2); }
+.avatar-status { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: #22c55e; border: 2px solid #fff; border-radius: 50%; }
+.header-title { display: block; font-weight: 700; font-size: 1.1em; }
+.header-subtitle { font-size: 0.8em; opacity: 0.9; }
+#chat-close { background: none; border: none; color: inherit; cursor: pointer; padding: 5px; opacity: 0.8; }
+
+/* TABS & STEPS */
+.tab-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+.step-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* HOME DESIGN */
+.home-hero { padding: 30px 20px 60px; background: var(--chat-primary); color: #fff; text-align: left; }
+.hero-avatars { display: flex; margin-bottom: 15px; }
+.hero-avatars img { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--chat-primary); margin-right: -10px; }
+.home-hero h1 { font-size: 1.8em; margin: 0 0 8px; font-weight: 700; }
+.home-hero p { font-size: 0.95em; opacity: 0.9; margin: 0; line-height: 1.4; }
+
+.home-card { background: white; margin: -30px 15px 15px; padding: 18px; border-radius: 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 10px 25px rgba(0,0,0,0.06); cursor: pointer; border: 1px solid #f0f0f0; transition: transform 0.2s; }
+.home-card:hover { transform: translateY(-2px); }
+.card-text strong { display: block; font-size: 0.95em; margin-bottom: 2px; }
+.card-text span { font-size: 0.8em; color: #64748b; }
+.card-arrow { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+/* ONBOARDING */
+.welcome-card { padding: 30px 20px; text-align: center; }
+.welcome-card h3 { margin-bottom: 15px; font-size: 1.2em; }
+.input-group { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.input-group input { padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; outline: none; }
+.input-group button { padding: 12px; border: none; border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer; }
+
+/* CHAT AREA */
+#chat-messages { flex: 1; overflow-y: auto; padding: 15px; background: #f8fafc; display: flex; flex-direction: column; gap: 12px; }
+.msg { max-width: 85%; display: flex; flex-direction: column; }
+.msg.user { align-self: flex-end; }
+.msg.bot { align-self: flex-start; }
+.msg-content { padding: 10px 14px; border-radius: 14px; font-size: 0.95em; line-height: 1.4; word-wrap: break-word; }
+.user .msg-content { background: var(--chat-primary); color: #fff; border-bottom-right-radius: 2px; }
+.bot .msg-content { background: #fff; color: #1e293b; border-bottom-left-radius: 2px; border: 1px solid #e2e8f0; }
+
+/* FOOTER */
+#chat-footer { padding: 12px; background: #fff; border-top: 1px solid #f1f5f9; }
+.input-wrapper { display: flex; align-items: center; background: #f1f5f9; border-radius: 12px; padding: 6px 10px; gap: 5px; }
+#chat-input { flex: 1; border: none; background: transparent; outline: none; padding: 8px; font-size: 0.95em; }
+.tool-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 4px; display: flex; align-items: center; color: #64748b; }
+#chat-send { background: var(--chat-primary); color: #fff; border: none; border-radius: 8px; padding: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+/* NAV */
+#chat-nav { display: flex; border-top: 1px solid #f1f5f9; background: #fff; padding: 5px 0; flex-shrink: 0; }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 8px; cursor: pointer; font-size: 10px; color: #94a3b8; gap: 4px; }
+.nav-item.active { color: var(--chat-primary); font-weight: 600; }
+
+.hidden-picker { display: none !important; }
+#emoji-picker { position: absolute; bottom: 70px; left: 10px; right: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; z-index: 10; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
+</style>
+
+<script>
+(() => {
+  const shop = "{{ shop.permanent_domain }}";
+  const BASE_URL = "https://chatwidget-production-0035.up.railway.app"; 
+
+  const widget = document.getElementById("chat-widget");
+  const launcher = document.getElementById("chat-launcher");
+  const chatInput = document.getElementById("chat-input");
+  const msgBox = document.getElementById("chat-messages");
+
+async function fetchAndApplySettings() {
+    const ICON_MAP = {
+      bubble: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`,
+      support: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
+      sparkle: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`,
+      send: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`
+    };
+
+    try {
+      const response = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
+      if (!response.ok) return;
+      const s = await response.json();
+      
+      if (s) {
+        // --- 1. FONTS & SIZE ---
+        if (s.fontFamily) {
+          document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
+          if (!s.fontFamily.includes("-apple-system") && !s.fontFamily.includes("system-ui")) {
+            const fontName = s.fontFamily.split(',')[0].replace(/['"]/g, '');
+            const fontId = `gfont-${fontName.replace(/\s+/g, '-')}`;
+            if (!document.getElementById(fontId)) {
+               const link = document.createElement('link');
+               link.id = fontId;
+               link.rel = 'stylesheet';
+               link.href = `https://fonts.googleapis.com/css2?family=${fontName.replace(/\s+/g, '+')}:wght@400;700&display=swap`;
+               document.head.appendChild(link);
+            }
+          }
+        }
+        if (s.baseFontSize) {
+          document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
+        }
+
+        // --- 2. BACKGROUND COLORS SYNC ---
+        document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
+        launcher.style.background = s.primaryColor;
+        document.getElementById("chat-header").style.background = s.headerBgColor;
+        document.getElementById("home-hero-bg").style.background = s.heroBgColor;
+        document.getElementById("chat-send").style.background = s.primaryColor;
+        document.getElementById("chat-submit-info").style.background = s.primaryColor;
+
+        // --- 3. TEXT COLORS SYNC (Naya Logic) ---
+        // Header Text
+        const headerTitle = document.getElementById("header-title-text");
+        const headerSub = document.getElementById("header-subtitle-text");
+        if(headerTitle) headerTitle.style.color = s.headerTextColor;
+        if(headerSub) headerSub.style.color = s.headerTextColor;
+
+        // Hero/Banner Text
+        const welcomeH1 = document.getElementById("welcome-h1");
+        const welcomeP = document.getElementById("welcome-p");
+        if(welcomeH1) welcomeH1.style.color = s.heroTextColor;
+        if(welcomeP) welcomeP.style.color = s.heroTextColor;
+
+        // Action Card (Send us a message)
+        const cardTitle = document.getElementById("card-msg-text");
+        const cardSub = document.getElementById("card-reply-time");
+        if(cardTitle) cardTitle.style.color = s.cardTitleColor;
+        if(cardSub) cardSub.style.color = s.cardSubtitleColor;
+
+        // Onboarding Text (Start a conversation)
+        const onboardingTitle = document.getElementById("onboarding-title");
+        const onboardingP = document.getElementById("onboarding-p");
+        if(onboardingTitle) onboardingTitle.style.color = s.onboardingTextColor;
+        if(onboardingP) onboardingP.style.color = s.onboardingTextColor;
+
+        // --- 4. ICON SYNC ---
+        if (s.launcherIcon && ICON_MAP[s.launcherIcon]) {
+          document.getElementById("launcher-icon").innerHTML = ICON_MAP[s.launcherIcon];
+        }
+
+        // --- 5. TEXT CONTENT SYNC ---
+        document.getElementById("header-title-text").innerText = s.headerTitle;
+        document.getElementById("welcome-h1").innerText = s.welcomeText;
+        document.getElementById("welcome-p").innerText = s.welcomeSubtext;
+        document.getElementById("card-msg-text").innerText = s.startConversationText;
+        document.getElementById("card-reply-time").innerText = s.replyTimeText;
+        if(s.welcomeImg) document.getElementById("main-support-avatar").src = s.welcomeImg;
+      }
+    } catch (e) { console.error("Sync failed", e); }
+  }
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`tab-${tabId}`).style.display = 'flex';
+    document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+  }
+
+  launcher.addEventListener('click', () => {
+    const isVisible = widget.classList.contains("chat-visible");
+    widget.classList.toggle("chat-visible", !isVisible);
+    widget.classList.toggle("chat-hidden", isVisible);
+    document.getElementById("launcher-icon").style.display = isVisible ? "block" : "none";
+    document.getElementById("close-launcher-icon").style.display = isVisible ? "none" : "block";
+  });
+
+  document.getElementById("chat-close").onclick = () => launcher.click();
+
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => switchTab(item.dataset.tab));
+  });
+
+  document.getElementById('start-chat-trigger').addEventListener('click', () => {
+    switchTab('chat');
+    loadMessages();
+  });
+
+  const addMessageToUI = (m) => {
+    const div = document.createElement("div");
+    div.className = `msg ${m.sender}`;
+    const isImg = m.fileUrl && (m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg)$/i) || m.fileUrl.startsWith('data:image'));
+    
+    let contentHtml = `<div class="msg-content">${m.message}`;
+    if(m.fileUrl) {
+      contentHtml += isImg 
+        ? `<img src="${m.fileUrl}" class="msg-image" style="max-width:100%; border-radius:8px; margin-top:5px; cursor:pointer;" onclick="window.open('${m.fileUrl}')" />`
+        : `<br><a href="${m.fileUrl}" target="_blank" style="font-size:12px; font-weight:bold; color:inherit; text-decoration:underline;">📎 Attachment</a>`;
+    }
+    contentHtml += `</div>`;
+    div.innerHTML = `${contentHtml}<div class="msg-meta" style="font-size:9px; opacity:0.5; margin-top:2px; align-self:${m.sender === 'user' ? 'flex-end' : 'flex-start'}">${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>`;
+    msgBox.appendChild(div);
+    msgBox.scrollTop = msgBox.scrollHeight;
+  };
+
+  async function loadMessages() {
+    const sessionId = localStorage.getItem("chat_session");
+    if (!sessionId) return;
+    try {
+      const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sessionId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const currentCount = msgBox.querySelectorAll('.msg').length;
+        if (data.length > currentCount) {
+          msgBox.innerHTML = ''; 
+          data.forEach(addMessageToUI);
+        }
+      }
+    } catch (e) {}
+  }
+
+  document.getElementById("chat-submit-info").onclick = async () => {
+    const fname = document.getElementById("chat-fname").value.trim();
+    const email = document.getElementById("chat-email").value.trim();
+    if(!fname || !email) return alert("Please fill details");
+    const sessionId = "sess_" + Date.now();
+    try {
+      const res = await fetch(`${BASE_URL}/app/chat/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop, fname, email, sessionId })
+      });
+      if (res.ok) {
+        localStorage.setItem("chat_session", sessionId);
+        localStorage.setItem("chat_user_email", email);
+        document.getElementById("chat-onboarding-step").style.display = "none";
+        document.getElementById("chat-chat-step").style.display = "flex";
+        loadMessages();
+      }
+    } catch (e) {}
+  };
+
+  async function handleSend(customText, fileUrl = null) {
+    const text = customText || chatInput.value.trim();
+    const sId = localStorage.getItem("chat_session");
+    const email = localStorage.getItem("chat_user_email");
+    if ((!text && !fileUrl) || !sId) return;
+
+    addMessageToUI({ sender: 'user', message: text || "Sent an attachment", fileUrl });
+    chatInput.value = "";
+    try {
+      await fetch(`${BASE_URL}/app/chat/message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sId, message: text || "Sent an attachment", shop, email, fileUrl })
+      });
+    } catch (e) {}
+  }
+
+  document.getElementById("chat-send").onclick = () => handleSend();
+  chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
+  
+  document.getElementById("file-btn").onclick = () => document.getElementById("chat-file-input").click();
+  document.getElementById("chat-file-input").onchange = (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = (ev) => handleSend("", ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const picker = document.getElementById("emoji-picker");
+  const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨"];
+  picker.innerHTML = emojis.map(e => `<span style="cursor:pointer; font-size: 18px; text-align:center;">${e}</span>`).join("");
+  document.getElementById("emoji-btn").onclick = () => picker.classList.toggle("hidden-picker");
+  picker.onclick = (e) => {
+    if(e.target.tagName === 'SPAN') {
+      chatInput.value += e.target.innerText;
+      picker.classList.add("hidden-picker");
+      chatInput.focus();
+    }
+  };
+
+  fetchAndApplySettings();
+  if (localStorage.getItem("chat_session")) {
+    document.getElementById("chat-onboarding-step").style.display = "none";
+    document.getElementById("chat-chat-step").style.display = "flex";
+    loadMessages();
+    setInterval(loadMessages, 5000);
+  }
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Talksy Chat Premium",
+  "target": "section",
+  "settings": [
+    { "type": "color", "id": "primary_color", "label": "Brand Color", "default": "#6366f1" }
+  ]
+}
+{% endschema %}
