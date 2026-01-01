@@ -6,231 +6,102 @@ import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
   await authenticate.admin(request);
-
   return null;
 };
 
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
-    `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
-                }
-              }
-            }
-          }
-        }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
-  const product = responseJson.data.productCreate.product;
-  const variantId = product.variants.edges[0].node.id;
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
-        }
-      }
-    }`,
-    {
-      variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
-  );
-  const variantResponseJson = await variantResponse.json();
-
-  return {
-    product: responseJson.data.productCreate.product,
-    variant: variantResponseJson.data.productVariantsBulkUpdate.productVariants,
-  };
+  
+  // Example: Saving chat widget settings to Metafields (instead of creating products)
+  // This is where you would handle the "Save Changes" or "Publish" logic
+  return { success: true, timestamp: new Date().toISOString() };
 };
 
 export default function Index() {
   const fetcher = useFetcher();
   const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
+  const isLoading = ["loading", "submitting"].includes(fetcher.state);
 
   useEffect(() => {
-    if (fetcher.data?.product?.id) {
-      shopify.toast.show("Product created");
+    if (fetcher.data?.success) {
+      shopify.toast.show("Chat widget settings saved!");
     }
-  }, [fetcher.data?.product?.id, shopify]);
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
+  }, [fetcher.data?.success, shopify]);
+
+  const saveSettings = () => fetcher.submit({}, { method: "POST" });
 
   return (
-    <s-page heading="Shopify app template">
-      <s-button slot="primary-action" onClick={generateProduct}>
-        Generate a product
+    <s-page heading="ChatWidget Admin Dashboard">
+      {/* Primary Action Button */}
+      <s-button slot="primary-action" onClick={saveSettings} {...(isLoading ? { loading: true } : {})}>
+        Save & Publish Chat
       </s-button>
 
-      <s-section heading="Congrats on creating a new Shopify app 🎉">
+      {/* Main Introduction Section */}
+      <s-section heading="Connect with your customers in real-time 🎉">
         <s-paragraph>
-          This embedded app template uses{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/tools/app-bridge"
-            target="_blank"
-          >
-            App Bridge
-          </s-link>{" "}
-          interface examples like an{" "}
-          <s-link href="/app/additional">additional page in the app nav</s-link>
-          , as well as an{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            Admin GraphQL
-          </s-link>{" "}
-          mutation demo, to provide a starting point for app development.
+          Welcome to **ChatWidget**. This app helps you communicate with your customers via real-time live chat. 
+          Manage all conversations from a single inbox and provide faster support with visitor context and quick replies.
         </s-paragraph>
       </s-section>
-      <s-section heading="Get started with products">
+
+      {/* Features Grid */}
+      <s-section heading="Core Features">
+        <s-stack direction="block" gap="loose">
+          <s-box padding="base" borderWidth="base" borderRadius="base">
+            <s-heading size="small">Real-time Live Chat</s-heading>
+            <s-paragraph>Connect with store visitors instantly to drive sales and trust.</s-paragraph>
+          </s-box>
+          
+          <s-box padding="base" borderWidth="base" borderRadius="base">
+            <s-heading size="small">Visitor Context</s-heading>
+            <s-paragraph>View location, local time, and store source for every customer conversation.</s-paragraph>
+          </s-box>
+
+          <s-box padding="base" borderWidth="base" borderRadius="base">
+            <s-heading size="small">Quick Replies</s-heading>
+            <s-paragraph>Respond faster to common queries using pre-set reply buttons.</s-paragraph>
+          </s-box>
+        </s-stack>
+      </s-section>
+
+      {/* Customization Section */}
+      <s-section heading="Widget Customization">
         <s-paragraph>
-          Generate a product with GraphQL and get the JSON output for that
-          product. Learn more about the{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-            target="_blank"
-          >
-            productCreate
-          </s-link>{" "}
-          mutation in our API references.
+          Tailor the widget to match your brand identity. You can customize colors, welcome messages, and your support avatar.
         </s-paragraph>
         <s-stack direction="inline" gap="base">
-          <s-button
-            onClick={generateProduct}
-            {...(isLoading ? { loading: true } : {})}
-          >
-            Generate a product
+          <s-button onClick={() => shopify.toast.show("Customizer opening...")}>
+            Launch Live Preview
           </s-button>
-          {fetcher.data?.product && (
-            <s-button
-              onClick={() => {
-                shopify.intents.invoke?.("edit:shopify/Product", {
-                  value: fetcher.data?.product?.id,
-                });
-              }}
-              target="_blank"
-              variant="tertiary"
-            >
-              Edit product
-            </s-button>
-          )}
+          <s-button variant="tertiary" href="/app/additional">
+            Configure Quick Replies
+          </s-button>
         </s-stack>
-        {fetcher.data?.product && (
-          <s-section heading="productCreate mutation">
-            <s-stack direction="block" gap="base">
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.product, null, 2)}</code>
-                </pre>
-              </s-box>
-
-              <s-heading>productVariantsBulkUpdate mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.variant, null, 2)}</code>
-                </pre>
-              </s-box>
-            </s-stack>
-          </s-section>
-        )}
       </s-section>
 
-      <s-section slot="aside" heading="App template specs">
+      {/* Sidebar Info */}
+      <s-section slot="aside" heading="App Status">
         <s-paragraph>
-          <s-text>Framework: </s-text>
-          <s-link href="https://reactrouter.com/" target="_blank">
-            React Router
-          </s-link>
+          <s-text>Widget Status: </s-text>
+          <s-text fontWeight="bold" tone="success">Active</s-text>
         </s-paragraph>
         <s-paragraph>
-          <s-text>Interface: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/app-home/using-polaris-components"
-            target="_blank"
-          >
-            Polaris web components
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>API: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            GraphQL
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Database: </s-text>
-          <s-link href="https://www.prisma.io/" target="_blank">
-            Prisma
-          </s-link>
+          <s-text>Mobile Ready: </s-text>
+          <s-text>Yes ✅</s-text>
         </s-paragraph>
       </s-section>
 
       <s-section slot="aside" heading="Next steps">
         <s-unordered-list>
           <s-list-item>
-            Build an{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/getting-started/build-app-example"
-              target="_blank"
-            >
-              example app
-            </s-link>
+            <s-link href="#">Setup Welcome Message</s-link>
           </s-list-item>
           <s-list-item>
-            Explore Shopify&apos;s API with{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/tools/graphiql-admin-api"
-              target="_blank"
-            >
-              GraphiQL
-            </s-link>
+            <s-link href="#">View Chat Analytics</s-link>
+          </s-list-item>
+          <s-list-item>
+            <s-link href="https://shopify.dev" target="_blank">Help Center</s-link>
           </s-list-item>
         </s-unordered-list>
       </s-section>
