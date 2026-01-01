@@ -1,27 +1,40 @@
-# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
-
-client_id = "177dd497355fe743fa747f74896d9015"
 name = "Talksy"
-application_url = "https://talksy-production-322d.up.railway.app"
+client_id = "177dd497355fe743fa747f74896d9015"
+application_url = "https://talksy-production-322d.up.railway.app/"
 embedded = true
 
-[build]
-automatically_update_urls_on_dev = true
+
+[access_scopes]
+scopes = "write_products"
+
+[access.admin]
+direct_api_mode = "online"
+
+[auth]
+redirect_urls = [
+  "https://talksy-production-322d.up.railway.app/auth/callback",
+  "https://talksy-production-322d.up.railway.app/auth/shopify/callback",
+  "https://talksy-production-322d.up.railway.app/api/auth/callback"
+]
 
 [webhooks]
 api_version = "2026-01"
 
-  [[webhooks.subscriptions]]
-  topics = [ "app/uninstalled" ]
-  uri = "/webhooks/app/uninstalled"
+[[webhooks.subscriptions]]
+topics = [ "app/uninstalled" ]
+compliance_topics = [ "customers/redact", "customers/data_request", "shop/redact" ]
+uri = "https://hkdk.events/wosrrl2b1hj10n"
 
-  [[webhooks.subscriptions]]
-  topics = [ "app/scopes_update" ]
-  uri = "/webhooks/app/scopes_update"
+[app_proxy]
+url =  "https://fj-hide-price-2cb5dddf8f25.herokuapp.com/api/proxy"
+subpath = "store-pickup"
+prefix = "apps"
 
-[access_scopes]
-# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+[pos]
+embedded = false
 
-[auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+[app_preferences]
+url = "https://fj-hide-price-2cb5dddf8f25.herokuapp.com/preferences"
+
+[build]
+automatically_update_urls_on_dev = false
