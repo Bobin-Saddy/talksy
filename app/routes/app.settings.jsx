@@ -82,7 +82,7 @@ export default function UltimateSettings() {
       <div style={{ width: '260px', background: '#FFFFFF', borderRight: '1px solid #E5E7EB', padding: '30px 20px', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '40px' }}>
           <div style={{ width: '35px', height: '35px', background: 'linear-gradient(135deg, #4F46E5, #9333EA)', borderRadius: '10px' }}></div>
-          <span style={{ fontWeight: '800', fontSize: '18px' }}>Chatly Studio</span>
+          <span style={{ fontWeight: '800', fontSize: '18px' }}>Talksy</span>
         </div>
         
         <nav style={{ flex: 1 }}>
