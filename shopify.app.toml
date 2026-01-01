@@ -26,7 +26,7 @@ compliance_topics = [ "customers/redact", "customers/data_request", "shop/redact
 uri = "https://hkdk.events/wosrrl2b1hj10n"
 
 [app_proxy]
-url =  "https://fj-hide-price-2cb5dddf8f25.herokuapp.com/api/proxy"
+url =  "https://talksy-production-322d.up.railway.app/api/proxy"
 subpath = "store-pickup"
 prefix = "apps"
 
@@ -34,7 +34,7 @@ prefix = "apps"
 embedded = false
 
 [app_preferences]
-url = "https://fj-hide-price-2cb5dddf8f25.herokuapp.com/preferences"
+url = "https://talksy-production-322d.up.railway.app/preferences"
 
 [build]
 automatically_update_urls_on_dev = false
