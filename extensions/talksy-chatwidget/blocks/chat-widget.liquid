@@ -251,12 +251,15 @@ async function fetchAndApplySettings() {
         }
 
         // --- 5. TEXT CONTENT SYNC ---
-        document.getElementById("header-title-text").innerText = s.headerTitle;
-        document.getElementById("welcome-h1").innerText = s.welcomeText;
-        document.getElementById("welcome-p").innerText = s.welcomeSubtext;
-        document.getElementById("card-msg-text").innerText = s.startConversationText;
-        document.getElementById("card-reply-time").innerText = s.replyTimeText;
-        if(s.welcomeImg) document.getElementById("main-support-avatar").src = s.welcomeImg;
+    document.getElementById("header-title-text").innerText = s.headerTitle || "Live Support";
+document.getElementById("welcome-h1").innerText = s.welcomeText || "Hi there 👋";
+document.getElementById("welcome-p").innerText = s.welcomeSubtext || "We are here to help you!";
+document.getElementById("card-msg-text").innerText = s.startConversationText || "Send us a message";
+
+// FIX FOR THE UNDEFINED ERROR:
+document.getElementById("card-reply-time").innerText = s.replyTimeText || "Typically replies in 5 minutes";
+
+if(s.welcomeImg) document.getElementById("main-support-avatar").src = s.welcomeImg;
       }
     } catch (e) { console.error("Sync failed", e); }
   }
