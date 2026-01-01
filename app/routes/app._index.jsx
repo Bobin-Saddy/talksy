@@ -66,45 +66,12 @@ export default function Index() {
       </s-section>
 
       {/* Customization Section */}
-      <s-section heading="Widget Customization">
-        <s-paragraph>
-          Tailor the widget to match your brand identity. You can customize colors, welcome messages, and your support avatar.
-        </s-paragraph>
-        <s-stack direction="inline" gap="base">
-          <s-button onClick={() => shopify.toast.show("Customizer opening...")}>
-            Launch Live Preview
-          </s-button>
-          <s-button variant="tertiary" href="/app/additional">
-            Configure Quick Replies
-          </s-button>
-        </s-stack>
-      </s-section>
+
 
       {/* Sidebar Info */}
-      <s-section slot="aside" heading="App Status">
-        <s-paragraph>
-          <s-text>Widget Status: </s-text>
-          <s-text fontWeight="bold" tone="success">Active</s-text>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Mobile Ready: </s-text>
-          <s-text>Yes ✅</s-text>
-        </s-paragraph>
-      </s-section>
 
-      <s-section slot="aside" heading="Next steps">
-        <s-unordered-list>
-          <s-list-item>
-            <s-link href="#">Setup Welcome Message</s-link>
-          </s-list-item>
-          <s-list-item>
-            <s-link href="#">View Chat Analytics</s-link>
-          </s-list-item>
-          <s-list-item>
-            <s-link href="https://shopify.dev" target="_blank">Help Center</s-link>
-          </s-list-item>
-        </s-unordered-list>
-      </s-section>
+
+
     </s-page>
   );
 }
