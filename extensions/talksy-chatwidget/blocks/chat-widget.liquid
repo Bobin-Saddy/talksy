@@ -269,7 +269,7 @@
     const ICON_MAP = {
       bubble: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`,
       support: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
-      sparkle: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`,
+      sparkle: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/></svg>`,
       send: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
       custom: `<img src="https://excellent-magenta-frgky5u4bi.edgeone.app/Frame%201984078690%20(2).png" style="width:32px; height:32px; object-fit:contain;" />`
     };
@@ -280,83 +280,115 @@
       const s = await response.json();
       
       if (s) {
-        // Typography
+        // Apply Typography & Core Colors
         if (s.fontFamily) document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
         if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
-
-        // Colors
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
-        launcher.style.background = s.primaryColor;
-        document.getElementById("chat-header").style.background = s.headerBgColor;
-        document.getElementById("home-hero-bg").style.background = s.heroBgColor;
-        document.getElementById("chat-send").style.background = s.primaryColor;
-        document.getElementById("chat-submit-info").style.background = s.primaryColor;
-        document.getElementById("send-image-btn").style.background = s.primaryColor;
 
-        // Text Content Updates
-        document.getElementById("header-title-text").innerText = s.headerTitle || "Live Support";
-        document.getElementById("welcome-h1").innerText = s.welcomeText || "Hi there 👋";
-        document.getElementById("welcome-p").innerText = s.welcomeSubtext || "We are here to help you!";
-        
-        // New Schema Fields: Onboarding
+        // Apply Background Colors
+        if(launcher) launcher.style.background = s.primaryColor;
+        const header = document.getElementById("chat-header");
+        const hero = document.getElementById("home-hero-bg");
+        if(header) header.style.background = s.headerBgColor;
+        if(hero) hero.style.background = s.heroBgColor;
+
+        // Apply Button Colors
+        ["chat-send", "chat-submit-info", "send-image-btn"].forEach(id => {
+          const el = document.getElementById(id);
+          if(el) el.style.background = s.primaryColor;
+        });
+
+        // Update Text Content and Colors
+        const titleText = document.getElementById("header-title-text");
+        if(titleText) {
+          titleText.innerText = s.headerTitle || "Live Support";
+          titleText.style.color = s.headerTextColor;
+        }
+
+        const welcomeH1 = document.getElementById("welcome-h1");
+        if(welcomeH1) {
+          welcomeH1.innerText = s.welcomeText || "Hi there 👋";
+          welcomeH1.style.color = s.heroTextColor;
+        }
+
+        const welcomeP = document.getElementById("welcome-p");
+        if(welcomeP) {
+          welcomeP.innerText = s.welcomeSubtext || "We are here to help you!";
+          welcomeP.style.color = s.heroTextColor;
+        }
+
+        // Apply Card Styling
+        const cardTitle = document.getElementById("card-msg-text");
+        const cardSub = document.getElementById("card-reply-time");
+        if(cardTitle) {
+          cardTitle.innerText = s.startConversationText || "Send us a message";
+          cardTitle.style.color = s.cardTitleColor;
+        }
+        if(cardSub) {
+          cardSub.innerText = s.replyTimeText || "Typically replies in 5 minutes";
+          cardSub.style.color = s.cardSubtitleColor;
+        }
+
+        // ONBOARDING FIELDS (Direct Sync with your Prisma update)
         const onboardingTitle = document.getElementById("onboarding-title");
-        const onboardingSubtitle = document.getElementById("onboarding-subtitle");
+        const onboardingSub = document.getElementById("onboarding-subtitle");
         if(onboardingTitle) {
-            onboardingTitle.innerText = s.onboardingTitle || "Start a conversation";
-            onboardingTitle.style.color = s.onboardingTextColor;
+          onboardingTitle.innerText = s.onboardingTitle || "Start a conversation";
+          onboardingTitle.style.color = s.onboardingTextColor;
         }
-        if(onboardingSubtitle) {
-            onboardingSubtitle.innerText = s.onboardingSubtitle || "Please provide your details to begin.";
-            onboardingSubtitle.style.color = s.onboardingTextColor;
+        if(onboardingSub) {
+          onboardingSub.innerText = s.onboardingSubtitle || "Please provide your details to begin.";
+          onboardingSub.style.color = s.onboardingTextColor;
         }
-
-        // Apply additional text colors from schema
-        const headerTitleEl = document.getElementById("header-title-text");
-        if(headerTitleEl) headerTitleEl.style.color = s.headerTextColor;
-        
-        const welcomeH1El = document.getElementById("welcome-h1");
-        if(welcomeH1El) welcomeH1El.style.color = s.heroTextColor;
 
         // Launcher Icon Logic
-        if (s.launcherIcon && ICON_MAP[s.launcherIcon]) {
-          document.getElementById("launcher-icon").innerHTML = ICON_MAP[s.launcherIcon];
-        } else {
-           document.getElementById("launcher-icon").innerHTML = ICON_MAP['custom'];
+        const launcherIconContainer = document.getElementById("launcher-icon");
+        if(launcherIconContainer) {
+          launcherIconContainer.innerHTML = ICON_MAP[s.launcherIcon] || ICON_MAP['custom'];
         }
 
-        if(s.welcomeImg) document.getElementById("main-support-avatar").src = s.welcomeImg;
+        if(s.welcomeImg) {
+          const avatar = document.getElementById("main-support-avatar");
+          if(avatar) avatar.src = s.welcomeImg;
+        }
       }
-    } catch (e) { console.error("Sync failed", e); }
+    } catch (e) { console.error("Settings sync failed", e); }
   }
 
   function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById(`tab-${tabId}`).style.display = 'flex';
-    const navBtn = document.querySelector(`[data-tab="${tabId}"]`);
-    if(navBtn) navBtn.classList.add('active');
+    const targetTab = document.getElementById(`tab-${tabId}`);
+    const targetNav = document.querySelector(`[data-tab="${tabId}"]`);
+    if(targetTab) targetTab.style.display = 'flex';
+    if(targetNav) targetNav.classList.add('active');
   }
 
-  launcher.addEventListener('click', () => {
-    const isVisible = widget.classList.contains("chat-visible");
-    widget.classList.toggle("chat-visible", !isVisible);
-    widget.classList.toggle("chat-hidden", isVisible);
-    document.getElementById("launcher-icon").style.display = isVisible ? "block" : "none";
-    document.getElementById("close-launcher-icon").style.display = isVisible ? "none" : "block";
-  });
+  if(launcher) {
+    launcher.addEventListener('click', () => {
+      const isVisible = widget.classList.contains("chat-visible");
+      widget.classList.toggle("chat-visible", !isVisible);
+      widget.classList.toggle("chat-hidden", isVisible);
+      const lIcon = document.getElementById("launcher-icon");
+      const cIcon = document.getElementById("close-launcher-icon");
+      if(lIcon) lIcon.style.display = isVisible ? "block" : "none";
+      if(cIcon) cIcon.style.display = isVisible ? "none" : "block";
+    });
+  }
 
-  document.getElementById("chat-close").onclick = () => launcher.click();
+  const closeBtn = document.getElementById("chat-close");
+  if(closeBtn) closeBtn.onclick = () => launcher.click();
 
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => switchTab(item.dataset.tab));
   });
 
-  const startChatBtn = document.getElementById('start-chat-trigger');
-  if(startChatBtn) {
-      startChatBtn.addEventListener('click', () => {
-        switchTab('chat');
-        loadMessages();
-      });
+  const startTrigger = document.getElementById('start-chat-trigger');
+  if(startTrigger) {
+    startTrigger.addEventListener('click', () => {
+      switchTab('chat');
+      loadMessages();
+    });
   }
 
   const addMessageToUI = (m) => {
@@ -397,56 +429,57 @@
             }
         });
       }
-    } catch (e) { console.error("Load failed", e); }
+    } catch (e) {}
   }
 
   // VALIDATION LISTENERS
-  const fnameInput = document.getElementById("chat-fname");
-  if(fnameInput) {
-      fnameInput.addEventListener('blur', (e) => {
-        const v = validateName(e.target.value);
-        if (e.target.value.trim() !== '' && !v.valid) showError('chat-fname', 'fname-error', v.error);
-        else clearError('chat-fname', 'fname-error');
-      });
+  const fNameEl = document.getElementById("chat-fname");
+  const emailEl = document.getElementById("chat-email");
+
+  if(fNameEl) {
+    fNameEl.addEventListener('blur', (e) => {
+      const v = validateName(e.target.value);
+      if (e.target.value.trim() !== '' && !v.valid) showError('chat-fname', 'fname-error', v.error);
+      else clearError('chat-fname', 'fname-error');
+    });
   }
 
-  const emailInput = document.getElementById("chat-email");
-  if(emailInput) {
-      emailInput.addEventListener('blur', (e) => {
-        const v = validateEmail(e.target.value);
-        if (e.target.value.trim() !== '' && !v.valid) showError('chat-email', 'email-error', v.error);
-        else clearError('chat-email', 'email-error');
-      });
+  if(emailEl) {
+    emailEl.addEventListener('blur', (e) => {
+      const v = validateEmail(e.target.value);
+      if (e.target.value.trim() !== '' && !v.valid) showError('chat-email', 'email-error', v.error);
+      else clearError('chat-email', 'email-error');
+    });
   }
 
-  const submitInfoBtn = document.getElementById("chat-submit-info");
-  if(submitInfoBtn) {
-      submitInfoBtn.onclick = async () => {
-        const fname = document.getElementById("chat-fname").value.trim();
-        const email = document.getElementById("chat-email").value.trim();
-        const nv = validateName(fname);
-        const ev = validateEmail(email);
-        
-        if (!nv.valid) return showError('chat-fname', 'fname-error', nv.error);
-        if (!ev.valid) return showError('chat-email', 'email-error', ev.error);
-        
-        const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
-        try {
-          const res = await fetch(`${BASE_URL}/app/chat/register`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ shop, fname, email, sessionId })
-          });
-          if (res.ok) {
-            localStorage.setItem("chat_session", sessionId);
-            localStorage.setItem("chat_user_email", email);
-            document.getElementById("chat-onboarding-step").style.display = "none";
-            document.getElementById("chat-chat-step").style.display = "flex";
-            loadMessages();
-            startPolling();
-          }
-        } catch (e) {}
-      };
+  const submitBtn = document.getElementById("chat-submit-info");
+  if(submitBtn) {
+    submitBtn.onclick = async () => {
+      const fname = fNameEl.value.trim();
+      const email = emailEl.value.trim();
+      const nv = validateName(fname);
+      const ev = validateEmail(email);
+      
+      if (!nv.valid) return showError('chat-fname', 'fname-error', nv.error);
+      if (!ev.valid) return showError('chat-email', 'email-error', ev.error);
+      
+      const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
+      try {
+        const res = await fetch(`${BASE_URL}/app/chat/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shop, fname, email, sessionId })
+        });
+        if (res.ok) {
+          localStorage.setItem("chat_session", sessionId);
+          localStorage.setItem("chat_user_email", email);
+          document.getElementById("chat-onboarding-step").style.display = "none";
+          document.getElementById("chat-chat-step").style.display = "flex";
+          loadMessages();
+          startPolling();
+        }
+      } catch (e) {}
+    };
   }
 
   async function handleSend(customText, fileUrl = null) {
@@ -464,7 +497,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: sId, message: text, shop, email, fileUrl })
       });
-    } catch (e) { console.error("Send error", e); }
+    } catch (e) {}
   }
 
   function startPolling() {
@@ -472,74 +505,56 @@
     pollingInterval = setInterval(loadMessages, 4000);
   }
 
-  const sendBtn = document.getElementById("chat-send");
-  if(sendBtn) sendBtn.onclick = () => handleSend();
+  const sendAction = document.getElementById("chat-send");
+  if(sendAction) sendAction.onclick = () => handleSend();
   if(chatInput) chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
   
-  const fileBtn = document.getElementById("file-btn");
-  if(fileBtn) {
-      fileBtn.onclick = () => document.getElementById("chat-file-input").click();
-  }
-
-  const fileInput = document.getElementById("chat-file-input");
-  if(fileInput) {
-      fileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          selectedImage = ev.target.result;
-          document.getElementById("image-preview").src = selectedImage;
-          document.getElementById("image-preview-container").style.display = "block";
-          document.getElementById("chat-footer").style.display = "none";
-        };
-        reader.readAsDataURL(file);
-        e.target.value = '';
+  const fileTrigger = document.getElementById("file-btn");
+  if(fileTrigger) fileTrigger.onclick = () => document.getElementById("chat-file-input").click();
+  
+  const fileInputEl = document.getElementById("chat-file-input");
+  if(fileInputEl) {
+    fileInputEl.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        selectedImage = ev.target.result;
+        const prevImg = document.getElementById("image-preview");
+        const prevCont = document.getElementById("image-preview-container");
+        const footer = document.getElementById("chat-footer");
+        if(prevImg) prevImg.src = selectedImage;
+        if(prevCont) prevCont.style.display = "block";
+        if(footer) footer.style.display = "none";
       };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    };
   }
 
-  const sendImageBtn = document.getElementById("send-image-btn");
-  if(sendImageBtn) {
-      sendImageBtn.onclick = () => {
-        if (selectedImage) {
-          handleSend("", selectedImage);
-          document.getElementById("image-preview-container").style.display = "none";
-          document.getElementById("chat-footer").style.display = "block";
-          selectedImage = null;
-        }
-      };
-  }
-
-  const removeImageBtn = document.getElementById("remove-image-btn");
-  if(removeImageBtn) {
-      removeImageBtn.onclick = () => {
-        selectedImage = null;
-        document.getElementById("image-preview-container").style.display = "none";
-        document.getElementById("chat-footer").style.display = "block";
-      };
-  }
-
+  const emojiBtn = document.getElementById("emoji-btn");
   const picker = document.getElementById("emoji-picker");
   const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨"];
-  if(picker) {
-      picker.innerHTML = emojis.map(e => `<span style="cursor:pointer; font-size: 18px; padding: 2px;">${e}</span>`).join("");
-      document.getElementById("emoji-btn").onclick = () => picker.classList.toggle("hidden-picker");
-      picker.onclick = (e) => {
-        if(e.target.tagName === 'SPAN') {
-          chatInput.value += e.target.innerText;
-          picker.classList.add("hidden-picker");
-          chatInput.focus();
-        }
-      };
+  if(picker && emojiBtn) {
+    picker.innerHTML = emojis.map(e => `<span style="cursor:pointer; font-size: 18px; padding: 2px;">${e}</span>`).join("");
+    emojiBtn.onclick = () => picker.classList.toggle("hidden-picker");
+    picker.onclick = (e) => {
+      if(e.target.tagName === 'SPAN') {
+        chatInput.value += e.target.innerText;
+        picker.classList.add("hidden-picker");
+        chatInput.focus();
+      }
+    };
   }
 
-  // INIT
+  // INITIALIZATION
   fetchAndApplySettings();
-  if (localStorage.getItem("chat_session")) {
-    const onboardingStep = document.getElementById("chat-onboarding-step");
-    const chatStep = document.getElementById("chat-chat-step");
-    if(onboardingStep) onboardingStep.style.display = "none";
-    if(chatStep) chatStep.style.display = "flex";
+  const session = localStorage.getItem("chat_session");
+  if (session) {
+    const onboarding = document.getElementById("chat-onboarding-step");
+    const chatActive = document.getElementById("chat-chat-step");
+    if(onboarding) onboarding.style.display = "none";
+    if(chatActive) chatActive.style.display = "flex";
     loadMessages();
     startPolling();
   }
