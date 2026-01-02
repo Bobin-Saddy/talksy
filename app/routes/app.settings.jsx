@@ -52,13 +52,38 @@ export const loader = async ({ request }) => {
 export const action = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const formData = await request.formData();
-  const data = Object.fromEntries(formData);
+  
+  // Explicitly mapping each field to ensure Prisma picks it up
+  const data = {
+    shop: session.shop,
+    primaryColor: formData.get("primaryColor"),
+    headerBgColor: formData.get("headerBgColor"),
+    heroBgColor: formData.get("heroBgColor"),
+    headerTextColor: formData.get("headerTextColor"),
+    heroTextColor: formData.get("heroTextColor"),
+    cardTitleColor: formData.get("cardTitleColor"),
+    cardSubtitleColor: formData.get("cardSubtitleColor"),
+    onboardingTextColor: formData.get("onboardingTextColor"),
+    welcomeImg: formData.get("welcomeImg"),
+    headerTitle: formData.get("headerTitle"),
+    headerSubtitle: formData.get("headerSubtitle"),
+    welcomeText: formData.get("welcomeText"),
+    welcomeSubtext: formData.get("welcomeSubtext"),
+    replyTimeText: formData.get("replyTimeText"),
+    startConversationText: formData.get("startConversationText"),
+    onboardingTitle: formData.get("onboardingTitle"),
+    onboardingSubtitle: formData.get("onboardingSubtitle"),
+    launcherIcon: formData.get("launcherIcon"),
+    fontFamily: formData.get("fontFamily"),
+    baseFontSize: formData.get("baseFontSize"),
+  };
   
   await prisma.chatSettings.upsert({
     where: { shop: session.shop },
-    update: { ...data, shop: session.shop },
-    create: { ...data, shop: session.shop },
+    update: data,
+    create: data,
   });
+  
   return json({ success: true });
 };
 
@@ -67,12 +92,25 @@ export default function UltimateSettings() {
   const actionData = useActionData();
   const submit = useSubmit();
   const navigation = useNavigation();
+  
   const [formState, setFormState] = useState(settings);
   const [activeTab, setActiveTab] = useState('style');
   const [toast, setToast] = useState(false);
   const fileInputRef = useRef(null);
 
-  useEffect(() => { if (actionData?.success) { setToast(true); setTimeout(() => setToast(false), 3000); } }, [actionData]);
+  // Sync form state when loader data changes (after save)
+  useEffect(() => {
+    if (settings) {
+      setFormState(settings);
+    }
+  }, [settings]);
+
+  useEffect(() => { 
+    if (actionData?.success) { 
+      setToast(true); 
+      setTimeout(() => setToast(false), 3000); 
+    } 
+  }, [actionData]);
 
   const handleChange = (f, v) => setFormState(p => ({ ...p, [f]: v }));
   
@@ -85,7 +123,13 @@ export default function UltimateSettings() {
     }
   };
 
-  const handleSave = () => submit(formState, { method: "POST" });
+  const handleSave = () => {
+    const formData = new FormData();
+    Object.entries(formState).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+    submit(formData, { method: "POST" });
+  };
 
   return (
     <div style={{ background: '#F3F4F6', minHeight: '100vh', display: 'flex', fontFamily: 'Inter, sans-serif' }}>
@@ -208,9 +252,11 @@ export default function UltimateSettings() {
                 </div>
                 
                 {/* Conversation Card */}
-                <div style={{ background: '#FFF', margin: '-30px 20px 15px', padding: '15px', borderRadius: '16px', boxShadow: '0 10px 20px rgba(0,0,0,0.05)', border: `1px solid #f1f5f9` }}>
-                    <div style={{ fontWeight: '700', color: formState.cardTitleColor }}>{formState.startConversationText}</div>
-                    <div style={{ fontSize: '12px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
+                <div style={{ background: '#FFF', margin: '-30px 20px 15px', padding: '15px', borderRadius: '16px', boxShadow: '0 10px 20px rgba(0,0,0,0.05)', border: `1.5px solid #f1f5f9` }}>
+                    <div>
+                      <div style={{ fontWeight: '700', color: formState.cardTitleColor }}>{formState.startConversationText}</div>
+                      <div style={{ fontSize: '12px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
+                    </div>
                 </div>
 
                 {/* Onboarding Preview */}
@@ -234,27 +280,24 @@ export default function UltimateSettings() {
   );
 }
 
-// Components
+// Sub-components as defined previously
 const NavIcon = ({ active, icon, title, onClick }) => (
     <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', opacity: active ? 1 : 0.5, transition: '0.2s', marginBottom: '20px' }}>
         <div style={{ fontSize: '24px', background: active ? '#F3F4F6' : 'transparent', width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>{icon}</div>
         <div style={{ fontSize: '10px', fontWeight: '700', marginTop: '5px', color: '#4B5563' }}>{title}</div>
     </div>
 );
-
 const Card = ({ title, children }) => (
     <div style={{ background: '#FFF', padding: '24px', borderRadius: '16px', border: '1px solid #E5E7EB', marginBottom: '10px' }}>
       <h3 style={{ fontSize: '11px', fontWeight: '800', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase' }}>{title}</h3>
       {children}
     </div>
 );
-
 const IconButton = ({ children, active, onClick }) => (
     <div onClick={onClick} style={{ width: '56px', height: '56px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2.5px solid #4F46E5' : '1.5px solid #E5E7EB', background: '#FFF' }}>
       {children}
     </div>
 );
-
 const ColorBox = ({ label, value, onChange }) => (
     <div>
       <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
@@ -264,21 +307,18 @@ const ColorBox = ({ label, value, onChange }) => (
       </div>
     </div>
 );
-
 const Field = ({ label, value, onChange }) => (
   <div style={{ marginBottom: '15px' }}>
     <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
     <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px' }} />
   </div>
 );
-
 const AreaField = ({ label, value, onChange }) => (
   <div style={{ marginBottom: '15px' }}>
     <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
     <textarea value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', minHeight: '60px', resize: 'none' }} />
   </div>
 );
-
 const Toast = ({ message }) => (
     <div style={{ position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', background: '#111827', color: '#FFF', padding: '12px 24px', borderRadius: '50px', fontWeight: '600', zIndex: 9999 }}>
       ✅ {message}
