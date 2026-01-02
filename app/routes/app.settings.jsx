@@ -7,7 +7,7 @@ import prisma from "../db.server";
 const ICON_MAP = {
   bubble: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   send: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
-  custom: <img src="https://excellent-magenta-frgky5u4bi.edgeone.app/Frame%201984078690%20(2).png" alt="custom" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+  custom: <img src="https://sudden-lavender-mbdapkeofr.edgeone.app/Frame%201984078690%20(2).png" alt="custom" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
 };
 
 const FONT_OPTIONS = [
@@ -135,10 +135,8 @@ export default function UltimateSettings() {
     <div style={{ background: '#F3F4F6', minHeight: '100vh', display: 'flex', fontFamily: 'Inter, sans-serif' }}>
       
       {/* NAVIGATION */}
-      <div style={{ width: '100px', background: '#FFFFFF', borderRight: '1px solid #E5E7EB', padding: '30px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
-        <div style={{ marginBottom: '40px' }}>
-          <img src="https://excellent-magenta-frgky5u4bi.edgeone.app/Frame%201984078690%20(2).png" alt="Logo" style={{ width: '45px', height: '45px', objectFit: 'contain' }} />
-        </div>
+      <div style={{ width: '100px', background: '#F9FAFB', borderRight: '1px solid #E5E7EB', padding: '30px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
+ 
         
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <NavIcon active={activeTab === 'style'} onClick={() => setActiveTab('style')} icon="🎨" title="Style" />
