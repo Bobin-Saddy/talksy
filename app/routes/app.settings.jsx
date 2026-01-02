@@ -41,6 +41,8 @@ export const loader = async ({ request }) => {
     welcomeSubtext: "We are here to help you! Ask us anything.",
     replyTimeText: "Typically replies in 5 minutes",
     startConversationText: "Send us a message",
+    onboardingTitle: "Start a conversation",
+    onboardingSubtitle: "Please provide your details to begin.",
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     baseFontSize: "15px"
   };
@@ -177,13 +179,21 @@ export default function UltimateSettings() {
 
         {activeTab === 'content' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <Card title="Text Settings">
+            <Card title="Header & Hero Content">
                <Field label="Header Title" value={formState.headerTitle} onChange={(v) => handleChange('headerTitle', v)} />
                <Field label="Status Text" value={formState.headerSubtitle} onChange={(v) => handleChange('headerSubtitle', v)} />
                <Field label="Hero Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
                <AreaField label="Hero Subtext" value={formState.welcomeSubtext} onChange={(v) => handleChange('welcomeSubtext', v)} />
+            </Card>
+            
+            <Card title="Conversation Button">
+               <Field label="Button Title" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
                <Field label="Reply Time Text" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
-               <Field label="Action Button Text" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
+            </Card>
+
+            <Card title="Onboarding Text (Below Card)">
+               <Field label="Onboarding Title" value={formState.onboardingTitle} onChange={(v) => handleChange('onboardingTitle', v)} />
+               <AreaField label="Onboarding Subtitle" value={formState.onboardingSubtitle} onChange={(v) => handleChange('onboardingSubtitle', v)} />
             </Card>
           </div>
         )}
@@ -203,7 +213,7 @@ export default function UltimateSettings() {
             flexDirection: 'column', 
             boxShadow: '0 20px 40px rgba(0,0,0,0.1)', 
             border: '1px solid rgba(0,0,0,0.1)',
-            fontFamily: formState.fontFamily // Applied Custom Font
+            fontFamily: formState.fontFamily 
           }}>
             
             {/* Header */}
@@ -238,9 +248,14 @@ export default function UltimateSettings() {
                     </div>
                 </div>
 
+                {/* Onboarding Preview Section */}
                 <div style={{ padding: '40px 25px', textAlign: 'center' }}>
-                    <h3 style={{ fontSize: `calc(${formState.baseFontSize} * 1.2)`, fontWeight: '700', color: formState.onboardingTextColor, marginBottom: '8px' }}>Start a conversation</h3>
-                    <p style={{ fontSize: `calc(${formState.baseFontSize} * 0.9)`, color: formState.onboardingTextColor, opacity: 0.8 }}>Previewing typography scaling...</p>
+                    <h3 style={{ fontSize: `calc(${formState.baseFontSize} * 1.2)`, fontWeight: '700', color: formState.onboardingTextColor, marginBottom: '8px' }}>
+                      {formState.onboardingTitle}
+                    </h3>
+                    <p style={{ fontSize: `calc(${formState.baseFontSize} * 0.9)`, color: formState.onboardingTextColor, opacity: 0.8 }}>
+                      {formState.onboardingSubtitle}
+                    </p>
                 </div>
             </div>
 

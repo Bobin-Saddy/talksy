@@ -60,25 +60,25 @@ model ChatSettings {
   id                    String   @id @default(uuid())
   shop                  String   @unique
   primaryColor          String   @default("#4F46E5")
-  headerBgColor         String   @default("#111827")
-  heroBgColor           String   @default("#EEF2FF")
-  headerTextColor       String   @default("#FFFFFF")
-  heroTextColor         String   @default("#111827")
-  cardTitleColor        String   @default("#384959") // New
-  cardSubtitleColor     String   @default("#64748b") // New
-  onboardingTextColor   String   @default("#384959") // New
-  welcomeImg            String   @default("https://ui-avatars.com/api/?name=Support&background=4F46E5&color=fff")
-  headerTitle           String   @default("Customer Care")
-  headerSubtitle        String   @default("Online & Ready")
-  welcomeText           String   @default("How can we help?")
-  welcomeSubtext        String   @default("Our team typically responds in under 5 minutes.")
-  replyTimeText         String   @default("Replies instantly")
-  fontFamily          String @default("-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif")
-  baseFontSize        String @default("15px")
-  // THIS WAS MISSING
+  headerBgColor         String   @default("#384959")
+  heroBgColor           String   @default("#bdddfc")
+  headerTextColor       String   @default("#bdddfc")
+  heroTextColor         String   @default("#384959")
+  cardTitleColor        String   @default("#384959")
+  cardSubtitleColor     String   @default("#64748b")
+  onboardingTextColor   String   @default("#384959")
+  welcomeImg            String   @default("https://ui-avatars.com/api/?name=Support&background=fff&color=4F46E5")
+  headerTitle           String   @default("Live Support")
+  headerSubtitle        String   @default("Online now")
+  welcomeText           String   @default("Hi there 👋")
+  welcomeSubtext        String   @default("We are here to help you! Ask us anything.")
+  replyTimeText         String   @default("Typically replies in 5 minutes")
   startConversationText String   @default("Send us a message") 
-  
+  onboardingTitle       String   @default("Start a conversation")
+  onboardingSubtitle    String   @default("Please provide your details to begin.")
   launcherIcon          String   @default("bubble")
+  fontFamily            String   @default("-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif")
+  baseFontSize          String   @default("15px")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
