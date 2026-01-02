@@ -269,7 +269,7 @@
     const ICON_MAP = {
       bubble: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`,
       support: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
-      sparkle: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/></svg>`,
+      sparkle: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`,
       send: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
       custom: `<img src="https://sudden-lavender-mbdapkeofr.edgeone.app/Frame%201984078690%20(2).png" style="width:32px; height:32px; object-fit:contain;" />`
     };
@@ -280,25 +280,21 @@
       const s = await response.json();
       
       if (s) {
-        // Apply Typography & Core Colors
         if (s.fontFamily) document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
         if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
 
-        // Apply Background Colors
         if(launcher) launcher.style.background = s.primaryColor;
         const header = document.getElementById("chat-header");
         const hero = document.getElementById("home-hero-bg");
         if(header) header.style.background = s.headerBgColor;
         if(hero) hero.style.background = s.heroBgColor;
 
-        // Apply Button Colors
         ["chat-send", "chat-submit-info", "send-image-btn"].forEach(id => {
           const el = document.getElementById(id);
           if(el) el.style.background = s.primaryColor;
         });
 
-        // Update Text Content and Colors
         const titleText = document.getElementById("header-title-text");
         if(titleText) {
           titleText.innerText = s.headerTitle || "Live Support";
@@ -317,7 +313,6 @@
           welcomeP.style.color = s.heroTextColor;
         }
 
-        // Apply Card Styling
         const cardTitle = document.getElementById("card-msg-text");
         const cardSub = document.getElementById("card-reply-time");
         if(cardTitle) {
@@ -329,7 +324,6 @@
           cardSub.style.color = s.cardSubtitleColor;
         }
 
-        // ONBOARDING FIELDS (Direct Sync with your Prisma update)
         const onboardingTitle = document.getElementById("onboarding-title");
         const onboardingSub = document.getElementById("onboarding-p");
         if(onboardingTitle) {
@@ -341,7 +335,6 @@
           onboardingSub.style.color = s.onboardingTextColor;
         }
 
-        // Launcher Icon Logic
         const launcherIconContainer = document.getElementById("launcher-icon");
         if(launcherIconContainer) {
           launcherIconContainer.innerHTML = ICON_MAP[s.launcherIcon] || ICON_MAP['custom'];
@@ -482,12 +475,13 @@
     };
   }
 
-  async function handleSend(customText, fileUrl = null) {
+  async function handleSend(customText = "", fileUrl = null) {
     const text = customText || chatInput.value.trim();
     const sId = localStorage.getItem("chat_session");
     const email = localStorage.getItem("chat_user_email");
     if ((!text && !fileUrl) || !sId) return;
 
+    // UI update
     addMessageToUI({ sender: 'user', message: text, fileUrl, createdAt: new Date() });
     chatInput.value = "";
     
@@ -497,7 +491,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: sId, message: text, shop, email, fileUrl })
       });
-    } catch (e) {}
+    } catch (e) { console.error("Send failed", e); }
   }
 
   function startPolling() {
@@ -528,7 +522,29 @@
         if(footer) footer.style.display = "none";
       };
       reader.readAsDataURL(file);
-      e.target.value = '';
+      e.target.value = ''; // Reset input to allow same file selection
+    };
+  }
+
+  // --- IMAGE PREVIEW BUTTONS LOGIC ---
+  const sendImageBtn = document.getElementById("send-image-btn");
+  if(sendImageBtn) {
+    sendImageBtn.onclick = () => {
+      if(selectedImage) {
+        handleSend("", selectedImage); // Pass image as fileUrl
+        selectedImage = null; // Clear image
+        document.getElementById("image-preview-container").style.display = "none";
+        document.getElementById("chat-footer").style.display = "flex";
+      }
+    };
+  }
+
+  const removeImageBtn = document.getElementById("remove-image-btn");
+  if(removeImageBtn) {
+    removeImageBtn.onclick = () => {
+      selectedImage = null;
+      document.getElementById("image-preview-container").style.display = "none";
+      document.getElementById("chat-footer").style.display = "flex";
     };
   }
 
