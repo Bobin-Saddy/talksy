@@ -232,34 +232,22 @@
   const chatInput = document.getElementById("chat-input");
   const msgBox = document.getElementById("chat-messages");
   let selectedImage = null;
+  let pollingInterval = null; // Track interval to clear/reset
 
   // VALIDATION FUNCTIONS
   function validateName(name) {
     const trimmed = name.trim();
-    if (trimmed.length < 2) {
-      return { valid: false, error: "Name must be at least 2 characters" };
-    }
-    if (trimmed.length > 50) {
-      return { valid: false, error: "Name is too long" };
-    }
-    if (!/^[a-zA-Z\s'-]+$/.test(trimmed)) {
-      return { valid: false, error: "Name can only contain letters, spaces, hyphens and apostrophes" };
-    }
+    if (trimmed.length < 2) return { valid: false, error: "Name must be at least 2 characters" };
+    if (trimmed.length > 50) return { valid: false, error: "Name is too long" };
+    if (!/^[a-zA-Z\s'-]+$/.test(trimmed)) return { valid: false, error: "Name can only contain letters" };
     return { valid: true, error: "" };
   }
 
   function validateEmail(email) {
     const trimmed = email.trim();
-    if (!trimmed) {
-      return { valid: false, error: "Email is required" };
-    }
+    if (!trimmed) return { valid: false, error: "Email is required" };
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmed)) {
-      return { valid: false, error: "Please enter a valid email address" };
-    }
-    if (trimmed.length > 100) {
-      return { valid: false, error: "Email is too long" };
-    }
+    if (!emailRegex.test(trimmed)) return { valid: false, error: "Please enter a valid email address" };
     return { valid: true, error: "" };
   }
 
@@ -277,12 +265,13 @@
     errorSpan.textContent = '';
   }
 
-async function fetchAndApplySettings() {
+  async function fetchAndApplySettings() {
     const ICON_MAP = {
       bubble: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`,
       support: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
       sparkle: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`,
-      send: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`
+      send: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
+      custom: `<img src="https://excellent-magenta-frgky5u4bi.edgeone.app/Frame%201984078690%20(2).png" style="width:30px; height:30px; object-fit:contain; filter: brightness(0) invert(1);" />`
     };
 
     try {
@@ -291,23 +280,8 @@ async function fetchAndApplySettings() {
       const s = await response.json();
       
       if (s) {
-        if (s.fontFamily) {
-          document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
-          if (!s.fontFamily.includes("-apple-system") && !s.fontFamily.includes("system-ui")) {
-            const fontName = s.fontFamily.split(',')[0].replace(/['"]/g, '');
-            const fontId = `gfont-${fontName.replace(/\s+/g, '-')}`;
-            if (!document.getElementById(fontId)) {
-               const link = document.createElement('link');
-               link.id = fontId;
-               link.rel = 'stylesheet';
-               link.href = `https://fonts.googleapis.com/css2?family=${fontName.replace(/\s+/g, '+')}:wght@400;700&display=swap`;
-               document.head.appendChild(link);
-            }
-          }
-        }
-        if (s.baseFontSize) {
-          document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
-        }
+        if (s.fontFamily) document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
+        if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
 
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
         launcher.style.background = s.primaryColor;
@@ -317,37 +291,16 @@ async function fetchAndApplySettings() {
         document.getElementById("chat-submit-info").style.background = s.primaryColor;
         document.getElementById("send-image-btn").style.background = s.primaryColor;
 
-        const headerTitle = document.getElementById("header-title-text");
-        const headerSub = document.getElementById("header-subtitle-text");
-        if(headerTitle) headerTitle.style.color = s.headerTextColor;
-        if(headerSub) headerSub.style.color = s.headerTextColor;
-
-        const welcomeH1 = document.getElementById("welcome-h1");
-        const welcomeP = document.getElementById("welcome-p");
-        if(welcomeH1) welcomeH1.style.color = s.heroTextColor;
-        if(welcomeP) welcomeP.style.color = s.heroTextColor;
-
-        const cardTitle = document.getElementById("card-msg-text");
-        const cardSub = document.getElementById("card-reply-time");
-        if(cardTitle) cardTitle.style.color = s.cardTitleColor;
-        if(cardSub) cardSub.style.color = s.cardSubtitleColor;
-
-        const onboardingTitle = document.getElementById("onboarding-title");
-        const onboardingP = document.getElementById("onboarding-p");
-        if(onboardingTitle) onboardingTitle.style.color = s.onboardingTextColor;
-        if(onboardingP) onboardingP.style.color = s.onboardingTextColor;
-
-        if (s.launcherIcon && ICON_MAP[s.launcherIcon]) {
-          document.getElementById("launcher-icon").innerHTML = ICON_MAP[s.launcherIcon];
-        }
-
         document.getElementById("header-title-text").innerText = s.headerTitle || "Live Support";
         document.getElementById("welcome-h1").innerText = s.welcomeText || "Hi there 👋";
         document.getElementById("welcome-p").innerText = s.welcomeSubtext || "We are here to help you!";
-        document.getElementById("card-msg-text").innerText = s.startConversationText || "Send us a message";
-        document.getElementById("card-reply-time").innerText = s.replyTimeText || "Typically replies in 5 minutes";
-        document.getElementById("onboarding-title").innerText = s.onboardingTitle || "Start a conversation";
-        document.getElementById("onboarding-p").innerText = s.onboardingSubtitle || "Please provide your details to begin.";
+        
+        // Dynamic icon assignment including Custom
+        if (s.launcherIcon && ICON_MAP[s.launcherIcon]) {
+          document.getElementById("launcher-icon").innerHTML = ICON_MAP[s.launcherIcon];
+        } else {
+           document.getElementById("launcher-icon").innerHTML = ICON_MAP['custom'];
+        }
 
         if(s.welcomeImg) document.getElementById("main-support-avatar").src = s.welcomeImg;
       }
@@ -381,18 +334,23 @@ async function fetchAndApplySettings() {
   });
 
   const addMessageToUI = (m) => {
+    const msgId = `msg-${m.id || Date.now()}-${Math.random()}`;
+    if (document.getElementById(msgId)) return; // Prevent duplicate rendering
+
     const div = document.createElement("div");
+    div.id = msgId;
     div.className = `msg ${m.sender}`;
     const isImg = m.fileUrl && (m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg)$/i) || m.fileUrl.startsWith('data:image'));
     
-    let contentHtml = `<div class="msg-content">${m.message}`;
+    let contentHtml = `<div class="msg-content">${m.message || ""}`;
     if(m.fileUrl) {
       contentHtml += isImg 
         ? `<img src="${m.fileUrl}" class="msg-image" style="max-width:100%; border-radius:8px; margin-top:5px; cursor:pointer;" onclick="window.open('${m.fileUrl}')" />`
         : `<br><a href="${m.fileUrl}" target="_blank" style="font-size:12px; font-weight:bold; color:inherit; text-decoration:underline;">📎 Attachment</a>`;
     }
     contentHtml += `</div>`;
-    div.innerHTML = `${contentHtml}<div class="msg-meta" style="font-size:9px; opacity:0.5; margin-top:2px; align-self:${m.sender === 'user' ? 'flex-end' : 'flex-start'}">${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>`;
+    const time = m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    div.innerHTML = `${contentHtml}<div class="msg-meta" style="font-size:9px; opacity:0.5; margin-top:2px; align-self:${m.sender === 'user' ? 'flex-end' : 'flex-start'}">${time}</div>`;
     msgBox.appendChild(div);
     msgBox.scrollTop = msgBox.scrollHeight;
   };
@@ -404,84 +362,46 @@ async function fetchAndApplySettings() {
       const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sessionId}`);
       if (res.ok) {
         const data = await res.json();
-        const currentCount = msgBox.querySelectorAll('.msg').length;
-        if (data.length > currentCount) {
-          msgBox.innerHTML = ''; 
-          data.forEach(addMessageToUI);
-        }
+        // Clear box only if backend returns a fresh start, otherwise append safely
+        if (data.length === 0) return;
+        
+        // Sort messages by creation time before rendering if provided by backend
+        data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        
+        // Smart append: only add messages that don't exist in UI
+        const existingMessages = Array.from(msgBox.querySelectorAll('.msg-content')).map(el => el.innerText.trim());
+        data.forEach(m => {
+            if (!existingMessages.includes(m.message?.trim())) {
+                addMessageToUI(m);
+            }
+        });
       }
-    } catch (e) {}
+    } catch (e) { console.error("Load failed", e); }
   }
 
-  // Real-time validation with smart timing
+  // VALIDATION LISTENERS
   document.getElementById("chat-fname").addEventListener('blur', (e) => {
-    const value = e.target.value.trim();
-    if (value !== '') {
-      const validation = validateName(value);
-      if (!validation.valid) {
-        showError('chat-fname', 'fname-error', validation.error);
-      } else {
-        clearError('chat-fname', 'fname-error');
-      }
-    }
-  });
-
-  document.getElementById("chat-fname").addEventListener('input', (e) => {
-    if (e.target.classList.contains('error')) {
-      const validation = validateName(e.target.value);
-      if (validation.valid) {
-        clearError('chat-fname', 'fname-error');
-      }
-    }
+    const v = validateName(e.target.value);
+    if (e.target.value.trim() !== '' && !v.valid) showError('chat-fname', 'fname-error', v.error);
+    else clearError('chat-fname', 'fname-error');
   });
 
   document.getElementById("chat-email").addEventListener('blur', (e) => {
-    const value = e.target.value.trim();
-    if (value !== '') {
-      const validation = validateEmail(value);
-      if (!validation.valid) {
-        showError('chat-email', 'email-error', validation.error);
-      } else {
-        clearError('chat-email', 'email-error');
-      }
-    }
-  });
-
-  document.getElementById("chat-email").addEventListener('input', (e) => {
-    if (e.target.classList.contains('error')) {
-      const validation = validateEmail(e.target.value);
-      if (validation.valid) {
-        clearError('chat-email', 'email-error');
-      }
-    }
+    const v = validateEmail(e.target.value);
+    if (e.target.value.trim() !== '' && !v.valid) showError('chat-email', 'email-error', v.error);
+    else clearError('chat-email', 'email-error');
   });
 
   document.getElementById("chat-submit-info").onclick = async () => {
     const fname = document.getElementById("chat-fname").value.trim();
     const email = document.getElementById("chat-email").value.trim();
+    const nv = validateName(fname);
+    const ev = validateEmail(email);
     
-    const nameValidation = validateName(fname);
-    const emailValidation = validateEmail(email);
+    if (!nv.valid) return showError('chat-fname', 'fname-error', nv.error);
+    if (!ev.valid) return showError('chat-email', 'email-error', ev.error);
     
-    let hasError = false;
-    
-    if (!nameValidation.valid) {
-      showError('chat-fname', 'fname-error', nameValidation.error);
-      hasError = true;
-    } else {
-      clearError('chat-fname', 'fname-error');
-    }
-    
-    if (!emailValidation.valid) {
-      showError('chat-email', 'email-error', emailValidation.error);
-      hasError = true;
-    } else {
-      clearError('chat-email', 'email-error');
-    }
-    
-    if (hasError) return;
-    
-    const sessionId = "sess_" + Date.now();
+    const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
     try {
       const res = await fetch(`${BASE_URL}/app/chat/register`, {
         method: "POST",
@@ -494,6 +414,7 @@ async function fetchAndApplySettings() {
         document.getElementById("chat-onboarding-step").style.display = "none";
         document.getElementById("chat-chat-step").style.display = "flex";
         loadMessages();
+        startPolling();
       }
     } catch (e) {}
   };
@@ -504,27 +425,31 @@ async function fetchAndApplySettings() {
     const email = localStorage.getItem("chat_user_email");
     if ((!text && !fileUrl) || !sId) return;
 
-    addMessageToUI({ sender: 'user', message: text || "Sent an attachment", fileUrl });
+    // Optimistic Update
+    addMessageToUI({ sender: 'user', message: text, fileUrl, createdAt: new Date() });
     chatInput.value = "";
+    
     try {
       await fetch(`${BASE_URL}/app/chat/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sId, message: text || "Sent an attachment", shop, email, fileUrl })
+        body: JSON.stringify({ sessionId: sId, message: text, shop, email, fileUrl })
       });
-    } catch (e) {}
+    } catch (e) { console.error("Send error", e); }
+  }
+
+  function startPolling() {
+    if (pollingInterval) clearInterval(pollingInterval);
+    pollingInterval = setInterval(loadMessages, 4000);
   }
 
   document.getElementById("chat-send").onclick = () => handleSend();
   chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
   
-  // IMAGE PREVIEW LOGIC
   document.getElementById("file-btn").onclick = () => document.getElementById("chat-file-input").click();
-  
   document.getElementById("chat-file-input").onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
     const reader = new FileReader();
     reader.onload = (ev) => {
       selectedImage = ev.target.result;
@@ -551,9 +476,10 @@ async function fetchAndApplySettings() {
     document.getElementById("chat-footer").style.display = "block";
   };
 
+  // Emoji logic
   const picker = document.getElementById("emoji-picker");
   const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨"];
-  picker.innerHTML = emojis.map(e => `<span style="cursor:pointer; font-size: 18px; text-align:center;">${e}</span>`).join("");
+  picker.innerHTML = emojis.map(e => `<span style="cursor:pointer; font-size: 18px; padding: 2px;">${e}</span>`).join("");
   document.getElementById("emoji-btn").onclick = () => picker.classList.toggle("hidden-picker");
   picker.onclick = (e) => {
     if(e.target.tagName === 'SPAN') {
@@ -563,12 +489,13 @@ async function fetchAndApplySettings() {
     }
   };
 
+  // INIT
   fetchAndApplySettings();
   if (localStorage.getItem("chat_session")) {
     document.getElementById("chat-onboarding-step").style.display = "none";
     document.getElementById("chat-chat-step").style.display = "flex";
     loadMessages();
-    setInterval(loadMessages, 5000);
+    startPolling();
   }
 })();
 </script>
