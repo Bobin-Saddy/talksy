@@ -1,10 +1,10 @@
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useActionData } from "react-router";
+import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import { useState, useEffect, useRef } from "react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
-// 1. Updated Icon Map with your specific SVG
+// 1. Updated Icon Map with your specific SVG Design
 const ICON_MAP = {
   bubble: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   send: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
@@ -16,12 +16,6 @@ const ICON_MAP = {
   )
 };
 
-const FONT_OPTIONS = [
-  { label: "System Default", value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
-  { label: "Inter", value: "'Inter', sans-serif" },
-  { label: "Poppins", value: "'Poppins', sans-serif" }
-];
-
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const settings = await prisma.chatSettings.findUnique({ where: { shop: session.shop } });
@@ -32,10 +26,9 @@ export const loader = async ({ request }) => {
     heroBgColor: "#bdddfc",
     headerTextColor: "#bdddfc",
     heroTextColor: "#384959",
-    launcherIcon: "custom", // Default is now your custom icon
-    welcomeImg: "https://ui-avatars.com/api/?name=Support",
+    launcherIcon: "custom", // Ensuring default is 'custom'
+    welcomeImg: "https://ui-avatars.com/api/?name=Support&background=fff&color=4F46E5",
     headerTitle: "Live Support",
-    headerSubtitle: "Online now",
     welcomeText: "Hi there 👋",
     welcomeSubtext: "How can we help you today?",
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -89,7 +82,7 @@ export default function UltimateSettings() {
   };
 
   const handleSave = () => {
-    // Explicitly ensure formState is sent to the action
+    // Sending the current state to the action
     submit(formState, { method: "POST" });
   };
 
@@ -99,7 +92,7 @@ export default function UltimateSettings() {
       {/* SIDEBAR NAVIGATION */}
       <div style={{ width: '260px', background: '#FFFFFF', borderRight: '1px solid #E5E7EB', padding: '30px 20px', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '40px' }}>
-          <div style={{ width: '35px', height: '35px', background: '#FFC700', borderRadius: '10px' }}></div>
+          <div style={{ width: '35px', height: '35px', background: 'linear-gradient(135deg, #FFC700, #4F46E5)', borderRadius: '10px' }}></div>
           <span style={{ fontWeight: '800', fontSize: '18px' }}>Talksy</span>
         </div>
         
@@ -109,7 +102,7 @@ export default function UltimateSettings() {
         </nav>
       </div>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN CONFIGURATION */}
       <div style={{ flex: 1, padding: '40px 50px' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: '800' }}>Settings</h1>
@@ -117,7 +110,7 @@ export default function UltimateSettings() {
             onClick={handleSave} 
             style={{ padding: '12px 28px', background: '#111827', color: '#FFF', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', border: 'none' }}
           >
-            {navigation.state === "submitting" ? "Saving..." : "Save Settings"}
+            {navigation.state === "submitting" ? "Syncing..." : "Save Settings"}
           </button>
         </header>
 
@@ -135,20 +128,19 @@ export default function UltimateSettings() {
                   </IconButton>
                 ))}
               </div>
-              <p style={{fontSize: '12px', color: '#6B7280', marginTop: '10px'}}>Select which icon appears on your website bubble.</p>
             </Card>
 
-            <Card title="Colors">
+            <Card title="Brand Colors">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
-                <ColorBox label="Brand Primary" value={formState.primaryColor} onChange={(v) => handleChange('primaryColor', v)} />
+                <ColorBox label="Primary Color" value={formState.primaryColor} onChange={(v) => handleChange('primaryColor', v)} />
                 <ColorBox label="Header Background" value={formState.headerBgColor} onChange={(v) => handleChange('headerBgColor', v)} />
               </div>
             </Card>
 
-            <Card title="Avatar">
+            <Card title="Support Avatar">
                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                 <img src={formState.welcomeImg} style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #E5E7EB' }} alt="Avatar" />
-                 <button onClick={() => fileInputRef.current.click()} style={{ padding: '8px 16px', background: '#FFF', border: '1px solid #D1D5DB', borderRadius: '8px', cursor: 'pointer' }}>Change Image</button>
+                 <img src={formState.welcomeImg} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover', border: '1px solid #E5E7EB' }} alt="Avatar" />
+                 <button onClick={() => fileInputRef.current.click()} style={{ padding: '8px 16px', background: '#FFF', border: '1px solid #D1D5DB', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Upload Image</button>
                  <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" style={{ display: 'none' }} />
                </div>
             </Card>
@@ -156,27 +148,27 @@ export default function UltimateSettings() {
         )}
 
         {activeTab === 'content' && (
-          <Card title="Text Settings">
+          <Card title="Widget Text">
              <Field label="Header Title" value={formState.headerTitle} onChange={(v) => handleChange('headerTitle', v)} />
-             <Field label="Welcome Message" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
+             <Field label="Hero Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
           </Card>
         )}
       </div>
 
-      {/* PREVIEW */}
+      {/* LIVE PREVIEW */}
       <div style={{ width: '400px', padding: '40px', background: '#F9FAFB', borderLeft: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ width: '320px', height: '500px', background: '#FFF', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', position: 'relative' }}>
+          <div style={{ marginBottom: '20px', fontSize: '12px', fontWeight: '800', color: '#9CA3AF' }}>PREVIEW</div>
+          <div style={{ width: '320px', height: '520px', background: '#FFF', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', position: 'relative' }}>
             <div style={{ background: formState.headerBgColor, padding: '20px', color: formState.headerTextColor }}>
-                <div style={{ fontWeight: 'bold' }}>{formState.headerTitle}</div>
+                <div style={{ fontWeight: '700' }}>{formState.headerTitle}</div>
             </div>
             <div style={{ padding: '20px' }}>
-                <h2 style={{ fontSize: '20px' }}>{formState.welcomeText}</h2>
+                <h2 style={{ fontSize: '22px', fontWeight: '700' }}>{formState.welcomeText}</h2>
+                <p style={{ color: '#64748b' }}>{formState.welcomeSubtext}</p>
             </div>
           </div>
-          
-          {/* Floating Action Button Preview */}
           <div style={{ 
-            marginTop: '30px', 
+            marginTop: '20px', 
             width: '60px', 
             height: '60px', 
             borderRadius: '50%', 
@@ -184,54 +176,54 @@ export default function UltimateSettings() {
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-            color: 'white'
+            color: 'white',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
           }}>
             {ICON_MAP[formState.launcherIcon]}
           </div>
       </div>
 
-      {toast && <Toast message="Saved!" />}
+      {toast && <Toast message="Settings Saved Successfully!" />}
     </div>
   );
 }
 
-// Sub-components
+// Utility Components
 const NavButton = ({ active, label, icon, onClick }) => (
     <div onClick={onClick} style={{ padding: '12px 16px', borderRadius: '10px', cursor: 'pointer', background: active ? '#EEF2FF' : 'transparent', color: active ? '#4F46E5' : '#4B5563', fontWeight: active ? '700' : '500', display: 'flex', gap: '12px', marginBottom: '5px' }}>
-      <span>{icon}</span> {label}
+      <span style={{ fontSize: '18px' }}>{icon}</span> {label}
     </div>
 );
 
 const Card = ({ title, children }) => (
     <div style={{ background: '#FFF', padding: '24px', borderRadius: '16px', border: '1px solid #E5E7EB', marginBottom: '20px' }}>
-      <h3 style={{ fontSize: '12px', fontWeight: '800', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase' }}>{title}</h3>
+      <h3 style={{ fontSize: '11px', fontWeight: '800', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase' }}>{title}</h3>
       {children}
     </div>
 );
 
 const IconButton = ({ children, active, onClick }) => (
-    <div onClick={onClick} style={{ width: '50px', height: '50px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2px solid #4F46E5' : '1px solid #E5E7EB', background: active ? '#EEF2FF' : '#FFF' }}>
+    <div onClick={onClick} style={{ width: '56px', height: '56px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2px solid #4F46E5' : '1px solid #E5E7EB', background: active ? '#EEF2FF' : '#FFF', color: active ? '#4F46E5' : '#6B7280' }}>
       {children}
     </div>
 );
 
 const ColorBox = ({ label, value, onChange }) => (
     <div>
-      <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', marginBottom: '5px' }}>{label}</label>
-      <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', height: '40px', cursor: 'pointer', border: '1px solid #E5E7EB', borderRadius: '8px' }} />
+      <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
+      <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', height: '40px', border: '1px solid #E5E7EB', borderRadius: '8px', cursor: 'pointer' }} />
     </div>
 );
 
 const Field = ({ label, value, onChange }) => (
   <div style={{ marginBottom: '15px' }}>
-    <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', marginBottom: '5px' }}>{label}</label>
-    <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E5E7EB' }} />
+    <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
+    <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px' }} />
   </div>
 );
 
 const Toast = ({ message }) => (
-    <div style={{ position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', background: '#111827', color: '#FFF', padding: '10px 30px', borderRadius: '50px', zIndex: 9999 }}>
+    <div style={{ position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', background: '#111827', color: '#FFF', padding: '12px 24px', borderRadius: '50px', fontWeight: '600', zIndex: 9999 }}>
       {message}
     </div>
 );
