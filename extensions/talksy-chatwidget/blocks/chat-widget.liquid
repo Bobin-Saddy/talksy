@@ -321,7 +321,7 @@
 
   // Emoji Picker
   const picker = document.getElementById("emoji-picker");
-  const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨"];
+  const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️"];
   picker.innerHTML = emojis.map(e => `<span style="cursor:pointer; font-size: 18px; text-align:center; padding:5px;">${e}</span>`).join("");
   document.getElementById("emoji-btn").onclick = () => picker.classList.toggle("hidden-picker");
   picker.onclick = (e) => {
