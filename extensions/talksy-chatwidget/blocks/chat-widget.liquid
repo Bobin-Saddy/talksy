@@ -108,19 +108,11 @@
   --chat-bg: #ffffff;
   --chat-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
-
 #chat-widget * { box-sizing: border-box; font-family: var(--chat-font) !important; }
-
-/* LAUNCHER */
 #chat-launcher { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 999999; box-shadow: 0 8px 25px rgba(0,0,0,0.2); transition: transform 0.2s; }
-#chat-launcher:hover { transform: scale(1.05); }
-
-/* WIDGET STRUCTURE */
 #chat-widget { position: fixed; bottom: 100px; right: 25px; width: 370px; height: 600px; max-height: calc(100vh - 140px); background: var(--chat-bg); border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.15); z-index: 999998; transition: all 0.3s ease; border: 1px solid rgba(0,0,0,0.05); }
 .chat-hidden { opacity: 0; transform: translateY(20px); pointer-events: none; }
 .chat-visible { opacity: 1; transform: translateY(0); pointer-events: all; }
-
-/* HEADER */
 #chat-header { padding: 18px 20px; color: #fff; display: flex; justify-content: space-between; align-items: center; background: var(--chat-primary); }
 .header-content { display: flex; align-items: center; gap: 12px; }
 .avatar-stack { position: relative; width: 38px; height: 38px; }
@@ -130,13 +122,9 @@
 .status-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse-dot 2s infinite; }
 @keyframes pulse-dot { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
 #chat-close { background: none; border: none; color: inherit; cursor: pointer; padding: 4px; opacity: 0.8; }
-
-/* BODY & TABS */
 #widget-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; background: #f8fafc; }
 .tab-pane { display: none; flex-direction: column; height: 100%; width: 100%; }
 .tab-pane.active { display: flex; }
-
-/* HOME TAB */
 .home-hero { padding: 30px 20px 60px; background: var(--chat-primary); color: #fff; }
 .hero-avatars { display: flex; margin-bottom: 12px; }
 .hero-avatars img { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--chat-primary); margin-right: -8px; }
@@ -145,9 +133,6 @@
 .home-card { background: #fff; margin: -30px 15px 15px; padding: 20px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(0,0,0,0.05); cursor: pointer; }
 .card-text strong { display: block; font-size: 15px; color: #1e293b; }
 .card-text span { font-size: 13px; color: #64748b; }
-
-/* ONBOARDING VALIDATION */
-.step-container { flex: 1; display: flex; flex-direction: column; }
 .onboarding-card { padding: 30px 20px; text-align: center; }
 .input-group { margin-top: 20px; display: flex; flex-direction: column; gap: 15px; }
 .field-wrapper { display: flex; flex-direction: column; text-align: left; }
@@ -155,25 +140,18 @@
 .field-wrapper input.invalid { border-color: #ef4444; background: #fffafa; }
 .error-msg { color: #ef4444; font-size: 11px; margin-top: 4px; display: none; font-weight: 500; }
 #chat-submit-info { padding: 12px; border: none; border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer; }
-
-/* CHAT MESSAGES */
 #chat-messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-.msg { max-width: 80%; padding: 10px 14px; border-radius: 15px; font-size: 14px; line-height: 1.4; margin: 2px 0; }
+.msg { max-width: 80%; padding: 10px 14px; border-radius: 15px; font-size: 14px; line-height: 1.4; margin: 2px 0; word-wrap: break-word; }
 .msg.user { align-self: flex-end; background: var(--chat-primary); color: #fff; border-bottom-right-radius: 2px; }
 .msg.bot { align-self: flex-start; background: #fff; color: #1e293b; border: 1px solid #e2e8f0; border-bottom-left-radius: 2px; }
-
-/* CHAT FOOTER */
 #chat-footer { padding: 10px 15px; background: #fff; border-top: 1px solid #f1f5f9; }
 .input-wrapper { display: flex; align-items: center; background: #f1f5f9; border-radius: 12px; padding: 5px 10px; gap: 8px; }
 #chat-input { flex: 1; border: none; background: transparent; outline: none; padding: 8px; font-size: 14px; }
 .tool-btn { background: none; border: none; cursor: pointer; color: #64748b; font-size: 18px; padding: 0; }
 #chat-send { border: none; color: #fff; border-radius: 8px; padding: 6px; cursor: pointer; display: flex; }
-
-/* NAV */
 #chat-nav { display: flex; background: #fff; border-top: 1px solid #f1f5f9; height: 60px; }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; color: #94a3b8; font-size: 11px; gap: 4px; }
 .nav-item.active { color: var(--chat-primary); font-weight: 600; }
-
 .hidden-picker { display: none !important; }
 #emoji-picker { position: absolute; bottom: 70px; left: 15px; right: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); z-index: 100; }
 </style>
@@ -184,8 +162,9 @@
   const BASE_URL = "https://talksy-production-322d.up.railway.app";
   const widget = document.getElementById("chat-widget");
   const launcher = document.getElementById("chat-launcher");
-  
-  // Tab Switching Logic
+  const msgBox = document.getElementById("chat-messages");
+  let lastMessageCount = 0;
+
   const showTab = (id) => {
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -193,57 +172,54 @@
     document.querySelector(`[data-tab="${id}"]`).classList.add('active');
   };
 
-  // Validation Logic
   const validate = () => {
     const f = document.getElementById("chat-fname");
     const e = document.getElementById("chat-email");
     let valid = true;
-
-    if(!f.value.trim()) {
-      f.classList.add('invalid');
-      document.getElementById("error-fname").style.display = 'block';
-      valid = false;
-    } else {
-      f.classList.remove('invalid');
-      document.getElementById("error-fname").style.display = 'none';
-    }
-
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.value)) {
-      e.classList.add('invalid');
-      document.getElementById("error-email").style.display = 'block';
-      valid = false;
-    } else {
-      e.classList.remove('invalid');
-      document.getElementById("error-email").style.display = 'none';
-    }
+    if(!f.value.trim()){ f.classList.add('invalid'); document.getElementById("error-fname").style.display='block'; valid=false; }
+    else { f.classList.remove('invalid'); document.getElementById("error-fname").style.display='none'; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.value)){ e.classList.add('invalid'); document.getElementById("error-email").style.display='block'; valid=false; }
+    else { e.classList.remove('invalid'); document.getElementById("error-email").style.display='none'; }
     return valid;
   };
 
-  // UI Handlers
-  launcher.onclick = () => {
-    const isVis = widget.classList.contains("chat-visible");
-    widget.className = isVis ? "chat-hidden" : "chat-visible";
-    document.getElementById("launcher-icon").style.display = isVis ? "block" : "none";
-    document.getElementById("close-launcher-icon").style.display = isVis ? "none" : "block";
-  };
-
-  document.getElementById("chat-close").onclick = () => launcher.click();
-
-  document.querySelectorAll('.nav-item').forEach(n => {
-    n.onclick = () => showTab(n.dataset.tab);
-  });
-
-  document.getElementById("start-chat-trigger").onclick = () => showTab('chat');
-
-  // Message Handling
   const addMsg = (m) => {
-    const msgBox = document.getElementById("chat-messages");
     const d = document.createElement("div");
     d.className = `msg ${m.sender}`;
     d.innerText = m.message;
     msgBox.appendChild(d);
     msgBox.scrollTop = msgBox.scrollHeight;
   };
+
+  // NEW: Fetch messages from the server
+  const loadMessages = async () => {
+    const sId = localStorage.getItem("chat_session");
+    if (!sId) return;
+
+    try {
+      const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length > lastMessageCount) {
+          msgBox.innerHTML = ''; // Clear and rebuild to ensure order
+          data.forEach(m => addMsg(m));
+          lastMessageCount = data.length;
+        }
+      }
+    } catch (e) { console.error("Poll Error:", e); }
+  };
+
+  launcher.onclick = () => {
+    const isVis = widget.classList.contains("chat-visible");
+    widget.className = isVis ? "chat-hidden" : "chat-visible";
+    document.getElementById("launcher-icon").style.display = isVis ? "block" : "none";
+    document.getElementById("close-launcher-icon").style.display = isVis ? "none" : "block";
+    if(!isVis) loadMessages();
+  };
+
+  document.getElementById("chat-close").onclick = () => launcher.click();
+  document.querySelectorAll('.nav-item').forEach(n => { n.onclick = () => showTab(n.dataset.tab); });
+  document.getElementById("start-chat-trigger").onclick = () => showTab('chat');
 
   document.getElementById("chat-submit-info").onclick = async () => {
     if(!validate()) return;
@@ -262,6 +238,7 @@
         localStorage.setItem("chat_user_email", email);
         document.getElementById("chat-onboarding-step").style.display = 'none';
         document.getElementById("chat-chat-step").style.display = 'flex';
+        loadMessages();
       }
     } catch(e) {}
   };
@@ -271,7 +248,9 @@
     const val = input.value.trim();
     if(!val) return;
     
+    // Optimistically add to UI
     addMsg({sender: 'user', message: val});
+    lastMessageCount++; 
     input.value = "";
     
     try {
@@ -291,25 +270,24 @@
   document.getElementById("chat-send").onclick = sendMsg;
   document.getElementById("chat-input").onkeydown = (e) => { if(e.key === "Enter") sendMsg(); };
 
-  // Emojis
+  // Emoji logic
   const picker = document.getElementById("emoji-picker");
   ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨"].forEach(em => {
     const s = document.createElement("span");
     s.innerText = em;
     s.style.cursor = "pointer";
-    s.onclick = () => {
-      document.getElementById("chat-input").value += em;
-      picker.classList.add("hidden-picker");
-    };
+    s.onclick = () => { document.getElementById("chat-input").value += em; picker.classList.add("hidden-picker"); };
     picker.appendChild(s);
   });
   document.getElementById("emoji-btn").onclick = () => picker.classList.toggle("hidden-picker");
 
-  // Init
+  // INITIAL LOAD & POLLING
   if(localStorage.getItem("chat_session")) {
     document.getElementById("chat-onboarding-step").style.display = 'none';
     document.getElementById("chat-chat-step").style.display = 'flex';
-    // setInterval(pollingFunction, 5000); // Add your message fetching logic here
+    loadMessages();
+    // Check for new admin messages every 3 seconds
+    setInterval(loadMessages, 3000);
   }
 })();
 </script>
