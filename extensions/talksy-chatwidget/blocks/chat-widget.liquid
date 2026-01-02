@@ -381,26 +381,46 @@ async function fetchAndApplySettings() {
     } catch (e) {}
   }
 
-  // Real-time validation
+  // Real-time validation with smart timing
+  document.getElementById("chat-fname").addEventListener('blur', (e) => {
+    const value = e.target.value.trim();
+    if (value !== '') {
+      const validation = validateName(value);
+      if (!validation.valid) {
+        showError('chat-fname', 'fname-error', validation.error);
+      } else {
+        clearError('chat-fname', 'fname-error');
+      }
+    }
+  });
+
   document.getElementById("chat-fname").addEventListener('input', (e) => {
-    const validation = validateName(e.target.value);
-    if (e.target.value.trim() === '') {
-      clearError('chat-fname', 'fname-error');
-    } else if (!validation.valid) {
-      showError('chat-fname', 'fname-error', validation.error);
-    } else {
-      clearError('chat-fname', 'fname-error');
+    if (e.target.classList.contains('error')) {
+      const validation = validateName(e.target.value);
+      if (validation.valid) {
+        clearError('chat-fname', 'fname-error');
+      }
+    }
+  });
+
+  document.getElementById("chat-email").addEventListener('blur', (e) => {
+    const value = e.target.value.trim();
+    if (value !== '') {
+      const validation = validateEmail(value);
+      if (!validation.valid) {
+        showError('chat-email', 'email-error', validation.error);
+      } else {
+        clearError('chat-email', 'email-error');
+      }
     }
   });
 
   document.getElementById("chat-email").addEventListener('input', (e) => {
-    const validation = validateEmail(e.target.value);
-    if (e.target.value.trim() === '') {
-      clearError('chat-email', 'email-error');
-    } else if (!validation.valid) {
-      showError('chat-email', 'email-error', validation.error);
-    } else {
-      clearError('chat-email', 'email-error');
+    if (e.target.classList.contains('error')) {
+      const validation = validateEmail(e.target.value);
+      if (validation.valid) {
+        clearError('chat-email', 'email-error');
+      }
     }
   });
 
