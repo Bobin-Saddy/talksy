@@ -1,11 +1,11 @@
 {%- assign primary_color = section.settings.primary_color | default: '#6366f1' -%}
 
-<div id="chat-launcher" aria-label="Open Chat" style="background: white;">
+<div id="chat-launcher" aria-label="Open Chat" style="background: #FFFFFF;">
   <div id="launcher-icon">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
   </div>
   <div id="close-launcher-icon" style="display:none;">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
   </div>
 </div>
 
@@ -111,7 +111,7 @@
 #chat-widget * { box-sizing: border-box; font-family: var(--chat-font-family) !important; }
 
 /* LAUNCHER */
-#chat-launcher { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 999999; box-shadow: 0 8px 25px rgba(0,0,0,0.2); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+#chat-launcher { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 999999; box-shadow: 0 8px 25px rgba(0,0,0,0.2); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: #FFFFFF; }
 #chat-launcher:hover { transform: scale(1.1); }
 
 /* WIDGET BASE */
