@@ -330,18 +330,13 @@
   const startTrigger = document.getElementById('start-chat-trigger');
   if(startTrigger) { startTrigger.addEventListener('click', () => { switchTab('chat'); loadMessages(); }); }
 
-const addMessageToUI = (m) => {
-    const uniqueId = m.id || m._id || `temp-${Date.now()}-${Math.random()}`;
-    const msgId = `msg-${uniqueId}`;
-    
+  const addMessageToUI = (m) => {
+    const msgId = `msg-${m.id || Date.now()}-${Math.random()}`;
     if (document.getElementById(msgId)) return;
-
     const div = document.createElement("div");
     div.id = msgId;
     div.className = `msg ${m.sender}`;
-    
     const isImg = m.fileUrl && (m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg)$/i) || m.fileUrl.startsWith('data:image'));
-    
     let contentHtml = `<div class="msg-content">${m.message || ""}`;
     if(m.fileUrl) {
       contentHtml += isImg 
@@ -349,51 +344,25 @@ const addMessageToUI = (m) => {
         : `<br><a href="${m.fileUrl}" target="_blank" style="font-size:12px; font-weight:bold; color:inherit; text-decoration:underline;">📎 Attachment</a>`;
     }
     contentHtml += `</div>`;
-    
     const time = m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    
     div.innerHTML = `${contentHtml}<div class="msg-meta" style="font-size:9px; opacity:0.5; margin-top:2px; align-self:${m.sender === 'user' ? 'flex-end' : 'flex-start'}">${time}</div>`;
-    
     msgBox.appendChild(div);
     msgBox.scrollTop = msgBox.scrollHeight;
   };
 
-  function startPolling() {
-    if (pollingInterval) clearInterval(pollingInterval);
-    // Reduced to 2500ms for faster response without killing battery/server
-    pollingInterval = setInterval(loadMessages, 2500); 
-  }
-async function loadMessages() {
+  async function loadMessages() {
     const sessionId = localStorage.getItem("chat_session");
     if (!sessionId) return;
-    
     try {
       const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sessionId}`);
       if (res.ok) {
         const data = await res.json();
-        if (!data || data.length === 0) return;
-
-        // Sort by time
+        if (data.length === 0) return;
         data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-
-        let addedNew = false;
-        data.forEach(m => {
-          // Use a unique ID check to prevent duplicates
-          const uniqueId = m.id || m._id; 
-          if (uniqueId && !document.getElementById(`msg-${uniqueId}`)) {
-            addMessageToUI(m);
-            addedNew = true;
-          }
-        });
-
-        // Only scroll if a new message was actually added
-        if (addedNew) {
-          msgBox.scrollTop = msgBox.scrollHeight;
-        }
+        const existingMessages = Array.from(msgBox.querySelectorAll('.msg-content')).map(el => el.innerText.trim());
+        data.forEach(m => { if (!existingMessages.includes(m.message?.trim())) { addMessageToUI(m); } });
       }
-    } catch (e) {
-      console.error("Polling error:", e);
-    }
+    } catch (e) {}
   }
 
   const fNameEl = document.getElementById("chat-fname");
