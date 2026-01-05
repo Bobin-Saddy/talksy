@@ -52,8 +52,31 @@ export const loader = async ({ request }) => {
 export const action = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const formData = await request.formData();
-  const data = Object.fromEntries(formData);
-  data.shop = session.shop;
+  
+  // Explicitly mapping each field to ensure Prisma picks it up
+  const data = {
+    shop: session.shop,
+    primaryColor: formData.get("primaryColor"),
+    headerBgColor: formData.get("headerBgColor"),
+    heroBgColor: formData.get("heroBgColor"),
+    headerTextColor: formData.get("headerTextColor"),
+    heroTextColor: formData.get("heroTextColor"),
+    cardTitleColor: formData.get("cardTitleColor"),
+    cardSubtitleColor: formData.get("cardSubtitleColor"),
+    onboardingTextColor: formData.get("onboardingTextColor"),
+    welcomeImg: formData.get("welcomeImg"),
+    headerTitle: formData.get("headerTitle"),
+    headerSubtitle: formData.get("headerSubtitle"),
+    welcomeText: formData.get("welcomeText"),
+    welcomeSubtext: formData.get("welcomeSubtext"),
+    replyTimeText: formData.get("replyTimeText"),
+    startConversationText: formData.get("startConversationText"),
+    onboardingTitle: formData.get("onboardingTitle"),
+    onboardingSubtitle: formData.get("onboardingSubtitle"),
+    launcherIcon: formData.get("launcherIcon"),
+    fontFamily: formData.get("fontFamily"),
+    baseFontSize: formData.get("baseFontSize"),
+  };
   
   await prisma.chatSettings.upsert({
     where: { shop: session.shop },
@@ -75,7 +98,13 @@ export default function UltimateSettings() {
   const [toast, setToast] = useState(false);
   const fileInputRef = useRef(null);
 
-  useEffect(() => { if (settings) setFormState(settings); }, [settings]);
+  // Sync form state when loader data changes (after save)
+  useEffect(() => {
+    if (settings) {
+      setFormState(settings);
+    }
+  }, [settings]);
+
   useEffect(() => { 
     if (actionData?.success) { 
       setToast(true); 
@@ -96,27 +125,19 @@ export default function UltimateSettings() {
 
   const handleSave = () => {
     const formData = new FormData();
-    Object.entries(formState).forEach(([key, value]) => formData.append(key, value));
+    Object.entries(formState).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
     submit(formData, { method: "POST" });
   };
-
-  // Helper to get tab details
-  const getTabHeader = () => {
-    switch(activeTab) {
-        case 'style': return { title: "Appearance", icon: "🎨", subtitle: "Design your chat widget's visual identity." };
-        case 'content': return { title: "Translations", icon: "🌐", subtitle: "Customize text and languages for your customers." };
-        case 'typography': return { title: "Typography", icon: "Aa", subtitle: "Manage fonts and readability settings." };
-        default: return { title: "Settings", icon: "⚙️", subtitle: "" };
-    }
-  };
-
-  const tabHeader = getTabHeader();
 
   return (
     <div style={{ background: '#F3F4F6', minHeight: '100vh', display: 'flex', fontFamily: 'Inter, sans-serif' }}>
       
-      {/* SIDEBAR NAVIGATION */}
-      <div style={{ width: '100px', background: '#FFF', borderRight: '1px solid #E5E7EB', padding: '30px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
+      {/* NAVIGATION */}
+      <div style={{ width: '100px', background: '#F9FAFB', borderRight: '1px solid #E5E7EB', padding: '30px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
+ 
+        
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <NavIcon active={activeTab === 'style'} onClick={() => setActiveTab('style')} icon="🎨" title="Style" />
           <NavIcon active={activeTab === 'content'} onClick={() => setActiveTab('content')} icon="🌐" title="Content" />
@@ -124,22 +145,15 @@ export default function UltimateSettings() {
         </nav>
       </div>
 
-      {/* CONFIGURATION AREA */}
-      <div style={{ flex: 1, padding: '40px 60px', overflowY: 'auto' }}>
-        
-        {/* DYNAMIC BIG TEXT HEADER */}
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
-          <div style={{ animation: 'fadeInDown 0.4s ease-out' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '40px' }}>{tabHeader.icon}</span>
-                <h1 style={{ fontSize: '36px', fontWeight: '900', color: '#111827', margin: 0, letterSpacing: '-1px' }}>
-                    {tabHeader.title}
-                </h1>
-            </div>
-            <p style={{ color: '#6B7280', fontSize: '16px', margin: 0 }}>{tabHeader.subtitle}</p>
-          </div>
-          
-          <button onClick={handleSave} style={{ padding: '14px 32px', background: '#111827', color: '#FFF', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', border: 'none', transition: '0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+      {/* CONFIGURATION */}
+      <div style={{ flex: 1, padding: '40px 50px' }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827' }}>
+            {activeTab === 'style' && 'Appearance'}
+            {activeTab === 'content' && 'Translations'}
+            {activeTab === 'typography' && 'Typography'}
+          </h1>
+          <button onClick={handleSave} style={{ padding: '12px 28px', background: '#111827', color: '#FFF', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', border: 'none' }}>
             {navigation.state === "submitting" ? "Syncing..." : "Save & Publish"}
           </button>
         </header>
@@ -159,12 +173,12 @@ export default function UltimateSettings() {
             <Card title="Brand Assets">
                <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Support Avatar</label>
                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
-                 <img src={formState.welcomeImg} style={{ width: '64px', height: '64px', borderRadius: '16px', objectFit: 'cover', border: '1px solid #E5E7EB' }} alt="Avatar" />
-                 <button onClick={() => fileInputRef.current.click()} style={{ padding: '10px 18px', background: '#FFF', border: '1px solid #D1D5DB', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Change Image</button>
+                 <img src={formState.welcomeImg} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover', border: '1px solid #E5E7EB' }} alt="Avatar" />
+                 <button onClick={() => fileInputRef.current.click()} style={{ padding: '8px 16px', background: '#FFF', border: '1px solid #D1D5DB', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Upload New Image</button>
                  <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" style={{ display: 'none' }} />
                </div>
 
-               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
                 <ColorBox label="Primary Color" value={formState.primaryColor} onChange={(v) => handleChange('primaryColor', v)} />
                 <ColorBox label="Header BG" value={formState.headerBgColor} onChange={(v) => handleChange('headerBgColor', v)} />
                 <ColorBox label="Banner BG" value={formState.heroBgColor} onChange={(v) => handleChange('heroBgColor', v)} />
@@ -184,44 +198,44 @@ export default function UltimateSettings() {
         )}
 
         {activeTab === 'typography' && (
-          <Card title="Font Configuration">
-              <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Select Font Family</label>
-              <select value={formState.fontFamily} onChange={(e) => handleChange('fontFamily', e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: '15px', background: '#FFF' }}>
+          <Card title="Font Style">
+              <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Font Family</label>
+              <select value={formState.fontFamily} onChange={(e) => handleChange('fontFamily', e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', background: '#FFF' }}>
                 {FONT_OPTIONS.map(font => <option key={font.value} value={font.value}>{font.label}</option>)}
               </select>
-              <div style={{ marginTop: '30px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '15px' }}>Base Size: <span style={{ color: '#4F46E5', fontWeight: '800' }}>{formState.baseFontSize}</span></label>
-                <input type="range" min="12" max="22" value={parseInt(formState.baseFontSize)} onChange={(e) => handleChange('baseFontSize', `${e.target.value}px`)} style={{ width: '100%', cursor: 'pointer', accentColor: '#4F46E5' }} />
+              <div style={{ marginTop: '20px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Base Font Size: {formState.baseFontSize}</label>
+                <input type="range" min="12" max="20" value={parseInt(formState.baseFontSize)} onChange={(e) => handleChange('baseFontSize', `${e.target.value}px`)} style={{ width: '100%', cursor: 'pointer', accentColor: '#4F46E5' }} />
               </div>
           </Card>
         )}
 
         {activeTab === 'content' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <Card title="Header & Banner Content">
+            <Card title="Header & Hero Content">
                <Field label="Header Title" value={formState.headerTitle} onChange={(v) => handleChange('headerTitle', v)} />
                <Field label="Header Subtitle" value={formState.headerSubtitle} onChange={(v) => handleChange('headerSubtitle', v)} />
                <Field label="Hero Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
                <AreaField label="Hero Subtext" value={formState.welcomeSubtext} onChange={(v) => handleChange('welcomeSubtext', v)} />
             </Card>
-            <Card title="Messaging & Onboarding">
-               <Field label="Action Button Text" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
-               <Field label="Expected Reply Time" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
-               <Field label="Registration Title" value={formState.onboardingTitle} onChange={(v) => handleChange('onboardingTitle', v)} />
-               <AreaField label="Registration Subtext" value={formState.onboardingSubtitle} onChange={(v) => handleChange('onboardingSubtitle', v)} />
+            <Card title="Conversation & Onboarding">
+               <Field label="Action Card Title" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
+               <Field label="Reply Time Text" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
+               <Field label="Onboarding Title" value={formState.onboardingTitle} onChange={(v) => handleChange('onboardingTitle', v)} />
+               <AreaField label="Onboarding Subtitle" value={formState.onboardingSubtitle} onChange={(v) => handleChange('onboardingSubtitle', v)} />
             </Card>
           </div>
         )}
       </div>
 
       {/* LIVE PREVIEW SECTION */}
-      <div style={{ width: '480px', padding: '40px', background: '#F9FAFB', borderLeft: '1px solid #E5E7EB', position: 'sticky', top: 0, height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ marginBottom: '20px', fontSize: '12px', fontWeight: '900', color: '#9CA3AF', letterSpacing: '2px' }}>LIVE PREVIEW</div>
+      <div style={{ width: '450px', padding: '40px', background: '#F9FAFB', borderLeft: '1px solid #E5E7EB', position: 'sticky', top: 0, height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ marginBottom: '20px', fontSize: '12px', fontWeight: '800', color: '#9CA3AF' }}>PREVIEW</div>
           
-          <div style={{ width: '370px', height: '640px', background: '#FFF', borderRadius: '32px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 60px rgba(0,0,0,0.12)', border: '1px solid rgba(0,0,0,0.05)', fontFamily: formState.fontFamily }}>
-            {/* Widget Header */}
-            <div style={{ background: formState.headerBgColor, padding: '24px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <img src={formState.welcomeImg} style={{ width: '42px', height: '42px', borderRadius: '14px', objectFit: 'cover' }} alt="avatar" />
+          <div style={{ width: '350px', height: '620px', background: '#FFF', borderRadius: '28px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.1)', fontFamily: formState.fontFamily }}>
+            {/* Header */}
+            <div style={{ background: formState.headerBgColor, padding: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <img src={formState.welcomeImg} style={{ width: '40px', height: '40px', borderRadius: '12px', objectFit: 'cover' }} alt="avatar" />
                 <div>
                     <div style={{ fontWeight: '700', color: formState.headerTextColor, fontSize: formState.baseFontSize }}>{formState.headerTitle}</div>
                     <div style={{ fontSize: '12px', color: formState.headerTextColor, opacity: 0.8 }}>{formState.headerSubtitle}</div>
@@ -229,88 +243,82 @@ export default function UltimateSettings() {
             </div>
 
             <div style={{ flex: 1, background: '#f8fafc', overflowY: 'auto' }}>
-                <div style={{ background: formState.heroBgColor, padding: '45px 25px', color: formState.heroTextColor }}>
-                    <h1 style={{ fontSize: '26px', fontWeight: '800', margin: '0 0 10px 0', lineHeight: 1.2 }}>{formState.welcomeText}</h1>
-                    <p style={{ fontSize: formState.baseFontSize, opacity: 0.9, lineHeight: 1.5 }}>{formState.welcomeSubtext}</p>
+                {/* Hero Section */}
+                <div style={{ background: formState.heroBgColor, padding: '40px 25px', color: formState.heroTextColor }}>
+                    <h1 style={{ fontSize: '24px', fontWeight: '700', margin: '0 0 10px 0' }}>{formState.welcomeText}</h1>
+                    <p style={{ fontSize: formState.baseFontSize, opacity: 0.9 }}>{formState.welcomeSubtext}</p>
                 </div>
                 
-                <div style={{ background: '#FFF', margin: '-35px 20px 20px', padding: '20px', borderRadius: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', border: `1px solid #f1f5f9` }}>
-                    <div style={{ fontWeight: '700', color: formState.cardTitleColor, marginBottom: '4px' }}>{formState.startConversationText}</div>
-                    <div style={{ fontSize: '12px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
+                {/* Conversation Card */}
+                <div style={{ background: '#FFF', margin: '-30px 20px 15px', padding: '15px', borderRadius: '16px', boxShadow: '0 10px 20px rgba(0,0,0,0.05)', border: `1.5px solid #f1f5f9` }}>
+                    <div>
+                      <div style={{ fontWeight: '700', color: formState.cardTitleColor }}>{formState.startConversationText}</div>
+                      <div style={{ fontSize: '12px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
+                    </div>
                 </div>
 
-                <div style={{ padding: '30px 20px', textAlign: 'center' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: '800', color: formState.onboardingTextColor, marginBottom: '8px' }}>{formState.onboardingTitle}</h3>
-                    <p style={{ fontSize: '14px', color: formState.onboardingTextColor, opacity: 0.7, lineHeight: 1.4 }}>{formState.onboardingSubtitle}</p>
+                {/* Onboarding Preview */}
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: '700', color: formState.onboardingTextColor, marginBottom: '5px' }}>{formState.onboardingTitle}</h3>
+                    <p style={{ fontSize: '13px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</p>
                 </div>
             </div>
           </div>
 
-          <div style={{ marginTop: '25px', width: '64px', height: '64px', borderRadius: '50%', background: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 20px rgba(0,0,0,0.1)' }}>
-            {ICON_MAP[formState.launcherIcon]}
+          {/* Launcher Button Preview */}
+          <div style={{ marginTop: '20px', width: '60px', height: '60px', borderRadius: '50%', background: '#FFF', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <div style={{ borderRadius: '50%', padding: formState.launcherIcon === 'custom' ? '0' : '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {ICON_MAP[formState.launcherIcon]}
+            </div>
           </div>
       </div>
 
       {toast && <Toast message="Settings Saved Successfully!" />}
-
-      <style>{`
-        @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }
 
 // Sub-components
 const NavIcon = ({ active, icon, title, onClick }) => (
-    <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', transition: '0.2s', marginBottom: '20px' }}>
-        <div style={{ fontSize: '26px', background: active ? '#F3F4F6' : 'transparent', color: active ? '#111827' : '#9CA3AF', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px', transition: 'all 0.3s' }}>{icon}</div>
-        <div style={{ fontSize: '11px', fontWeight: '800', marginTop: '6px', color: active ? '#111827' : '#9CA3AF' }}>{title}</div>
+    <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', opacity: active ? 1 : 0.5, transition: '0.2s', marginBottom: '20px' }}>
+        <div style={{ fontSize: '24px', background: active ? '#F3F4F6' : 'transparent', width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>{icon}</div>
+        <div style={{ fontSize: '10px', fontWeight: '700', marginTop: '5px', color: '#4B5563' }}>{title}</div>
     </div>
 );
-
 const Card = ({ title, children }) => (
-    <div style={{ background: '#FFF', padding: '30px', borderRadius: '20px', border: '1px solid #E5E7EB', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-      <h3 style={{ fontSize: '12px', fontWeight: '900', color: '#9CA3AF', marginBottom: '25px', textTransform: 'uppercase', letterSpacing: '1px' }}>{title}</h3>
+    <div style={{ background: '#FFF', padding: '24px', borderRadius: '16px', border: '1px solid #E5E7EB', marginBottom: '10px' }}>
+      <h3 style={{ fontSize: '11px', fontWeight: '800', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase' }}>{title}</h3>
       {children}
     </div>
 );
-
 const IconButton = ({ children, active, onClick }) => (
-    <div onClick={onClick} style={{ width: '64px', height: '64px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '3px solid #4F46E5' : '1.5px solid #E5E7EB', background: active ? '#EEF2FF' : '#FFF', transition: '0.2s' }}>
+    <div onClick={onClick} style={{ width: '56px', height: '56px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2.5px solid #4F46E5' : '1.5px solid #E5E7EB', background: '#FFF' }}>
       {children}
     </div>
 );
-
 const ColorBox = ({ label, value, onChange }) => (
-    <div style={{ flex: 1 }}>
-      <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '10px' }}>{label}</label>
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', background: '#F9FAFB', padding: '10px', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
-        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ border: 'none', background: 'none', width: '28px', height: '28px', cursor: 'pointer', padding: 0 }} />
-        <span style={{ fontSize: '13px', fontWeight: '800', color: '#374151' }}>{value?.toUpperCase()}</span>
+    <div>
+      <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#F9FAFB', padding: '8px', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ border: 'none', background: 'none', width: '25px', height: '25px', cursor: 'pointer' }} />
+        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{value?.toUpperCase()}</span>
       </div>
     </div>
 );
-
 const Field = ({ label, value, onChange }) => (
-  <div style={{ marginBottom: '20px' }}>
-    <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '10px' }}>{label}</label>
-    <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: '15px', color: '#111827' }} />
+  <div style={{ marginBottom: '15px' }}>
+    <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
+    <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px' }} />
   </div>
 );
-
 const AreaField = ({ label, value, onChange }) => (
-  <div style={{ marginBottom: '20px' }}>
-    <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '10px' }}>{label}</label>
-    <textarea value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: '15px', color: '#111827', minHeight: '80px', resize: 'none', lineHeight: 1.5 }} />
+  <div style={{ marginBottom: '15px' }}>
+    <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
+    <textarea value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', minHeight: '60px', resize: 'none' }} />
   </div>
 );
-
 const Toast = ({ message }) => (
-    <div style={{ position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)', background: '#111827', color: '#FFF', padding: '16px 32px', borderRadius: '50px', fontWeight: '700', zIndex: 9999, boxShadow: '0 10px 25px rgba(0,0,0,0.2)', animation: 'fadeInUp 0.3s ease-out' }}>
+    <div style={{ position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', background: '#111827', color: '#FFF', padding: '12px 24px', borderRadius: '50px', fontWeight: '600', zIndex: 9999 }}>
       ✅ {message}
-      <style>{`@keyframes fadeInUp { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }`}</style>
     </div>
 );
