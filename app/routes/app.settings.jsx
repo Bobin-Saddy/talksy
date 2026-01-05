@@ -267,7 +267,7 @@ export default function UltimateSettings() {
 
           {/* Launcher Button Preview */}
           <div style={{ marginTop: '20px', width: '60px', height: '60px', borderRadius: '50%', background: formState.primaryColor, color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-            <div style={{ background: '#fff', borderRadius: '50%', padding: formState.launcherIcon === 'custom' ? '0' : '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ borderRadius: '50%', padding: formState.launcherIcon === 'custom' ? '0' : '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {ICON_MAP[formState.launcherIcon]}
             </div>
           </div>
