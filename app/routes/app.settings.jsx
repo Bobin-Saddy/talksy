@@ -292,7 +292,7 @@ const Card = ({ title, children }) => (
     </div>
 );
 const IconButton = ({ children, active, onClick }) => (
-    <div onClick={onClick} style={{ width: '56px', height: '56px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2.5px solid #4F46E5' : '1.5px solid #E5E7EB', background: '#FFF' }}>
+    <div onClick={onClick} style={{ width: '56px', height: '56px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2.5px solid #FFF' : '1.5px solid #E5E7EB', background: '#FFF' }}>
       {children}
     </div>
 );
