@@ -205,7 +205,6 @@
 </style>
 
 <script>
-// (All your Javascript remains exactly the same as provided in your prompt)
 (() => {
   const shop = "{{ shop.permanent_domain }}";
   const BASE_URL = "https://talksy-production-322d.up.railway.app"; 
@@ -215,34 +214,33 @@
   const msgBox = document.getElementById("chat-messages");
   let selectedImage = null;
   let pollingInterval = null; 
+  let lastMessageId = null; // Track last message ID to prevent lag
 
   function validateName(name) {
     const trimmed = name.trim();
     if (trimmed.length < 2) return { valid: false, error: "Name must be at least 2 characters" };
-    if (trimmed.length > 50) return { valid: false, error: "Name is too long" };
-    if (!/^[a-zA-Z\s'-]+$/.test(trimmed)) return { valid: false, error: "Name can only contain letters" };
+    if (!/^[a-zA-Z\s'-]+$/.test(trimmed)) return { valid: false, error: "Letters only please" };
     return { valid: true, error: "" };
   }
 
   function validateEmail(email) {
     const trimmed = email.trim();
-    if (!trimmed) return { valid: false, error: "Email is required" };
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmed)) return { valid: false, error: "Please enter a valid email address" };
+    if (!emailRegex.test(trimmed)) return { valid: false, error: "Invalid email" };
     return { valid: true, error: "" };
   }
 
   function showError(inputId, errorId, errorMessage) {
     const input = document.getElementById(inputId);
     const errorSpan = document.getElementById(errorId);
-    if(input) input.classList.add('error');
+    if(input) input.style.borderColor = "#ff4d4d";
     if(errorSpan) errorSpan.textContent = errorMessage;
   }
 
   function clearError(inputId, errorId) {
     const input = document.getElementById(inputId);
     const errorSpan = document.getElementById(errorId);
-    if(input) input.classList.remove('error');
+    if(input) input.style.borderColor = "#e5e7eb";
     if(errorSpan) errorSpan.textContent = '';
   }
 
@@ -251,101 +249,43 @@
       bubble: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`,
       support: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
       sparkle: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`,
-      send: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
-      custom: `<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:76px; height:74px; margin-top:11px;" />`
+      send: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`
     };
 
     try {
       const response = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
       if (!response.ok) return;
       const s = await response.json();
-      
       if (s) {
-        if (s.fontFamily) document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
-        if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
-
-        // Keep launcher background white even if settings try to change it
-        if(launcher) {
-            launcher.style.background = "#ffffff";
-            launcher.style.color = s.primaryColor;
-        }
-
+        if(launcher) { launcher.style.color = s.primaryColor; }
         const header = document.getElementById("chat-header");
-        const hero = document.getElementById("home-hero-bg");
         if(header) header.style.background = s.headerBgColor;
-        if(hero) hero.style.background = s.heroBgColor;
-
-        ["chat-send", "chat-submit-info", "send-image-btn"].forEach(id => {
-          const el = document.getElementById(id);
-          if(el) el.style.background = s.primaryColor;
-        });
-
-        const titleText = document.getElementById("header-title-text");
-        if(titleText) { titleText.innerText = s.headerTitle || "Live Support"; titleText.style.color = s.headerTextColor; }
-        const welcomeH1 = document.getElementById("welcome-h1");
-        if(welcomeH1) { welcomeH1.innerText = s.welcomeText || "Hi there 👋"; welcomeH1.style.color = s.heroTextColor; }
-        const welcomeP = document.getElementById("welcome-p");
-        if(welcomeP) { welcomeP.innerText = s.welcomeSubtext || "We are here to help you!"; welcomeP.style.color = s.heroTextColor; }
-        const cardTitle = document.getElementById("card-msg-text");
-        const cardSub = document.getElementById("card-reply-time");
-        if(cardTitle) { cardTitle.innerText = s.startConversationText || "Send us a message"; cardTitle.style.color = s.cardTitleColor; }
-        if(cardSub) { cardSub.innerText = s.replyTimeText || "Typically replies in 5 minutes"; cardSub.style.color = s.cardSubtitleColor; }
-        const onboardingTitle = document.getElementById("onboarding-title");
-        const onboardingSub = document.getElementById("onboarding-p");
-        if(onboardingTitle) { onboardingTitle.innerText = s.onboardingTitle || "Start a conversation"; onboardingTitle.style.color = s.onboardingTextColor; }
-        if(onboardingSub) { onboardingSub.innerText = s.onboardingSubtitle || "Please provide your details to begin."; onboardingSub.style.color = s.onboardingTextColor; }
-
         const launcherIconContainer = document.getElementById("launcher-icon");
-        if(launcherIconContainer) { launcherIconContainer.innerHTML = ICON_MAP[s.launcherIcon] || ICON_MAP['custom']; }
-        if(s.welcomeImg) { const avatar = document.getElementById("main-support-avatar"); if(avatar) avatar.src = s.welcomeImg; }
+        if(launcherIconContainer) { launcherIconContainer.innerHTML = ICON_MAP[s.launcherIcon] || ICON_MAP['bubble']; }
       }
-    } catch (e) { console.error("Settings sync failed", e); }
+    } catch (e) { console.error("Settings failed", e); }
   }
-
-  function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    const targetTab = document.getElementById(`tab-${tabId}`);
-    const targetNav = document.querySelector(`[data-tab="${tabId}"]`);
-    if(targetTab) targetTab.style.display = 'flex';
-    if(targetNav) targetNav.classList.add('active');
-  }
-
-  if(launcher) {
-    launcher.addEventListener('click', () => {
-      const isVisible = widget.classList.contains("chat-visible");
-      widget.classList.toggle("chat-visible", !isVisible);
-      widget.classList.toggle("chat-hidden", isVisible);
-      const lIcon = document.getElementById("launcher-icon");
-      const cIcon = document.getElementById("close-launcher-icon");
-      if(lIcon) lIcon.style.display = isVisible ? "block" : "none";
-      if(cIcon) cIcon.style.display = isVisible ? "none" : "block";
-    });
-  }
-
-  const closeBtn = document.getElementById("chat-close");
-  if(closeBtn) closeBtn.onclick = () => launcher.click();
-  document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', () => switchTab(item.dataset.tab)); });
-  const startTrigger = document.getElementById('start-chat-trigger');
-  if(startTrigger) { startTrigger.addEventListener('click', () => { switchTab('chat'); loadMessages(); }); }
 
   const addMessageToUI = (m) => {
-    const msgId = `msg-${m.id || Date.now()}-${Math.random()}`;
+    const msgId = `msg-${m.id}`;
     if (document.getElementById(msgId)) return;
+
     const div = document.createElement("div");
     div.id = msgId;
     div.className = `msg ${m.sender}`;
     const isImg = m.fileUrl && (m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg)$/i) || m.fileUrl.startsWith('data:image'));
+    
     let contentHtml = `<div class="msg-content">${m.message || ""}`;
     if(m.fileUrl) {
       contentHtml += isImg 
-        ? `<img src="${m.fileUrl}" class="msg-image" style="max-width:100%; border-radius:8px; margin-top:5px; cursor:pointer;" onclick="window.open('${m.fileUrl}')" />`
-        : `<br><a href="${m.fileUrl}" target="_blank" style="font-size:12px; font-weight:bold; color:inherit; text-decoration:underline;">📎 Attachment</a>`;
+        ? `<img src="${m.fileUrl}" class="msg-image" style="max-width:100%; border-radius:8px; margin-top:5px;" onclick="window.open('${m.fileUrl}')" />`
+        : `<br><a href="${m.fileUrl}" target="_blank" style="font-size:11px; text-decoration:underline;">📎 File</a>`;
     }
     contentHtml += `</div>`;
-    const time = m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    div.innerHTML = `${contentHtml}<div class="msg-meta" style="font-size:9px; opacity:0.5; margin-top:2px; align-self:${m.sender === 'user' ? 'flex-end' : 'flex-start'}">${time}</div>`;
+    
+    const time = new Date(m.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    div.innerHTML = `${contentHtml}<div class="msg-meta" style="font-size:9px; opacity:0.5; margin-top:4px; text-align:${m.sender === 'user' ? 'right' : 'left'}">${time}</div>`;
     msgBox.appendChild(div);
     msgBox.scrollTop = msgBox.scrollHeight;
   };
@@ -358,28 +298,31 @@
       if (res.ok) {
         const data = await res.json();
         if (data.length === 0) return;
-        data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        const existingMessages = Array.from(msgBox.querySelectorAll('.msg-content')).map(el => el.innerText.trim());
-        data.forEach(m => { if (!existingMessages.includes(m.message?.trim())) { addMessageToUI(m); } });
+        
+        // Only update if there are new messages
+        const latest = data[data.length - 1];
+        if (latest.id !== lastMessageId) {
+          data.forEach(m => addMessageToUI(m));
+          lastMessageId = latest.id;
+        }
       }
-    } catch (e) {}
+    } catch (e) { console.log("Load error"); }
   }
 
-  const fNameEl = document.getElementById("chat-fname");
-  const emailEl = document.getElementById("chat-email");
-  if(fNameEl) { fNameEl.addEventListener('blur', (e) => { const v = validateName(e.target.value); if (e.target.value.trim() !== '' && !v.valid) showError('chat-fname', 'fname-error', v.error); else clearError('chat-fname', 'fname-error'); }); }
-  if(emailEl) { emailEl.addEventListener('blur', (e) => { const v = validateEmail(e.target.value); if (e.target.value.trim() !== '' && !v.valid) showError('chat-email', 'email-error', v.error); else clearError('chat-email', 'email-error'); }); }
+  const startPolling = () => {
+    if (pollingInterval) clearInterval(pollingInterval);
+    // Faster polling for better real-time feel
+    pollingInterval = setInterval(loadMessages, 3000); 
+  };
 
   const submitBtn = document.getElementById("chat-submit-info");
   if(submitBtn) {
     submitBtn.onclick = async () => {
-      const fname = fNameEl.value.trim();
-      const email = emailEl.value.trim();
-      const nv = validateName(fname);
-      const ev = validateEmail(email);
-      if (!nv.valid) return showError('chat-fname', 'fname-error', nv.error);
-      if (!ev.valid) return showError('chat-email', 'email-error', ev.error);
-      const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
+      const fname = document.getElementById("chat-fname").value.trim();
+      const email = document.getElementById("chat-email").value.trim();
+      if (!validateName(fname).valid || !validateEmail(email).valid) return;
+      
+      const sessionId = "sess_" + Date.now();
       try {
         const res = await fetch(`${BASE_URL}/app/chat/register`, {
           method: "POST",
@@ -391,7 +334,6 @@
           localStorage.setItem("chat_user_email", email);
           document.getElementById("chat-onboarding-step").style.display = "none";
           document.getElementById("chat-chat-step").style.display = "flex";
-          loadMessages();
           startPolling();
         }
       } catch (e) {}
@@ -403,25 +345,35 @@
     const sId = localStorage.getItem("chat_session");
     const email = localStorage.getItem("chat_user_email");
     if ((!text && !fileUrl) || !sId) return;
-    addMessageToUI({ sender: 'user', message: text, fileUrl, createdAt: new Date() });
+
     chatInput.value = "";
+    // Optimistic UI update
+    addMessageToUI({ id: Date.now(), sender: 'user', message: text, fileUrl, createdAt: new Date() });
+
     try {
       await fetch(`${BASE_URL}/app/chat/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: sId, message: text, shop, email, fileUrl })
       });
-    } catch (e) { console.error("Send failed", e); }
+      loadMessages(); // Instant check after sending
+    } catch (e) { console.error("Send failed"); }
   }
 
-  function startPolling() { if (pollingInterval) clearInterval(pollingInterval); pollingInterval = setInterval(loadMessages, 4000); }
+  if(launcher) {
+    launcher.onclick = () => {
+      widget.classList.toggle("chat-visible");
+      const isVisible = widget.classList.contains("chat-visible");
+      if(isVisible) { loadMessages(); startPolling(); }
+      else { clearInterval(pollingInterval); }
+    };
+  }
 
+  if(chatInput) chatInput.onkeypress = (e) => { if (e.key === "Enter") handleSend(); };
   const sendAction = document.getElementById("chat-send");
   if(sendAction) sendAction.onclick = () => handleSend();
-  if(chatInput) chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
-  
-  const fileTrigger = document.getElementById("file-btn");
-  if(fileTrigger) fileTrigger.onclick = () => document.getElementById("chat-file-input").click();
+
+  // File Upload Logic
   const fileInputEl = document.getElementById("chat-file-input");
   if(fileInputEl) {
     fileInputEl.onchange = (e) => {
@@ -430,39 +382,30 @@
       const reader = new FileReader();
       reader.onload = (ev) => {
         selectedImage = ev.target.result;
-        const prevImg = document.getElementById("image-preview");
-        const prevCont = document.getElementById("image-preview-container");
-        const footer = document.getElementById("chat-footer");
-        if(prevImg) prevImg.src = selectedImage;
-        if(prevCont) prevCont.style.display = "block";
-        if(footer) footer.style.display = "none";
+        document.getElementById("image-preview").src = selectedImage;
+        document.getElementById("image-preview-container").style.display = "block";
+        document.getElementById("chat-footer").style.display = "none";
       };
       reader.readAsDataURL(file);
-      e.target.value = '';
     };
   }
 
   const sendImageBtn = document.getElementById("send-image-btn");
-  if(sendImageBtn) { sendImageBtn.onclick = () => { if(selectedImage) { handleSend("", selectedImage); selectedImage = null; document.getElementById("image-preview-container").style.display = "none"; document.getElementById("chat-footer").style.display = "flex"; } }; }
-  const removeImageBtn = document.getElementById("remove-image-btn");
-  if(removeImageBtn) { removeImageBtn.onclick = () => { selectedImage = null; document.getElementById("image-preview-container").style.display = "none"; document.getElementById("chat-footer").style.display = "flex"; }; }
-
-  const emojiBtn = document.getElementById("emoji-btn");
-  const picker = document.getElementById("emoji-picker");
-  const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨"];
-  if(picker && emojiBtn) {
-    picker.innerHTML = emojis.map(e => `<span style="cursor:pointer; font-size: 18px; padding: 2px;">${e}</span>`).join("");
-    emojiBtn.onclick = () => picker.classList.toggle("hidden-picker");
-    picker.onclick = (e) => { if(e.target.tagName === 'SPAN') { chatInput.value += e.target.innerText; picker.classList.add("hidden-picker"); chatInput.focus(); } };
+  if(sendImageBtn) {
+    sendImageBtn.onclick = () => {
+      if(selectedImage) {
+        handleSend("", selectedImage);
+        selectedImage = null;
+        document.getElementById("image-preview-container").style.display = "none";
+        document.getElementById("chat-footer").style.display = "flex";
+      }
+    };
   }
 
   fetchAndApplySettings();
-  const session = localStorage.getItem("chat_session");
-  if (session) {
-    const onboarding = document.getElementById("chat-onboarding-step");
-    const chatActive = document.getElementById("chat-chat-step");
-    if(onboarding) onboarding.style.display = "none";
-    if(chatActive) chatActive.style.display = "flex";
+  if (localStorage.getItem("chat_session")) {
+    document.getElementById("chat-onboarding-step").style.display = "none";
+    document.getElementById("chat-chat-step").style.display = "flex";
     loadMessages();
     startPolling();
   }
