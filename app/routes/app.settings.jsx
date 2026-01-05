@@ -1,324 +1,272 @@
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useActionData } from "react-router";
-import { useState, useEffect, useRef } from "react";
-import { authenticate } from "../shopify.server";
+import { useLoaderData, useFetcher } from "react-router";
+import { useState, useEffect, useRef, useMemo } from "react";
 import prisma from "../db.server";
+import { authenticate } from "../shopify.server";
 
-const ICON_MAP = {
-  bubble: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
-  send: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
-  custom: <img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" alt="custom" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+// --- ICONS SET ---
+const Icons = {
+  Send: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>,
+  Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
+  User: ({ size = 20 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>,
+  Clock: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
+  Store: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>,
+  Paperclip: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>,
+  Smile: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>,
+  X: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" i1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+  FileText: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
 };
-
-const FONT_OPTIONS = [
-  { label: "System Default", value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
-  { label: "Inter", value: "'Inter', sans-serif" },
-  { label: "Poppins", value: "'Poppins', sans-serif" },
-  { label: "Montserrat", value: "'Montserrat', sans-serif" },
-  { label: "Playfair Display", value: "'Playfair Display', serif" },
-  { label: "monospace", value: "ui-monospace, SFMono-Regular, monospace" }
-];
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
-  const settings = await prisma.chatSettings.findUnique({ where: { shop: session.shop } });
-  
-  const defaults = {
-    primaryColor: "#4F46E5",
-    headerBgColor: "#384959",
-    heroBgColor: "#bdddfc",
-    headerTextColor: "#bdddfc",
-    heroTextColor: "#384959",
-    cardTitleColor: "#384959",
-    cardSubtitleColor: "#64748b",
-    onboardingTextColor: "#384959",
-    welcomeImg: "https://ui-avatars.com/api/?name=Support&background=fff&color=4F46E5",
-    headerTitle: "Live Support",
-    headerSubtitle: "Online now",
-    welcomeText: "Hi there 👋",
-    welcomeSubtext: "We are here to help you! Ask us anything.",
-    replyTimeText: "Typically replies in 5 minutes",
-    startConversationText: "Send us a message",
-    onboardingTitle: "Start a conversation",
-    onboardingSubtitle: "Please provide your details to begin.",
-    launcherIcon: "custom",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    baseFontSize: "15px"
-  };
+  const shop = session.shop;
+  if (!shop) throw new Response("Unauthorized", { status: 401 });
 
-  return json(settings ? { ...defaults, ...settings } : defaults);
-};
-
-export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
-  const formData = await request.formData();
-  
-  // Explicitly mapping each field to ensure Prisma picks it up
-  const data = {
-    shop: session.shop,
-    primaryColor: formData.get("primaryColor"),
-    headerBgColor: formData.get("headerBgColor"),
-    heroBgColor: formData.get("heroBgColor"),
-    headerTextColor: formData.get("headerTextColor"),
-    heroTextColor: formData.get("heroTextColor"),
-    cardTitleColor: formData.get("cardTitleColor"),
-    cardSubtitleColor: formData.get("cardSubtitleColor"),
-    onboardingTextColor: formData.get("onboardingTextColor"),
-    welcomeImg: formData.get("welcomeImg"),
-    headerTitle: formData.get("headerTitle"),
-    headerSubtitle: formData.get("headerSubtitle"),
-    welcomeText: formData.get("welcomeText"),
-    welcomeSubtext: formData.get("welcomeSubtext"),
-    replyTimeText: formData.get("replyTimeText"),
-    startConversationText: formData.get("startConversationText"),
-    onboardingTitle: formData.get("onboardingTitle"),
-    onboardingSubtitle: formData.get("onboardingSubtitle"),
-    launcherIcon: formData.get("launcherIcon"),
-    fontFamily: formData.get("fontFamily"),
-    baseFontSize: formData.get("baseFontSize"),
-  };
-  
-  await prisma.chatSettings.upsert({
-    where: { shop: session.shop },
-    update: data,
-    create: data,
+  const sessions = await prisma.chatSession.findMany({
+    where: { shop: shop },
+    include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
+    orderBy: { createdAt: "desc" }
   });
-  
-  return json({ success: true });
+  return json({ sessions, currentShop: shop });
 };
 
-export default function UltimateSettings() {
-  const settings = useLoaderData();
-  const actionData = useActionData();
-  const submit = useSubmit();
-  const navigation = useNavigation();
-  
-  const [formState, setFormState] = useState(settings);
-  const [activeTab, setActiveTab] = useState('style');
-  const [toast, setToast] = useState(false);
+export default function NeuralChatAdmin() {
+  const { sessions, currentShop } = useLoaderData();
+  const [activeSession, setActiveSession] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [reply, setReply] = useState("");
+  const [accentColor] = useState("#8b5e3c"); 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedImage, setSelectedImage] = useState(null); 
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [liveLocation, setLiveLocation] = useState({ city: "Detecting...", country: "", flag: "" });
+
+  const fetcher = useFetcher();
+  const scrollRef = useRef(null);
   const fileInputRef = useRef(null);
+  const audioRef = useRef(null);
+  const lastMessageIdRef = useRef(null);
 
-  // Sync form state when loader data changes (after save)
+  const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
+
+  // Initialize Sound and Request Notification Permission
   useEffect(() => {
-    if (settings) {
-      setFormState(settings);
+    audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
+    if ("Notification" in window && Notification.permission !== "granted") {
+      Notification.requestPermission();
     }
-  }, [settings]);
+  }, []);
 
-  useEffect(() => { 
-    if (actionData?.success) { 
-      setToast(true); 
-      setTimeout(() => setToast(false), 3000); 
-    } 
-  }, [actionData]);
-
-  const handleChange = (f, v) => setFormState(p => ({ ...p, [f]: v }));
-  
-  const handleImageUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => handleChange('welcomeImg', reader.result);
-      reader.readAsDataURL(file);
+  const fetchUserLocation = async () => {
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      const data = await res.json();
+      setLiveLocation({
+        city: data.city || "Unknown",
+        country: data.country_name || "Private Network",
+        flag: `https://flagcdn.com/w40/${data.country_code?.toLowerCase()}.png`
+      });
+    } catch (e) {
+      setLiveLocation({ city: "Not Available", country: "Secured", flag: "" });
     }
   };
 
-  const handleSave = () => {
-    const formData = new FormData();
-    Object.entries(formState).forEach(([key, value]) => {
-      formData.append(key, value);
-    });
-    submit(formData, { method: "POST" });
+  const filteredSessions = useMemo(() => {
+    return sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [sessions, searchTerm]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages]);
+
+  // Polling with Sound & Popup Notification Logic
+  useEffect(() => {
+    if (!activeSession) return;
+    const interval = setInterval(async () => {
+      const res = await fetch(`/app/chat/messages?sessionId=${activeSession.sessionId}`);
+      const data = await res.json();
+      
+      if (data.length > 0) {
+        const latestMsg = data[data.length - 1];
+        if (latestMsg.id !== lastMessageIdRef.current) {
+          // If it's a new message from User
+          if (latestMsg.sender === "user" && lastMessageIdRef.current !== null) {
+            audioRef.current?.play().catch(() => {});
+            if (Notification.permission === "granted") {
+              new Notification(`New message from ${activeSession.email}`, { body: latestMsg.message });
+            }
+          }
+          lastMessageIdRef.current = latestMsg.id;
+          setMessages(data);
+        }
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [activeSession]);
+
+  const loadChat = async (session) => {
+    setActiveSession(session);
+    fetchUserLocation();                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+    const res = await fetch(`/app/chat/messages?sessionId=${session.sessionId}`);
+    const data = await res.json();
+    if (data.length > 0) lastMessageIdRef.current = data[data.length - 1].id;
+    setMessages(data);
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => handleReply(`Sent file: ${file.name}`, reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleReply = (text = null, fileUrl = null) => {
+    const finalMsg = text || reply;
+    if ((!finalMsg.trim() && !fileUrl) || !activeSession) return;
+    
+    const newMessage = { 
+      message: finalMsg, sender: "admin", createdAt: new Date().toISOString(), 
+      sessionId: activeSession.sessionId, shop: currentShop, fileUrl: fileUrl || null 
+    };
+
+    setMessages(prev => [...prev, newMessage]);
+    lastMessageIdRef.current = "admin-reply"; 
+    setReply("");
+    setShowEmojiPicker(false);
+    fetcher.submit(JSON.stringify(newMessage), { method: "post", action: "/app/chat/message", encType: "application/json" });
   };
 
   return (
-    <div style={{ background: '#F3F4F6', minHeight: '100vh', display: 'flex', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 40px)', width: 'calc(100vw - 40px)', backgroundColor: '#fff', margin: '20px', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.1)', border: '1px solid #eee', color: '#433d3c', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
       
-      {/* NAVIGATION */}
-      <div style={{ width: '100px', background: '#F9FAFB', borderRight: '1px solid #E5E7EB', padding: '30px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
- 
+      {/* --- IMAGE LIGHTBOX --- */}
+      {selectedImage && (
+        <div onClick={() => setSelectedImage(null)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(26, 22, 21, 0.95)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}>
+          <img src={selectedImage} style={{ maxWidth: '85%', maxHeight: '85%', borderRadius: '16px' }} alt="Preview" />
+        </div>
+      )}
+
+      {/* 1. SIDEBAR: Inbox */}
+      <div style={{ width: '380px', borderRight: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', background: '#fcfaf8' }}>
+        <div style={{ padding: '32px 24px' }}>
+          <h2 style={{ fontSize: '28px', fontWeight: '900', color: '#1a1615' }}>Messages</h2>
+        </div>
         
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <NavIcon active={activeTab === 'style'} onClick={() => setActiveTab('style')} icon="🎨" title="Style" />
-          <NavIcon active={activeTab === 'content'} onClick={() => setActiveTab('content')} icon="🌐" title="Content" />
-          <NavIcon active={activeTab === 'typography'} onClick={() => setActiveTab('typography')} icon="Aa" title="Fonts" />
-        </nav>
-      </div>
-
-      {/* CONFIGURATION */}
-      <div style={{ flex: 1, padding: '40px 50px' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827' }}>
-            {activeTab === 'style' && 'Appearance'}
-            {activeTab === 'content' && 'Translations'}
-            {activeTab === 'typography' && 'Typography'}
-          </h1>
-          <button onClick={handleSave} style={{ padding: '12px 28px', background: '#111827', color: '#FFF', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', border: 'none' }}>
-            {navigation.state === "submitting" ? "Syncing..." : "Save & Publish"}
-          </button>
-        </header>
-
-        {activeTab === 'style' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <Card title="Launcher Icon">
-              <div style={{ display: 'flex', gap: '12px' }}>
-                {Object.keys(ICON_MAP).map(key => (
-                  <IconButton key={key} active={formState.launcherIcon === key} onClick={() => handleChange('launcherIcon', key)}>
-                    {ICON_MAP[key]}
-                  </IconButton>
-                ))}
-              </div>
-            </Card>
-
-            <Card title="Brand Assets">
-               <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Support Avatar</label>
-               <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
-                 <img src={formState.welcomeImg} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover', border: '1px solid #E5E7EB' }} alt="Avatar" />
-                 <button onClick={() => fileInputRef.current.click()} style={{ padding: '8px 16px', background: '#FFF', border: '1px solid #D1D5DB', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Upload New Image</button>
-                 <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" style={{ display: 'none' }} />
-               </div>
-
-               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
-                <ColorBox label="Primary Color" value={formState.primaryColor} onChange={(v) => handleChange('primaryColor', v)} />
-                <ColorBox label="Header BG" value={formState.headerBgColor} onChange={(v) => handleChange('headerBgColor', v)} />
-                <ColorBox label="Banner BG" value={formState.heroBgColor} onChange={(v) => handleChange('heroBgColor', v)} />
-              </div>
-            </Card>
-
-            <Card title="UI Text Colors">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
-                <ColorBox label="Header Text" value={formState.headerTextColor} onChange={(v) => handleChange('headerTextColor', v)} />
-                <ColorBox label="Banner Text" value={formState.heroTextColor} onChange={(v) => handleChange('heroTextColor', v)} />
-                <ColorBox label="Card Title" value={formState.cardTitleColor} onChange={(v) => handleChange('cardTitleColor', v)} />
-                <ColorBox label="Card Subtitle" value={formState.cardSubtitleColor} onChange={(v) => handleChange('cardSubtitleColor', v)} />
-                <ColorBox label="Onboarding Text" value={formState.onboardingTextColor} onChange={(v) => handleChange('onboardingTextColor', v)} />
-              </div>
-            </Card>
+        <div style={{ padding: '0 24px 24px' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <span style={{ position: 'absolute', left: '16px', color: '#a8a29e' }}><Icons.Search /></span>
+            <input placeholder="Search inbox..." style={{ width: '100%', padding: '14px 48px', borderRadius: '16px', border: '1px solid #e5e7eb', outline: 'none', fontSize: '14px' }} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
-        )}
+        </div>
 
-        {activeTab === 'typography' && (
-          <Card title="Font Style">
-              <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Font Family</label>
-              <select value={formState.fontFamily} onChange={(e) => handleChange('fontFamily', e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', background: '#FFF' }}>
-                {FONT_OPTIONS.map(font => <option key={font.value} value={font.value}>{font.label}</option>)}
-              </select>
-              <div style={{ marginTop: '20px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Base Font Size: {formState.baseFontSize}</label>
-                <input type="range" min="12" max="20" value={parseInt(formState.baseFontSize)} onChange={(e) => handleChange('baseFontSize', `${e.target.value}px`)} style={{ width: '100%', cursor: 'pointer', accentColor: '#4F46E5' }} />
-              </div>
-          </Card>
-        )}
-
-        {activeTab === 'content' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <Card title="Header & Hero Content">
-               <Field label="Header Title" value={formState.headerTitle} onChange={(v) => handleChange('headerTitle', v)} />
-               <Field label="Header Subtitle" value={formState.headerSubtitle} onChange={(v) => handleChange('headerSubtitle', v)} />
-               <Field label="Hero Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
-               <AreaField label="Hero Subtext" value={formState.welcomeSubtext} onChange={(v) => handleChange('welcomeSubtext', v)} />
-            </Card>
-            <Card title="Conversation & Onboarding">
-               <Field label="Action Card Title" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
-               <Field label="Reply Time Text" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
-               <Field label="Onboarding Title" value={formState.onboardingTitle} onChange={(v) => handleChange('onboardingTitle', v)} />
-               <AreaField label="Onboarding Subtitle" value={formState.onboardingSubtitle} onChange={(v) => handleChange('onboardingSubtitle', v)} />
-            </Card>
-          </div>
-        )}
-      </div>
-
-      {/* LIVE PREVIEW SECTION */}
-      <div style={{ width: '450px', padding: '40px', background: '#F9FAFB', borderLeft: '1px solid #E5E7EB', position: 'sticky', top: 0, height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ marginBottom: '20px', fontSize: '12px', fontWeight: '800', color: '#9CA3AF' }}>PREVIEW</div>
-          
-          <div style={{ width: '350px', height: '620px', background: '#FFF', borderRadius: '28px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.1)', fontFamily: formState.fontFamily }}>
-            {/* Header */}
-            <div style={{ background: formState.headerBgColor, padding: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <img src={formState.welcomeImg} style={{ width: '40px', height: '40px', borderRadius: '12px', objectFit: 'cover' }} alt="avatar" />
-                <div>
-                    <div style={{ fontWeight: '700', color: formState.headerTextColor, fontSize: formState.baseFontSize }}>{formState.headerTitle}</div>
-                    <div style={{ fontSize: '12px', color: formState.headerTextColor, opacity: 0.8 }}>{formState.headerSubtitle}</div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
+          {filteredSessions.map(session => (
+            <div key={session.sessionId} onClick={() => loadChat(session)} style={{ position: 'relative', padding: '16px', borderRadius: '20px', cursor: 'pointer', marginBottom: '8px', background: activeSession?.sessionId === session.sessionId ? '#fff' : 'transparent', border: activeSession?.sessionId === session.sessionId ? '1px solid #f0f0f0' : '1px solid transparent' }}>
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: activeSession?.sessionId === session.sessionId ? accentColor : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: activeSession?.sessionId === session.sessionId ? 'white' : '#9d9489' }}>
+                  <Icons.User size={24} />
                 </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '700', fontSize: '15px' }}>{session.email?.split('@')[0]}</div>
+                  <div style={{ fontSize: '13px', color: '#78716c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{session.messages[0]?.message || "New Conversation"}</div>
+                </div>
+                {/* Visual Alert Badge */}
+                {session.messages[0]?.sender === "user" && activeSession?.sessionId !== session.sessionId && (
+                  <div style={{ width: '10px', height: '10px', background: '#ef4444', borderRadius: '50%', boxShadow: '0 0 10px #ef4444' }}></div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 2. MAIN CHAT AREA */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
+        {activeSession ? (
+          <>
+            <div style={{ padding: '24px 40px', borderBottom: '1px solid #f0f0f0' }}>
+                <h3 style={{ margin: 0, fontWeight: '800', fontSize: '20px' }}>{activeSession.email}</h3>
             </div>
 
-            <div style={{ flex: 1, background: '#f8fafc', overflowY: 'auto' }}>
-                {/* Hero Section */}
-                <div style={{ background: formState.heroBgColor, padding: '40px 25px', color: formState.heroTextColor }}>
-                    <h1 style={{ fontSize: '24px', fontWeight: '700', margin: '0 0 10px 0' }}>{formState.welcomeText}</h1>
-                    <p style={{ fontSize: formState.baseFontSize, opacity: 0.9 }}>{formState.welcomeSubtext}</p>
-                </div>
+            <div ref={scrollRef} style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px', background: '#faf9f8' }}>
+              {messages.map((msg, i) => {
+                const isAdmin = msg.sender === 'admin';
+                const isImg = msg.fileUrl && !msg.fileUrl.includes("pdf");
+                const isPdf = msg.fileUrl && msg.fileUrl.includes("pdf");
                 
-                {/* Conversation Card */}
-                <div style={{ background: '#FFF', margin: '-30px 20px 15px', padding: '15px', borderRadius: '16px', boxShadow: '0 10px 20px rgba(0,0,0,0.05)', border: `1.5px solid #f1f5f9` }}>
-                    <div>
-                      <div style={{ fontWeight: '700', color: formState.cardTitleColor }}>{formState.startConversationText}</div>
-                      <div style={{ fontSize: '12px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
+                return (
+                  <div key={i} style={{ alignSelf: isAdmin ? 'flex-end' : 'flex-start', maxWidth: '70%' }}>
+                    <div style={{ 
+                      padding: (isImg || isPdf) ? '12px' : '16px 20px', borderRadius: isAdmin ? '24px 24px 4px 24px' : '24px 24px 24px 4px',
+                      background: isAdmin ? accentColor : '#fff', color: isAdmin ? '#fff' : '#433d3c',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: isAdmin ? 'none' : '1px solid #f0f0f0'
+                    }}>
+                      {isImg ? (
+                        <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '100%', borderRadius: '14px', cursor: 'zoom-in' }} />
+                      ) : isPdf ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <Icons.FileText /> <a href={msg.fileUrl} download style={{ color: isAdmin ? '#fff' : accentColor }}>Download PDF</a>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '15px' }}>{msg.message}</div>
+                      )}
                     </div>
-                </div>
-
-                {/* Onboarding Preview */}
-                <div style={{ padding: '20px', textAlign: 'center' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: '700', color: formState.onboardingTextColor, marginBottom: '5px' }}>{formState.onboardingTitle}</h3>
-                    <p style={{ fontSize: '13px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</p>
-                </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
 
-          {/* Launcher Button Preview */}
-          <div style={{ marginTop: '20px', width: '60px', height: '60px', borderRadius: '50%', background: '#FFF', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-            <div style={{ borderRadius: '50%', padding: formState.launcherIcon === 'custom' ? '0' : '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {ICON_MAP[formState.launcherIcon]}
+            <div style={{ padding: '30px 40px', background: '#fff', borderTop: '1px solid #f0f0f0', position: 'relative' }}>
+              {showEmojiPicker && (
+                <div style={{ position: 'absolute', bottom: '100px', left: '40px', background: '#fff', padding: '16px', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', zIndex: 100 }}>
+                  {emojis.map(e => (
+                    <button key={e} onClick={() => setReply(r => r + e)} style={{ fontSize: '22px', border: 'none', background: 'none', cursor: 'pointer' }}>{e}</button>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', background: '#f8f7f6', borderRadius: '20px', padding: '8px 10px', border: '1px solid #eee' }}>
+                <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
+                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a8a29e' }}><Icons.Smile /></button>
+                <button onClick={() => fileInputRef.current.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a8a29e' }}><Icons.Paperclip /></button>
+                <input placeholder="Type your response..." style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '15px', padding: '0 15px' }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleReply()} />
+                <button onClick={() => handleReply()} style={{ width: '48px', height: '48px', borderRadius: '16px', background: accentColor, border: 'none', color: 'white', cursor: 'pointer' }}><Icons.Send /></button>
+              </div>
             </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#d1cfcd' }}>
+            <Icons.User size={100} /><p>Select a chat to begin inquiry logic</p>
           </div>
+        )}
       </div>
 
-      {toast && <Toast message="Settings Saved Successfully!" />}
+      {/* 3. INTELLIGENCE PANEL */}
+      <div style={{ width: '340px', padding: '32px 24px', background: '#fff', borderLeft: '1px solid #f0f0f0' }}>
+         <h4 style={{ fontSize: '12px', fontWeight: '900', color: '#a8a29e', textTransform: 'uppercase', letterSpacing: '1px' }}>Intelligence Hub</h4>
+         {activeSession ? (
+           <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ padding: '24px', background: '#f0f9ff', borderRadius: '24px' }}>
+                <div style={{ fontSize: '10px', color: '#0369a1', fontWeight: '900' }}>VISITOR LOCATION</div>
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginTop: '12px' }}>
+                  {liveLocation.flag && <img src={liveLocation.flag} width="35" style={{ borderRadius: '4px' }} />}
+                  <span style={{ fontWeight: '800' }}>{liveLocation.city}</span>
+                </div>
+              </div>
+              <div style={{ padding: '20px', background: '#f8f7f6', borderRadius: '24px' }}>
+                <div style={{ fontSize: '10px', color: '#a8a29e', fontWeight: '800' }}>VISITOR LOCAL TIME</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px', fontWeight: '700' }}>
+                  <Icons.Clock /> {new Date().toLocaleTimeString()}
+                </div>
+              </div>
+           </div>
+         ) : <div style={{ textAlign: 'center', marginTop: '50px', color: '#ccc' }}>Waiting for session...</div>}
+      </div>
+
+      <style>{`
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+      `}</style>
     </div>
   );
 }
-
-// Sub-components
-const NavIcon = ({ active, icon, title, onClick }) => (
-    <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', opacity: active ? 1 : 0.5, transition: '0.2s', marginBottom: '20px' }}>
-        <div style={{ fontSize: '24px', background: active ? '#F3F4F6' : 'transparent', width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>{icon}</div>
-        <div style={{ fontSize: '10px', fontWeight: '700', marginTop: '5px', color: '#4B5563' }}>{title}</div>
-    </div>
-);
-const Card = ({ title, children }) => (
-    <div style={{ background: '#FFF', padding: '24px', borderRadius: '16px', border: '1px solid #E5E7EB', marginBottom: '10px' }}>
-      <h3 style={{ fontSize: '11px', fontWeight: '800', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase' }}>{title}</h3>
-      {children}
-    </div>
-);
-const IconButton = ({ children, active, onClick }) => (
-    <div onClick={onClick} style={{ width: '56px', height: '56px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2.5px solid #4F46E5' : '1.5px solid #E5E7EB', background: '#FFF' }}>
-      {children}
-    </div>
-);
-const ColorBox = ({ label, value, onChange }) => (
-    <div>
-      <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#F9FAFB', padding: '8px', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
-        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ border: 'none', background: 'none', width: '25px', height: '25px', cursor: 'pointer' }} />
-        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{value?.toUpperCase()}</span>
-      </div>
-    </div>
-);
-const Field = ({ label, value, onChange }) => (
-  <div style={{ marginBottom: '15px' }}>
-    <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
-    <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px' }} />
-  </div>
-);
-const AreaField = ({ label, value, onChange }) => (
-  <div style={{ marginBottom: '15px' }}>
-    <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
-    <textarea value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', minHeight: '60px', resize: 'none' }} />
-  </div>
-);
-const Toast = ({ message }) => (
-    <div style={{ position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', background: '#111827', color: '#FFF', padding: '12px 24px', borderRadius: '50px', fontWeight: '600', zIndex: 9999 }}>
-      ✅ {message}
-    </div>
-);
