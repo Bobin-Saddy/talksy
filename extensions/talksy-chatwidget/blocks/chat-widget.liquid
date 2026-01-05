@@ -31,7 +31,6 @@
       <h1 id="welcome-h1">Hi there 👋</h1>
       <p id="welcome-p">We are here to help you! Ask us anything.</p>
     </div>
-    
     <div class="home-card" id="start-chat-trigger">
       <div class="card-text">
         <strong id="card-msg-text">Send us a message</strong>
@@ -109,7 +108,7 @@
 
 #chat-widget * { box-sizing: border-box; font-family: var(--chat-font-family) !important; }
 
-/* LAUNCHER: Focused centering and size control */
+/* LAUNCHER STYLES */
 #chat-launcher { 
   position: fixed; 
   bottom: 25px; 
@@ -119,39 +118,36 @@
   border-radius: 50%; 
   background: #ffffff !important; 
   color: var(--chat-primary) !important; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
+  display: flex !important; 
+  align-items: center !important; 
+  justify-content: center !important; 
   cursor: pointer; 
   z-index: 999999; 
   box-shadow: 0 10px 30px rgba(0,0,0,0.18); 
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-  overflow: hidden; /* Ensures custom images stay within the circle */
+  overflow: hidden;
 }
 
 #launcher-icon, #close-launcher-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   width: 100%;
   height: 100%;
+  flex-shrink: 0;
 }
 
-/* Custom Image sizing to ensure centering */
-#launcher-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+#chat-launcher svg, #chat-launcher img {
+  display: block;
+  flex-shrink: 0;
 }
 
 #chat-launcher:hover { transform: scale(1.1); }
 
-/* WIDGET BASE */
+/* WIDGET STYLES */
 #chat-widget { position: fixed; bottom: 100px; right: 25px; width: 370px; height: 600px; max-height: calc(100vh - 130px); background: #ffffff; border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.15); z-index: 999998; transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); border: 1px solid rgba(0,0,0,0.05); font-size: var(--chat-base-size); }
 .chat-hidden { opacity: 0; transform: translateY(20px) scale(0.95); pointer-events: none; }
 .chat-visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: all; }
-
-/* HEADER */
 #chat-header { padding: 20px; color: #fff; display: flex; justify-content: space-between; align-items: center; background: var(--chat-primary); flex-shrink: 0; }
 .header-content { display: flex; align-items: center; gap: 12px; }
 .avatar-stack { position: relative; width: 40px; height: 40px; }
@@ -162,20 +158,16 @@
 .pulse { display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse-animation 2s infinite; }
 @keyframes pulse-animation { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
 #chat-close { background: none; border: none; color: inherit; cursor: pointer; padding: 5px; opacity: 0.8; }
-
 .tab-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
 .step-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
 .home-hero { padding: 30px 20px 60px; background: var(--chat-primary); color: #fff; text-align: left; }
 .home-hero h1 { font-size: 1.8em; margin: 0 0 8px; font-weight: 700; }
 .home-hero p { font-size: 0.95em; opacity: 0.9; margin: 0; line-height: 1.4; }
-
 .home-card { background: white; margin: -30px 15px 15px; padding: 18px; border-radius: 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 10px 25px rgba(0,0,0,0.06); cursor: pointer; border: 1px solid #f0f0f0; transition: transform 0.2s; }
 .home-card:hover { transform: translateY(-2px); }
 .card-text strong { display: block; font-size: 0.95em; margin-bottom: 2px; }
 .card-text span { font-size: 0.8em; color: #64748b; }
 .card-arrow { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-
 .welcome-card { padding: 30px 20px; text-align: center; }
 .welcome-card h3 { margin-bottom: 8px; font-size: 1.2em; font-weight: 700; }
 .welcome-card p { margin-bottom: 20px; font-size: 0.9em; opacity: 0.7; }
@@ -187,7 +179,6 @@
 .error-message { display: block; color: #ef4444; font-size: 11px; margin-top: 4px; text-align: left; min-height: 14px; font-weight: 500; }
 .input-group button { padding: 13px; border: none; border-radius: 12px; color: #fff; font-weight: 700; cursor: pointer; transition: all 0.3s; font-size: 0.95em; margin-top: 5px; }
 .input-group button:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-
 #chat-messages { flex: 1; overflow-y: auto; padding: 15px; background: #f8fafc; display: flex; flex-direction: column; gap: 12px; }
 .msg { max-width: 85%; display: flex; flex-direction: column; }
 .msg.user { align-self: flex-end; }
@@ -195,23 +186,19 @@
 .msg-content { padding: 10px 14px; border-radius: 14px; font-size: 0.95em; line-height: 1.4; word-wrap: break-word; }
 .user .msg-content { background: var(--chat-primary); color: #fff; border-bottom-right-radius: 2px; }
 .bot .msg-content { background: #fff; color: #1e293b; border-bottom-left-radius: 2px; border: 1px solid #e2e8f0; }
-
 #image-preview-container { padding: 15px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: none; }
 #image-preview-wrapper { position: relative; margin-bottom: 10px; }
 #image-preview { max-width: 100%; max-height: 200px; border-radius: 12px; display: block; }
 #remove-image-btn { position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; }
 #send-image-btn { width: 100%; padding: 10px; background: var(--chat-primary); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
-
 #chat-footer { padding: 12px; background: #fff; border-top: 1px solid #f1f5f9; }
 .input-wrapper { display: flex; align-items: center; background: #f1f5f9; border-radius: 12px; padding: 6px 10px; gap: 5px; }
 #chat-input { flex: 1; border: none; background: transparent; outline: none; padding: 8px; font-size: 0.95em; }
 .tool-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 4px; display: flex; align-items: center; color: #64748b; }
 #chat-send { background: var(--chat-primary); color: #fff; border: none; border-radius: 8px; padding: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-
 #chat-nav { display: flex; border-top: 1px solid #f1f5f9; background: #fff; padding: 5px 0; flex-shrink: 0; }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 8px; cursor: pointer; font-size: 10px; color: #94a3b8; gap: 4px; }
 .nav-item.active { color: var(--chat-primary); font-weight: 600; }
-
 .hidden-picker { display: none !important; }
 #emoji-picker { position: absolute; bottom: 70px; left: 10px; right: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; z-index: 10; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
 </style>
@@ -231,30 +218,30 @@
     const trimmed = name.trim();
     if (trimmed.length < 2) return { valid: false, error: "Name must be at least 2 characters" };
     if (trimmed.length > 50) return { valid: false, error: "Name is too long" };
-    if (!/^[a-zA-Z\s'-]+$/.test(trimmed)) return { valid: false, error: "Name can only contain letters" };
+    if (!/^[a-zA-Z\s'-]+$/.test(trimmed)) return { valid: false, error: "Letters only" };
     return { valid: true, error: "" };
   }
 
   function validateEmail(email) {
     const trimmed = email.trim();
-    if (!trimmed) return { valid: false, error: "Email is required" };
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmed)) return { valid: false, error: "Please enter a valid email address" };
+    if (!trimmed) return { valid: false, error: "Email required" };
+    if (!emailRegex.test(trimmed)) return { valid: false, error: "Invalid email" };
     return { valid: true, error: "" };
   }
 
-  function showError(inputId, errorId, errorMessage) {
+  function showError(inputId, errorId, msg) {
     const input = document.getElementById(inputId);
-    const errorSpan = document.getElementById(errorId);
+    const err = document.getElementById(errorId);
     if(input) input.classList.add('error');
-    if(errorSpan) errorSpan.textContent = errorMessage;
+    if(err) err.textContent = msg;
   }
 
   function clearError(inputId, errorId) {
     const input = document.getElementById(inputId);
-    const errorSpan = document.getElementById(errorId);
+    const err = document.getElementById(errorId);
     if(input) input.classList.remove('error');
-    if(errorSpan) errorSpan.textContent = '';
+    if(err) err.textContent = '';
   }
 
   async function fetchAndApplySettings() {
@@ -263,52 +250,22 @@
       support: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
       sparkle: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`,
       send: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
-      // Updated custom sizing and removed margin-top for perfect centering
-      custom: `<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:100%; height:100%; object-fit:cover;" />`
+      custom: `<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:100%; height:100%; object-fit:contain;" />`
     };
 
     try {
       const response = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
       if (!response.ok) return;
       const s = await response.json();
-      
       if (s) {
-        if (s.fontFamily) document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
-        if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
-
-        if(launcher) {
-            launcher.style.background = "#ffffff";
-            launcher.style.color = s.primaryColor;
-        }
-
-        const header = document.getElementById("chat-header");
-        const hero = document.getElementById("home-hero-bg");
-        if(header) header.style.background = s.headerBgColor;
-        if(hero) hero.style.background = s.heroBgColor;
-
-        ["chat-send", "chat-submit-info", "send-image-btn"].forEach(id => {
-          const el = document.getElementById(id);
-          if(el) el.style.background = s.primaryColor;
-        });
-
-        const titleText = document.getElementById("header-title-text");
-        if(titleText) { titleText.innerText = s.headerTitle || "Live Support"; titleText.style.color = s.headerTextColor; }
-        const welcomeH1 = document.getElementById("welcome-h1");
-        if(welcomeH1) { welcomeH1.innerText = s.welcomeText || "Hi there 👋"; welcomeH1.style.color = s.heroTextColor; }
-        const welcomeP = document.getElementById("welcome-p");
-        if(welcomeP) { welcomeP.innerText = s.welcomeSubtext || "We are here to help you!"; welcomeP.style.color = s.heroTextColor; }
-        const cardTitle = document.getElementById("card-msg-text");
-        const cardSub = document.getElementById("card-reply-time");
-        if(cardTitle) { cardTitle.innerText = s.startConversationText || "Send us a message"; cardTitle.style.color = s.cardTitleColor; }
-        if(cardSub) { cardSub.innerText = s.replyTimeText || "Typically replies in 5 minutes"; cardSub.style.color = s.cardSubtitleColor; }
-        const onboardingTitle = document.getElementById("onboarding-title");
-        const onboardingSub = document.getElementById("onboarding-p");
-        if(onboardingTitle) { onboardingTitle.innerText = s.onboardingTitle || "Start a conversation"; onboardingTitle.style.color = s.onboardingTextColor; }
-        if(onboardingSub) { onboardingSub.innerText = s.onboardingSubtitle || "Please provide your details to begin."; onboardingSub.style.color = s.onboardingTextColor; }
-
+        if(launcher) { launcher.style.background = "#ffffff"; launcher.style.color = s.primaryColor; }
         const launcherIconContainer = document.getElementById("launcher-icon");
         if(launcherIconContainer) { launcherIconContainer.innerHTML = ICON_MAP[s.launcherIcon] || ICON_MAP['custom']; }
+        const header = document.getElementById("chat-header");
+        if(header) header.style.background = s.headerBgColor;
+        const hero = document.getElementById("home-hero-bg");
+        if(hero) hero.style.background = s.heroBgColor;
         if(s.welcomeImg) { const avatar = document.getElementById("main-support-avatar"); if(avatar) avatar.src = s.welcomeImg; }
       }
     } catch (e) { console.error("Settings sync failed", e); }
@@ -322,24 +279,6 @@
     if(targetTab) targetTab.style.display = 'flex';
     if(targetNav) targetNav.classList.add('active');
   }
-
-  if(launcher) {
-    launcher.addEventListener('click', () => {
-      const isVisible = widget.classList.contains("chat-visible");
-      widget.classList.toggle("chat-visible", !isVisible);
-      widget.classList.toggle("chat-hidden", isVisible);
-      const lIcon = document.getElementById("launcher-icon");
-      const cIcon = document.getElementById("close-launcher-icon");
-      if(lIcon) lIcon.style.display = isVisible ? "block" : "none";
-      if(cIcon) cIcon.style.display = isVisible ? "none" : "block";
-    });
-  }
-
-  const closeBtn = document.getElementById("chat-close");
-  if(closeBtn) closeBtn.onclick = () => launcher.click();
-  document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', () => switchTab(item.dataset.tab)); });
-  const startTrigger = document.getElementById('start-chat-trigger');
-  if(startTrigger) { startTrigger.addEventListener('click', () => { switchTab('chat'); loadMessages(); }); }
 
   const addMessageToUI = (m) => {
     const msgId = `msg-${m.id || Date.now()}-${Math.random()}`;
@@ -368,45 +307,10 @@
       const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sessionId}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.length === 0) return;
         data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        const existingMessages = Array.from(msgBox.querySelectorAll('.msg-content')).map(el => el.innerText.trim());
-        data.forEach(m => { if (!existingMessages.includes(m.message?.trim())) { addMessageToUI(m); } });
+        data.forEach(m => addMessageToUI(m));
       }
     } catch (e) {}
-  }
-
-  const fNameEl = document.getElementById("chat-fname");
-  const emailEl = document.getElementById("chat-email");
-  if(fNameEl) { fNameEl.addEventListener('blur', (e) => { const v = validateName(e.target.value); if (e.target.value.trim() !== '' && !v.valid) showError('chat-fname', 'fname-error', v.error); else clearError('chat-fname', 'fname-error'); }); }
-  if(emailEl) { emailEl.addEventListener('blur', (e) => { const v = validateEmail(e.target.value); if (e.target.value.trim() !== '' && !v.valid) showError('chat-email', 'email-error', v.error); else clearError('chat-email', 'email-error'); }); }
-
-  const submitBtn = document.getElementById("chat-submit-info");
-  if(submitBtn) {
-    submitBtn.onclick = async () => {
-      const fname = fNameEl.value.trim();
-      const email = emailEl.value.trim();
-      const nv = validateName(fname);
-      const ev = validateEmail(email);
-      if (!nv.valid) return showError('chat-fname', 'fname-error', nv.error);
-      if (!ev.valid) return showError('chat-email', 'email-error', ev.error);
-      const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
-      try {
-        const res = await fetch(`${BASE_URL}/app/chat/register`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shop, fname, email, sessionId })
-        });
-        if (res.ok) {
-          localStorage.setItem("chat_session", sessionId);
-          localStorage.setItem("chat_user_email", email);
-          document.getElementById("chat-onboarding-step").style.display = "none";
-          document.getElementById("chat-chat-step").style.display = "flex";
-          loadMessages();
-          startPolling();
-        }
-      } catch (e) {}
-    };
   }
 
   async function handleSend(customText = "", fileUrl = null) {
@@ -422,41 +326,81 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: sId, message: text, shop, email, fileUrl })
       });
-    } catch (e) { console.error("Send failed", e); }
+    } catch (e) {}
   }
 
   function startPolling() { if (pollingInterval) clearInterval(pollingInterval); pollingInterval = setInterval(loadMessages, 4000); }
 
-  const sendAction = document.getElementById("chat-send");
-  if(sendAction) sendAction.onclick = () => handleSend();
-  if(chatInput) chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
-  
-  const fileTrigger = document.getElementById("file-btn");
-  if(fileTrigger) fileTrigger.onclick = () => document.getElementById("chat-file-input").click();
-  const fileInputEl = document.getElementById("chat-file-input");
-  if(fileInputEl) {
-    fileInputEl.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        selectedImage = ev.target.result;
-        const prevImg = document.getElementById("image-preview");
-        const prevCont = document.getElementById("image-preview-container");
-        const footer = document.getElementById("chat-footer");
-        if(prevImg) prevImg.src = selectedImage;
-        if(prevCont) prevCont.style.display = "block";
-        if(footer) footer.style.display = "none";
-      };
-      reader.readAsDataURL(file);
-      e.target.value = '';
+  // EVENT LISTENERS
+  if(launcher) {
+    launcher.addEventListener('click', () => {
+      const isVisible = widget.classList.contains("chat-visible");
+      widget.classList.toggle("chat-visible", !isVisible);
+      widget.classList.toggle("chat-hidden", isVisible);
+      const lIcon = document.getElementById("launcher-icon");
+      const cIcon = document.getElementById("close-launcher-icon");
+      if(lIcon) lIcon.style.setProperty('display', isVisible ? 'flex' : 'none', 'important');
+      if(cIcon) cIcon.style.setProperty('display', isVisible ? 'none' : 'flex', 'important');
+    });
+  }
+
+  const closeBtn = document.getElementById("chat-close");
+  if(closeBtn) closeBtn.onclick = () => launcher.click();
+  document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', () => switchTab(item.dataset.tab)); });
+  const startTrigger = document.getElementById('start-chat-trigger');
+  if(startTrigger) { startTrigger.onclick = () => { switchTab('chat'); loadMessages(); }; }
+
+  const submitBtn = document.getElementById("chat-submit-info");
+  if(submitBtn) {
+    submitBtn.onclick = async () => {
+      const fname = document.getElementById("chat-fname").value.trim();
+      const email = document.getElementById("chat-email").value.trim();
+      const nv = validateName(fname); const ev = validateEmail(email);
+      if(!nv.valid) return showError('chat-fname', 'fname-error', nv.error);
+      if(!ev.valid) return showError('chat-email', 'email-error', ev.error);
+      const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
+      try {
+        const res = await fetch(`${BASE_URL}/app/chat/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shop, fname, email, sessionId })
+        });
+        if (res.ok) {
+          localStorage.setItem("chat_session", sessionId);
+          localStorage.setItem("chat_user_email", email);
+          document.getElementById("chat-onboarding-step").style.display = "none";
+          document.getElementById("chat-chat-step").style.display = "flex";
+          startPolling();
+        }
+      } catch (e) {}
     };
   }
 
-  const sendImageBtn = document.getElementById("send-image-btn");
-  if(sendImageBtn) { sendImageBtn.onclick = () => { if(selectedImage) { handleSend("", selectedImage); selectedImage = null; document.getElementById("image-preview-container").style.display = "none"; document.getElementById("chat-footer").style.display = "flex"; } }; }
-  const removeImageBtn = document.getElementById("remove-image-btn");
-  if(removeImageBtn) { removeImageBtn.onclick = () => { selectedImage = null; document.getElementById("image-preview-container").style.display = "none"; document.getElementById("chat-footer").style.display = "flex"; }; }
+  if(chatInput) chatInput.onkeydown = (e) => { if(e.key === "Enter") handleSend(); };
+  const sendBtn = document.getElementById("chat-send");
+  if(sendBtn) sendBtn.onclick = () => handleSend();
+
+  const fileInputEl = document.getElementById("chat-file-input");
+  const fileTrigger = document.getElementById("file-btn");
+  if(fileTrigger) fileTrigger.onclick = () => fileInputEl.click();
+  if(fileInputEl) {
+    fileInputEl.onchange = (e) => {
+      const file = e.target.files[0]; if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        selectedImage = ev.target.result;
+        document.getElementById("image-preview").src = selectedImage;
+        document.getElementById("image-preview-container").style.display = "block";
+        document.getElementById("chat-footer").style.display = "none";
+      };
+      reader.readAsDataURL(file);
+    };
+  }
+
+  const sendImgBtn = document.getElementById("send-image-btn");
+  if(sendImgBtn) sendImgBtn.onclick = () => { if(selectedImage) { handleSend("", selectedImage); selectedImage = null; document.getElementById("image-preview-container").style.display = "none"; document.getElementById("chat-footer").style.display = "flex"; } };
+  const removeImgBtn = document.getElementById("remove-image-btn");
+  if(removeImgBtn) removeImgBtn.onclick = () => { selectedImage = null; document.getElementById("image-preview-container").style.display = "none"; document.getElementById("chat-footer").style.display = "flex"; };
 
   const emojiBtn = document.getElementById("emoji-btn");
   const picker = document.getElementById("emoji-picker");
@@ -468,14 +412,10 @@
   }
 
   fetchAndApplySettings();
-  const session = localStorage.getItem("chat_session");
-  if (session) {
-    const onboarding = document.getElementById("chat-onboarding-step");
-    const chatActive = document.getElementById("chat-chat-step");
-    if(onboarding) onboarding.style.display = "none";
-    if(chatActive) chatActive.style.display = "flex";
-    loadMessages();
-    startPolling();
+  if (localStorage.getItem("chat_session")) {
+    document.getElementById("chat-onboarding-step").style.display = "none";
+    document.getElementById("chat-chat-step").style.display = "flex";
+    loadMessages(); startPolling();
   }
 })();
 </script>
