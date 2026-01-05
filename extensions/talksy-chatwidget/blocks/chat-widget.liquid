@@ -31,6 +31,7 @@
       <h1 id="welcome-h1">Hi there 👋</h1>
       <p id="welcome-p">We are here to help you! Ask us anything.</p>
     </div>
+    
     <div class="home-card" id="start-chat-trigger">
       <div class="card-text">
         <strong id="card-msg-text">Send us a message</strong>
@@ -108,7 +109,7 @@
 
 #chat-widget * { box-sizing: border-box; font-family: var(--chat-font-family) !important; }
 
-/* LAUNCHER UPDATED: Background forced to white, icon to primary */
+/* LAUNCHER: Focused centering and size control */
 #chat-launcher { 
   position: fixed; 
   bottom: 25px; 
@@ -125,13 +126,32 @@
   z-index: 999999; 
   box-shadow: 0 10px 30px rgba(0,0,0,0.18); 
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+  overflow: hidden; /* Ensures custom images stay within the circle */
 }
+
+#launcher-icon, #close-launcher-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Custom Image sizing to ensure centering */
+#launcher-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 #chat-launcher:hover { transform: scale(1.1); }
 
-/* Rest of CSS remains identical to yours */
+/* WIDGET BASE */
 #chat-widget { position: fixed; bottom: 100px; right: 25px; width: 370px; height: 600px; max-height: calc(100vh - 130px); background: #ffffff; border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.15); z-index: 999998; transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); border: 1px solid rgba(0,0,0,0.05); font-size: var(--chat-base-size); }
 .chat-hidden { opacity: 0; transform: translateY(20px) scale(0.95); pointer-events: none; }
 .chat-visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: all; }
+
+/* HEADER */
 #chat-header { padding: 20px; color: #fff; display: flex; justify-content: space-between; align-items: center; background: var(--chat-primary); flex-shrink: 0; }
 .header-content { display: flex; align-items: center; gap: 12px; }
 .avatar-stack { position: relative; width: 40px; height: 40px; }
@@ -142,16 +162,20 @@
 .pulse { display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse-animation 2s infinite; }
 @keyframes pulse-animation { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
 #chat-close { background: none; border: none; color: inherit; cursor: pointer; padding: 5px; opacity: 0.8; }
+
 .tab-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
 .step-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
 .home-hero { padding: 30px 20px 60px; background: var(--chat-primary); color: #fff; text-align: left; }
 .home-hero h1 { font-size: 1.8em; margin: 0 0 8px; font-weight: 700; }
 .home-hero p { font-size: 0.95em; opacity: 0.9; margin: 0; line-height: 1.4; }
+
 .home-card { background: white; margin: -30px 15px 15px; padding: 18px; border-radius: 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 10px 25px rgba(0,0,0,0.06); cursor: pointer; border: 1px solid #f0f0f0; transition: transform 0.2s; }
 .home-card:hover { transform: translateY(-2px); }
 .card-text strong { display: block; font-size: 0.95em; margin-bottom: 2px; }
 .card-text span { font-size: 0.8em; color: #64748b; }
 .card-arrow { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
 .welcome-card { padding: 30px 20px; text-align: center; }
 .welcome-card h3 { margin-bottom: 8px; font-size: 1.2em; font-weight: 700; }
 .welcome-card p { margin-bottom: 20px; font-size: 0.9em; opacity: 0.7; }
@@ -163,6 +187,7 @@
 .error-message { display: block; color: #ef4444; font-size: 11px; margin-top: 4px; text-align: left; min-height: 14px; font-weight: 500; }
 .input-group button { padding: 13px; border: none; border-radius: 12px; color: #fff; font-weight: 700; cursor: pointer; transition: all 0.3s; font-size: 0.95em; margin-top: 5px; }
 .input-group button:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
 #chat-messages { flex: 1; overflow-y: auto; padding: 15px; background: #f8fafc; display: flex; flex-direction: column; gap: 12px; }
 .msg { max-width: 85%; display: flex; flex-direction: column; }
 .msg.user { align-self: flex-end; }
@@ -170,25 +195,28 @@
 .msg-content { padding: 10px 14px; border-radius: 14px; font-size: 0.95em; line-height: 1.4; word-wrap: break-word; }
 .user .msg-content { background: var(--chat-primary); color: #fff; border-bottom-right-radius: 2px; }
 .bot .msg-content { background: #fff; color: #1e293b; border-bottom-left-radius: 2px; border: 1px solid #e2e8f0; }
+
 #image-preview-container { padding: 15px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: none; }
 #image-preview-wrapper { position: relative; margin-bottom: 10px; }
 #image-preview { max-width: 100%; max-height: 200px; border-radius: 12px; display: block; }
 #remove-image-btn { position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; }
 #send-image-btn { width: 100%; padding: 10px; background: var(--chat-primary); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+
 #chat-footer { padding: 12px; background: #fff; border-top: 1px solid #f1f5f9; }
 .input-wrapper { display: flex; align-items: center; background: #f1f5f9; border-radius: 12px; padding: 6px 10px; gap: 5px; }
 #chat-input { flex: 1; border: none; background: transparent; outline: none; padding: 8px; font-size: 0.95em; }
 .tool-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 4px; display: flex; align-items: center; color: #64748b; }
 #chat-send { background: var(--chat-primary); color: #fff; border: none; border-radius: 8px; padding: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
 #chat-nav { display: flex; border-top: 1px solid #f1f5f9; background: #fff; padding: 5px 0; flex-shrink: 0; }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 8px; cursor: pointer; font-size: 10px; color: #94a3b8; gap: 4px; }
 .nav-item.active { color: var(--chat-primary); font-weight: 600; }
+
 .hidden-picker { display: none !important; }
 #emoji-picker { position: absolute; bottom: 70px; left: 10px; right: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; z-index: 10; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
 </style>
 
 <script>
-// (All your Javascript remains exactly the same as provided in your prompt)
 (() => {
   const shop = "{{ shop.permanent_domain }}";
   const BASE_URL = "https://talksy-production-322d.up.railway.app"; 
@@ -235,7 +263,8 @@
       support: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
       sparkle: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`,
       send: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
-      custom: `<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:76px; height:74px; margin-top:11px;" />`
+      // Updated custom sizing and removed margin-top for perfect centering
+      custom: `<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:100%; height:100%; object-fit:cover;" />`
     };
 
     try {
@@ -248,7 +277,6 @@
         if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
 
-        // Keep launcher background white even if settings try to change it
         if(launcher) {
             launcher.style.background = "#ffffff";
             launcher.style.color = s.primaryColor;
