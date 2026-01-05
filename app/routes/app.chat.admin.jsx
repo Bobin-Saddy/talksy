@@ -12,7 +12,7 @@ const Icons = {
   Clock: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
   Store: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>,
   Paperclip: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>,
-  Smile: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" cy="9" x2="9.01" y2="9"></line><line x1="15" cy="9" x2="15.01" y2="9"></line></svg>,
+  Smile: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" cy="9" x2="9.01" cy="9"></line><line x1="15" cy="9" x2="15.01" cy="9"></line></svg>,
   X: ({ size = 20, color = "currentColor" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
   FileText: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
 };
@@ -25,7 +25,7 @@ export const loader = async ({ request }) => {
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
     include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
-    orderBy: { updatedAt: "desc" }
+    orderBy: { createdAt: "desc" } // FIXED: Changed from updatedAt to createdAt
   });
   return json({ sessions, currentShop: shop });
 };
@@ -39,7 +39,7 @@ export default function NeuralChatAdmin() {
   const [accentColor] = useState("#8b5e3c"); 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedImage, setSelectedImage] = useState(null); 
-  const [filePreview, setFilePreview] = useState(null); // State for preview before sending
+  const [filePreview, setFilePreview] = useState(null); 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [liveLocation, setLiveLocation] = useState({ city: "Detecting...", country: "", flag: "" });
   const [unreadCounts, setUnreadCounts] = useState({});
@@ -50,7 +50,6 @@ export default function NeuralChatAdmin() {
   const audioRef = useRef(null);
   const lastMessageIdRef = useRef(null);
   const isFirstLoadRef = useRef(true);
-  const lastKnownMessageIds = useRef({});
 
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
 
@@ -71,7 +70,7 @@ export default function NeuralChatAdmin() {
         flag: data.country_code ? `https://flagcdn.com/w40/${data.country_code.toLowerCase()}.png` : ""
       });
     } catch (e) {
-      setLiveLocation({ city: "Secured", country: "Network", flag: "" });
+      setLiveLocation({ city: "Not Available", country: "Secured", flag: "" });
     }
   };
 
@@ -103,7 +102,6 @@ export default function NeuralChatAdmin() {
     }
   };
 
-  // Polling logic
   useEffect(() => {
     if (!activeSession) return;
     const interval = setInterval(async () => {
@@ -127,7 +125,7 @@ export default function NeuralChatAdmin() {
 
   const loadChat = async (session) => {
     setActiveSession(session);
-    setUnreadCounts(prev => ({ ...prev, [session.sessionId]: 0 })); // Clear unread on click
+    setUnreadCounts(prev => ({ ...prev, [session.sessionId]: 0 }));
     isFirstLoadRef.current = true;
     fetchUserLocation();
     try {
@@ -144,24 +142,20 @@ export default function NeuralChatAdmin() {
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
-      setFilePreview({
-        url: reader.result,
-        name: file.name,
-        type: file.type
-      });
+      setFilePreview({ url: reader.result, name: file.name, type: file.type });
     };
     reader.readAsDataURL(file);
   };
 
-  const handleReply = (text = null, fileUrl = null) => {
+  const handleReply = (text = null) => {
     const finalMsg = text || reply;
-    const finalFile = fileUrl || filePreview?.url;
+    const finalFile = filePreview?.url;
     
     if ((!finalMsg.trim() && !finalFile) || !activeSession) return;
 
     const tempId = `temp-${Date.now()}`;
     const newMessage = {
-      message: finalMsg || "Sent an attachment",
+      message: finalMsg || "Attachment",
       sender: "admin",
       createdAt: new Date().toISOString(),
       sessionId: activeSession.sessionId,
@@ -206,17 +200,17 @@ export default function NeuralChatAdmin() {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
           {filteredSessions.map(session => (
-            <div key={session.sessionId} onClick={() => loadChat(session)} style={{ position: 'relative', padding: '16px', borderRadius: '20px', cursor: 'pointer', marginBottom: '8px', background: activeSession?.sessionId === session.sessionId ? '#fff' : 'transparent', border: activeSession?.sessionId === session.sessionId ? '1px solid #f0f0f0' : '1px solid transparent' }}>
+            <div key={session.sessionId} onClick={() => loadChat(session)} style={{ position: 'relative', padding: '16px', borderRadius: '20px', cursor: 'pointer', marginBottom: '8px', background: activeSession?.sessionId === session.sessionId ? '#fff' : 'transparent', border: activeSession?.sessionId === session.sessionId ? '1px solid #f0f0f0' : '1px solid transparent', transition: 'all 0.2s' }}>
               <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
                 <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: activeSession?.sessionId === session.sessionId ? accentColor : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: activeSession?.sessionId === session.sessionId ? 'white' : '#9d9489', flexShrink: 0 }}>
                   <Icons.User size={24} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: '700', fontSize: '15px' }}>{session.email?.split('@')[0]}</div>
-                  <div style={{ fontSize: '13px', color: '#78716c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.messages[0]?.message}</div>
+                  <div style={{ fontWeight: '700', fontSize: '15px' }}>{session.email?.split('@')[0] || 'User'}</div>
+                  <div style={{ fontSize: '13px', color: '#78716c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.messages[0]?.message || 'New Chat'}</div>
                 </div>
                 {unreadCounts[session.sessionId] > 0 && (
-                  <div style={{ background: '#ef4444', color: 'white', fontSize: '10px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '10px', minWidth: '20px', textAlign: 'center' }}>
+                  <div style={{ background: '#ef4444', color: 'white', fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', boxShadow: '0 4px 10px rgba(239, 68, 68, 0.3)' }}>
                     {unreadCounts[session.sessionId]} New
                   </div>
                 )}
@@ -231,61 +225,83 @@ export default function NeuralChatAdmin() {
         {activeSession ? (
           <>
             <div style={{ padding: '24px 40px', borderBottom: '1px solid #f0f0f0' }}>
-              <h3 style={{ margin: 0, fontWeight: '800' }}>{activeSession.email}</h3>
+              <h3 style={{ margin: 0, fontWeight: '800', fontSize: '20px' }}>{activeSession.email}</h3>
             </div>
 
             <div ref={scrollRef} style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px', background: '#faf9f8' }}>
               {messages.map((msg, i) => (
                 <div key={msg.id || i} style={{ alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '70%' }}>
-                  <div style={{ padding: '12px 16px', borderRadius: '20px', background: msg.sender === 'admin' ? accentColor : '#fff', color: msg.sender === 'admin' ? '#fff' : '#433d3c', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <div style={{ padding: '14px 18px', borderRadius: '20px', background: msg.sender === 'admin' ? accentColor : '#fff', color: msg.sender === 'admin' ? '#fff' : '#433d3c', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: msg.sender === 'admin' ? 'none' : '1px solid #f0f0f0' }}>
                     {msg.fileUrl ? (
                       msg.fileUrl.includes('image') || msg.fileUrl.startsWith('data:image') ? 
-                      <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '250px', borderRadius: '12px', cursor: 'pointer' }} /> :
-                      <a href={msg.fileUrl} target="_blank" style={{color: 'inherit'}}>View Attachment</a>
-                    ) : msg.message}
+                      <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '12px', cursor: 'zoom-in' }} /> :
+                      <div style={{display:'flex', gap:'8px'}}><Icons.FileText /><a href={msg.fileUrl} target="_blank" style={{color: 'inherit', fontWeight: '600'}}>View Document</a></div>
+                    ) : (
+                      <div style={{ fontSize: '15px', lineHeight: '1.5' }}>{msg.message}</div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#a8a29e', marginTop: '5px', textAlign: msg.sender === 'admin' ? 'right' : 'left' }}>
+                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* PREVIEW BEFORE SENDING */}
+            {/* PREVIEW CONTAINER */}
             {filePreview && (
-              <div style={{ padding: '15px 40px', background: '#fff', borderTop: '2px solid #8b5e3c', display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <div style={{ padding: '15px 40px', background: '#fff', borderTop: `2px solid ${accentColor}`, display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <div style={{ position: 'relative' }}>
-                  <img src={filePreview.url} style={{ height: '60px', borderRadius: '8px', border: '1px solid #eee' }} />
-                  <button onClick={() => setFilePreview(null)} style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ef4444', borderRadius: '50%', border: 'none', cursor: 'pointer', padding: '2px' }}><Icons.X size={14} color="white" /></button>
+                  {filePreview.type.includes('image') ? (
+                     <img src={filePreview.url} style={{ height: '60px', width:'60px', objectFit:'cover', borderRadius: '12px', border: '1px solid #eee' }} />
+                  ) : (
+                    <div style={{height:'60px', width:'60px', background:'#f3f4f6', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'12px'}}><Icons.FileText /></div>
+                  )}
+                  <button onClick={() => setFilePreview(null)} style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', borderRadius: '50%', border: 'none', cursor: 'pointer', padding: '4px', display:'flex' }}><Icons.X size={12} color="white" /></button>
                 </div>
-                <div style={{ fontSize: '13px', color: '#78716c' }}>Click send to upload {filePreview.name}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: '700' }}>{filePreview.name}</div>
+                  <div style={{ fontSize: '12px', color: '#78716c' }}>Ready to send</div>
+                </div>
               </div>
             )}
 
             <div style={{ padding: '30px 40px', background: '#fff', borderTop: '1px solid #f0f0f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', background: '#f8f7f6', borderRadius: '20px', padding: '8px 10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', background: '#f8f7f6', borderRadius: '20px', padding: '8px 10px', border: '1px solid #eee' }}>
                 <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} accept="image/*,.pdf" />
-                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Icons.Smile /></button>
-                <button onClick={() => fileInputRef.current.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', margin: '0 10px' }}><Icons.Paperclip /></button>
-                <input placeholder="Type your response..." style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none' }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleReply()} />
-                <button onClick={() => handleReply()} style={{ width: '48px', height: '48px', borderRadius: '16px', background: accentColor, border: 'none', color: 'white', cursor: 'pointer' }}><Icons.Send /></button>
+                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a8a29e' }}><Icons.Smile /></button>
+                <button onClick={() => fileInputRef.current.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', margin: '0 12px', color: '#a8a29e' }}><Icons.Paperclip /></button>
+                <input placeholder="Write a message..." style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '15px' }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyPress={(e) => { if(e.key === 'Enter') handleReply(); }} />
+                <button onClick={() => handleReply()} style={{ width: '48px', height: '48px', borderRadius: '16px', background: (reply.trim() || filePreview) ? accentColor : '#e5e7eb', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.Send /></button>
               </div>
             </div>
           </>
         ) : (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d1cfcd' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#d1cfcd', gap: '20px' }}>
             <Icons.User size={100} />
+            <p style={{ fontWeight: '600' }}>Select a customer to start chatting</p>
           </div>
         )}
       </div>
 
       {/* 3. INTELLIGENCE PANEL */}
       <div style={{ width: '340px', padding: '32px 24px', background: '#fff', borderLeft: '1px solid #f0f0f0' }}>
-        <h4 style={{ fontSize: '12px', fontWeight: '900', color: '#a8a29e', textTransform: 'uppercase' }}>Intelligence Hub</h4>
+        <h4 style={{ fontSize: '12px', fontWeight: '900', color: '#a8a29e', textTransform: 'uppercase', letterSpacing: '1px' }}>Intelligence Hub</h4>
         {activeSession && (
-          <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ padding: '20px', background: '#f0f9ff', borderRadius: '24px' }}>
-              <div style={{ fontSize: '10px', color: '#0369a1', fontWeight: '900' }}>VISITOR LOCATION</div>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px' }}>
-                <img src={liveLocation.flag} width="30" style={{borderRadius: '3px'}} />
-                <div style={{ fontWeight: '800' }}>{liveLocation.city}, {liveLocation.country}</div>
+          <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ padding: '24px', background: '#f0f9ff', borderRadius: '24px' }}>
+              <div style={{ fontSize: '10px', color: '#0369a1', fontWeight: '900', marginBottom: '12px' }}>VISITOR LOCATION</div>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                {liveLocation.flag && <img src={liveLocation.flag} width="32" style={{ borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} />}
+                <div>
+                  <div style={{ fontWeight: '800', fontSize: '16px' }}>{liveLocation.city}</div>
+                  <div style={{ fontSize: '12px', color: '#78716c' }}>{liveLocation.country}</div>
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '20px', background: '#f8f7f6', borderRadius: '24px' }}>
+              <div style={{ fontSize: '10px', color: '#a8a29e', fontWeight: '800', marginBottom: '10px' }}>LOCAL TIME</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}>
+                <Icons.Clock /> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
           </div>
@@ -294,8 +310,9 @@ export default function NeuralChatAdmin() {
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap');
-        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+        * { transition: background 0.2s, transform 0.1s; }
       `}</style>
     </div>
   );
