@@ -127,9 +127,9 @@ export default function NeuralChatAdmin() {
       {/* 1. SIDEBAR: Inbox */}
       <div style={{ width: '380px', borderRight: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', background: '#fcfaf8' }}>
         <div style={{ padding: '32px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: accentColor, marginBottom: '16px' }}>
+          {/* <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: accentColor, marginBottom: '16px' }}>
             <Icons.Store /><span style={{ fontSize: '12px', fontWeight: '800', letterSpacing: '1px' }}>{currentShop.toUpperCase()}</span>
-          </div>
+          </div> */}
           <h2 style={{ fontSize: '28px', fontWeight: '900', color: '#1a1615' }}>Messages</h2>
         </div>
         
