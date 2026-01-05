@@ -215,7 +215,8 @@
   const msgBox = document.getElementById("chat-messages");
   let selectedImage = null;
   let pollingInterval = null; 
-  // Track rendered message IDs to prevent duplicates and missing same-text messages
+  
+  // Is Set mein hum render ho chuke IDs ko track karte hain
   let renderedMessageIds = new Set();
 
   function validateName(name) {
@@ -332,9 +333,10 @@
   if(startTrigger) { startTrigger.addEventListener('click', () => { switchTab('chat'); loadMessages(); }); }
 
   const addMessageToUI = (m) => {
-    // Check by message ID to prevent duplicates accurately
+    // Agar message ID already rendered hai, toh function exit kar do
     if (m.id && renderedMessageIds.has(m.id)) return;
     
+    // ID generate karo agar available nahi hai (Temporary optimistic UI ke liye)
     const displayId = m.id || `temp-${Date.now()}-${Math.random()}`;
     if (m.id) renderedMessageIds.add(m.id);
 
@@ -364,11 +366,10 @@
         const data = await res.json();
         if (data.length === 0) return;
         
-        // Sort to ensure order
         data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         
-        // Loop through and add only if not already present by ID
         data.forEach(m => {
+          // Yahan check hota hai: Agar ID set mein nahi hai toh hi UI mein add karo
           if (!renderedMessageIds.has(m.id)) {
             addMessageToUI(m);
           }
@@ -416,25 +417,39 @@
     const email = localStorage.getItem("chat_user_email");
     if ((!text && !fileUrl) || !sId) return;
     
-    // Optimistically add to UI
-    const tempMsg = { sender: 'user', message: text, fileUrl, createdAt: new Date() };
+    // FIX: Optimistic message ko ek unique temp ID dena zaroori hai
+    const tempId = `optimistic-${Date.now()}`;
+    const tempMsg = { 
+      id: tempId, 
+      sender: 'user', 
+      message: text, 
+      fileUrl, 
+      createdAt: new Date() 
+    };
+    
+    // Optimistically UI mein add karo aur ID set mein save karo
+    renderedMessageIds.add(tempId);
     addMessageToUI(tempMsg);
     
     chatInput.value = "";
     try {
-      await fetch(`${BASE_URL}/app/chat/message`, {
+      const response = await fetch(`${BASE_URL}/app/chat/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: sId, message: text, shop, email, fileUrl })
       });
-      // Trigger a reload to get the real ID from server
-      setTimeout(loadMessages, 500);
-    } catch (e) { console.error("Send failed", e); }
+
+      if(response.ok) {
+          // Success hone ke baad, database wali real ID fetch karne ke liye loadMessages call karo
+          loadMessages();
+      }
+    } catch (e) { 
+        console.error("Send failed", e); 
+    }
   }
 
   function startPolling() { 
     if (pollingInterval) clearInterval(pollingInterval); 
-    // Start interval
     pollingInterval = setInterval(loadMessages, 4000); 
   }
 
