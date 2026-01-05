@@ -16,10 +16,9 @@ export const action = async ({ request }) => {
     const body = await request.json();
     const { sessionId, message, sender, shop, email, fileUrl } = body;
 
-    // 1. Ensure the session exists
     const chatSession = await prisma.chatSession.upsert({
       where: { sessionId: sessionId },
-      update: { email: email || "customer@email.com" }, // Update email if it changed
+      update: {}, 
       create: {
         sessionId: sessionId,
         shop: shop || "unknown-shop",
@@ -28,13 +27,14 @@ export const action = async ({ request }) => {
       }
     });
 
-    // 2. Create the message
     const newMessage = await prisma.chatMessage.create({
       data: {
         message: message,
-        sender: sender || "admin", // Default to admin for this specific route
-        fileUrl: fileUrl || null,
-        chatSessionId: chatSession.sessionId // Direct connection is safer
+        sender: sender || "user",
+        fileUrl: fileUrl || null, // Updated to save fileUrl
+        session: {
+          connect: { sessionId: chatSession.sessionId }
+        }
       },
     });
 

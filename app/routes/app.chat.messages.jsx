@@ -9,8 +9,8 @@ export const loader = async ({ request }) => {
   if (!sessionId) return json([], { headers });
 
   const messages = await prisma.chatMessage.findMany({
-    where: { chatSessionId: sessionId }, 
-    orderBy: { createdAt: "asc" }, // Always ascending so the newest is at the bottom
+    where: { chatSessionId: sessionId }, // Match with exact ID
+    orderBy: { createdAt: "asc" },
   });
 
   return json(messages, { headers });
