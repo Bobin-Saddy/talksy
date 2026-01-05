@@ -215,6 +215,8 @@
   const msgBox = document.getElementById("chat-messages");
   let selectedImage = null;
   let pollingInterval = null; 
+  // Track rendered message IDs to prevent duplicates and missing same-text messages
+  let renderedMessageIds = new Set();
 
   function validateName(name) {
     const trimmed = name.trim();
@@ -265,7 +267,6 @@
         if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
 
-        // Keep launcher background white even if settings try to change it
         if(launcher) {
             launcher.style.background = "#ffffff";
             launcher.style.color = s.primaryColor;
@@ -331,10 +332,14 @@
   if(startTrigger) { startTrigger.addEventListener('click', () => { switchTab('chat'); loadMessages(); }); }
 
   const addMessageToUI = (m) => {
-    const msgId = `msg-${m.id || Date.now()}-${Math.random()}`;
-    if (document.getElementById(msgId)) return;
+    // Check by message ID to prevent duplicates accurately
+    if (m.id && renderedMessageIds.has(m.id)) return;
+    
+    const displayId = m.id || `temp-${Date.now()}-${Math.random()}`;
+    if (m.id) renderedMessageIds.add(m.id);
+
     const div = document.createElement("div");
-    div.id = msgId;
+    div.id = `msg-${displayId}`;
     div.className = `msg ${m.sender}`;
     const isImg = m.fileUrl && (m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg)$/i) || m.fileUrl.startsWith('data:image'));
     let contentHtml = `<div class="msg-content">${m.message || ""}`;
@@ -358,11 +363,18 @@
       if (res.ok) {
         const data = await res.json();
         if (data.length === 0) return;
+        
+        // Sort to ensure order
         data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        const existingMessages = Array.from(msgBox.querySelectorAll('.msg-content')).map(el => el.innerText.trim());
-        data.forEach(m => { if (!existingMessages.includes(m.message?.trim())) { addMessageToUI(m); } });
+        
+        // Loop through and add only if not already present by ID
+        data.forEach(m => {
+          if (!renderedMessageIds.has(m.id)) {
+            addMessageToUI(m);
+          }
+        });
       }
-    } catch (e) {}
+    } catch (e) { console.error("Load messages failed", e); }
   }
 
   const fNameEl = document.getElementById("chat-fname");
@@ -403,7 +415,11 @@
     const sId = localStorage.getItem("chat_session");
     const email = localStorage.getItem("chat_user_email");
     if ((!text && !fileUrl) || !sId) return;
-    addMessageToUI({ sender: 'user', message: text, fileUrl, createdAt: new Date() });
+    
+    // Optimistically add to UI
+    const tempMsg = { sender: 'user', message: text, fileUrl, createdAt: new Date() };
+    addMessageToUI(tempMsg);
+    
     chatInput.value = "";
     try {
       await fetch(`${BASE_URL}/app/chat/message`, {
@@ -411,10 +427,16 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: sId, message: text, shop, email, fileUrl })
       });
+      // Trigger a reload to get the real ID from server
+      setTimeout(loadMessages, 500);
     } catch (e) { console.error("Send failed", e); }
   }
 
-  function startPolling() { if (pollingInterval) clearInterval(pollingInterval); pollingInterval = setInterval(loadMessages, 4000); }
+  function startPolling() { 
+    if (pollingInterval) clearInterval(pollingInterval); 
+    // Start interval
+    pollingInterval = setInterval(loadMessages, 4000); 
+  }
 
   const sendAction = document.getElementById("chat-send");
   if(sendAction) sendAction.onclick = () => handleSend();
