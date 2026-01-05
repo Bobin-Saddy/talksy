@@ -136,39 +136,37 @@ export default function NeuralChatAdmin() {
 
   // Polling for active session messages
 useEffect(() => {
-    if (!activeSession) return;
+  if (!activeSession) return;
 
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/app/chat/messages?sessionId=${activeSession.sessionId}`);
-        const data = await res.json();
+  const interval = setInterval(async () => {
+    try {
+      const res = await fetch(`/app/chat/messages?sessionId=${activeSession.sessionId}`);
+      const data = await res.json();
 
-        if (data.length > 0) {
-          const latestServerMsg = data[data.length - 1];
+      if (data.length > 0) {
+        const latestMsg = data[data.length - 1];
 
-          // Check if server has a NEW message that we don't have in our UI
-          // We check against the ID ref
-          if (latestServerMsg.id !== lastMessageIdRef.current) {
-            
-            // Only notify/sound if the message is from the USER
-            if (latestServerMsg.sender === "user" && !isFirstLoadRef.current) {
-              notifyNewMessage(activeSession, latestServerMsg);
-            }
-
-            // Update state with fresh data from server
-            setMessages(data);
-            lastMessageIdRef.current = latestServerMsg.id;
-            lastKnownMessageIds.current[activeSession.sessionId] = latestServerMsg.id;
-            isFirstLoadRef.current = false;
+        // ONLY update state if the server has more messages than we have 
+        // OR if the latest message ID is different from our last known ID
+        if (latestMsg.id !== lastMessageIdRef.current) {
+          
+          if (latestMsg.sender === "user" && !isFirstLoadRef.current) {
+            notifyNewMessage(activeSession, latestMsg);
           }
-        }
-      } catch (err) {
-        console.error("Polling error:", err);
-      }
-    }, 3000);
 
-    return () => clearInterval(interval);
-  }, [activeSession]);
+          setMessages(data);
+          lastMessageIdRef.current = latestMsg.id;
+          lastKnownMessageIds.current[activeSession.sessionId] = latestMsg.id;
+          isFirstLoadRef.current = false;
+        }
+      }
+    } catch (err) {
+      console.error("Polling error:", err);
+    }
+  }, 3000);
+
+  return () => clearInterval(interval);
+}, [activeSession, messages.length]); // Added messages.length to dependency
 
   // Background polling for ALL sessions (checks sidebar)
   useEffect(() => {
@@ -245,40 +243,38 @@ useEffect(() => {
   };
 
 const handleReply = (text = null, fileUrl = null) => {
-    const finalMsg = text || reply;
-    if ((!finalMsg.trim() && !fileUrl) || !activeSession) return;
+  const finalMsg = text || reply;
+  if ((!finalMsg.trim() && !fileUrl) || !activeSession) return;
 
-    const tempId = `temp-${Date.now()}`;
-    const newMessage = {
-      message: finalMsg,
-      sender: "admin",
-      createdAt: new Date().toISOString(),
-      sessionId: activeSession.sessionId,
-      shop: currentShop,
-      fileUrl: fileUrl || null,
-      id: tempId
-    };
-
-    // 1. Optimistically update UI
-    setMessages(prev => [...prev, newMessage]);
-    
-    // 2. IMPORTANT: Update the Ref immediately so the poller 
-    // knows this is the latest message we've "seen"
-    lastMessageIdRef.current = tempId;
-    
-    setReply("");
-    setShowEmojiPicker(false);
-
-    // Submit to server
-    fetcher.submit(
-      JSON.stringify(newMessage),
-      {
-        method: "post",
-        action: "/app/chat/message",
-        encType: "application/json"
-      }
-    );
+  const tempId = `temp-${Date.now()}`; // Create a unique temp ID
+  const newMessage = {
+    id: tempId, // Assign it here
+    message: finalMsg,
+    sender: "admin",
+    createdAt: new Date().toISOString(),
+    sessionId: activeSession.sessionId,
+    shop: currentShop,
+    fileUrl: fileUrl || null,
   };
+
+  // 1. Update UI immediately
+  setMessages(prev => [...prev, newMessage]);
+  
+  // 2. Update the REF immediately so polling ignores old server data
+  lastMessageIdRef.current = tempId;
+
+  setReply("");
+  setShowEmojiPicker(false);
+
+  fetcher.submit(
+    JSON.stringify(newMessage),
+    {
+      method: "post",
+      action: "/app/chat/message",
+      encType: "application/json"
+    }
+  );
+};
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 40px)', width: 'calc(100vw - 40px)', backgroundColor: '#fff', margin: '20px', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.1)', border: '1px solid #eee', color: '#433d3c', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
 
