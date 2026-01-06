@@ -4,19 +4,19 @@ import { useState, useEffect, useRef } from "react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
-const ICON_MAP = {
+// We use this to render the preview in the ICON_MAP
+const ICON_MAP = (customImg) => ({
   bubble: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   send: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
-  custom: <img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" alt="custom" style={{ width: '100%', objectFit: 'contain' }} />
-};
+  custom: <img src={customImg || "https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png"} alt="custom" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+});
 
 const FONT_OPTIONS = [
-  { label: "System Default", value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
   { label: "Inter", value: "'Inter', sans-serif" },
   { label: "Poppins", value: "'Poppins', sans-serif" },
   { label: "Montserrat", value: "'Montserrat', sans-serif" },
   { label: "Playfair Display", value: "'Playfair Display', serif" },
-  { label: "monospace", value: "ui-monospace, SFMono-Regular, monospace" }
+  { label: "Monospace", value: "ui-monospace, SFMono-Regular, monospace" }
 ];
 
 export const loader = async ({ request }) => {
@@ -34,7 +34,7 @@ export const loader = async ({ request }) => {
     onboardingTextColor: "#384959",
     welcomeImg: "https://ui-avatars.com/api/?name=Support&background=fff&color=4F46E5",
     headerTitle: "Live Support",
-    headerSubtitle: "",
+    headerSubtitle: "Online now",
     welcomeText: "Hi there 👋",
     welcomeSubtext: "We are here to help you! Ask us anything.",
     replyTimeText: "Typically replies in 5 minutes",
@@ -42,7 +42,8 @@ export const loader = async ({ request }) => {
     onboardingTitle: "Start a conversation",
     onboardingSubtitle: "Please provide your details to begin.",
     launcherIcon: "custom",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    customLauncherImg: "", // New field for the uploaded icon
+    fontFamily: "Inter, sans-serif",
     baseFontSize: "15px"
   };
 
@@ -53,34 +54,12 @@ export const action = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const formData = await request.formData();
   
-  const data = {
-    shop: session.shop,
-    primaryColor: formData.get("primaryColor"),
-    headerBgColor: formData.get("headerBgColor"),
-    heroBgColor: formData.get("heroBgColor"),
-    headerTextColor: formData.get("headerTextColor"),
-    heroTextColor: formData.get("heroTextColor"),
-    cardTitleColor: formData.get("cardTitleColor"),
-    cardSubtitleColor: formData.get("cardSubtitleColor"),
-    onboardingTextColor: formData.get("onboardingTextColor"),
-    welcomeImg: formData.get("welcomeImg"),
-    headerTitle: formData.get("headerTitle"),
-    headerSubtitle: formData.get("headerSubtitle"),
-    welcomeText: formData.get("welcomeText"),
-    welcomeSubtext: formData.get("welcomeSubtext"),
-    replyTimeText: formData.get("replyTimeText"),
-    startConversationText: formData.get("startConversationText"),
-    onboardingTitle: formData.get("onboardingTitle"),
-    onboardingSubtitle: formData.get("onboardingSubtitle"),
-    launcherIcon: formData.get("launcherIcon"),
-    fontFamily: formData.get("fontFamily"),
-    baseFontSize: formData.get("baseFontSize"),
-  };
+  const data = Object.fromEntries(formData);
   
   await prisma.chatSettings.upsert({
     where: { shop: session.shop },
     update: data,
-    create: data,
+    create: { ...data, shop: session.shop },
   });
   
   return json({ success: true });
@@ -95,12 +74,11 @@ export default function UltimateSettings() {
   const [formState, setFormState] = useState(settings);
   const [activeTab, setActiveTab] = useState('style');
   const [toast, setToast] = useState(false);
-  const fileInputRef = useRef(null);
+  
+  const avatarRef = useRef(null);
+  const launcherRef = useRef(null);
 
-  useEffect(() => {
-    if (settings) setFormState(settings);
-  }, [settings]);
-
+  useEffect(() => { if (settings) setFormState(settings); }, [settings]);
   useEffect(() => { 
     if (actionData?.success) { 
       setToast(true); 
@@ -110,27 +88,33 @@ export default function UltimateSettings() {
 
   const handleChange = (f, v) => setFormState(p => ({ ...p, [f]: v }));
   
-  const handleImageUpload = (event) => {
+  const handleFileUpload = (event, field) => {
     const file = event.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => handleChange('welcomeImg', reader.result);
+      reader.onloadend = () => {
+        if (field === 'launcher') {
+          setFormState(p => ({ ...p, customLauncherImg: reader.result, launcherIcon: 'custom' }));
+        } else {
+          handleChange('welcomeImg', reader.result);
+        }
+      };
       reader.readAsDataURL(file);
     }
   };
 
   const handleSave = () => {
     const formData = new FormData();
-    Object.entries(formState).forEach(([key, value]) => {
-      formData.append(key, value);
-    });
+    Object.entries(formState).forEach(([key, value]) => formData.append(key, value));
     submit(formData, { method: "POST" });
   };
+
+  const icons = ICON_MAP(formState.customLauncherImg);
 
   return (
     <div style={{ background: '#F3F4F6', minHeight: '100vh', display: 'flex', fontFamily: 'Inter, sans-serif' }}>
       
-      {/* NAVIGATION SIDEBAR */}
+      {/* SIDE NAV */}
       <div style={{ width: '100px', background: '#F3F4F6', borderRight: '1px solid #E5E7EB', padding: '30px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <NavIcon active={activeTab === 'style'} onClick={() => setActiveTab('style')} icon="🎨" title="Style" />
@@ -139,12 +123,12 @@ export default function UltimateSettings() {
         </nav>
       </div>
 
-      {/* CONFIGURATION PANEL */}
+      {/* MAIN CONFIG */}
       <div style={{ flex: 1, padding: '40px 50px' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827' }}>
             {activeTab === 'style' && 'Appearance'}
-            {activeTab === 'content' && 'Translations'}
+            {activeTab === 'content' && 'Content'}
             {activeTab === 'typography' && 'Typography'}
           </h1>
           <button onClick={handleSave} style={{ padding: '12px 28px', background: '#111827', color: '#FFF', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', border: 'none' }}>
@@ -155,12 +139,24 @@ export default function UltimateSettings() {
         {activeTab === 'style' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <Card title="Launcher Icon">
-              <div style={{ display: 'flex', gap: '12px' }}>
-                {Object.keys(ICON_MAP).map(key => (
-                  <IconButton key={key} active={formState.launcherIcon === key} onClick={() => handleChange('launcherIcon', key)}>
-                    {ICON_MAP[key]}
-                  </IconButton>
-                ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {Object.keys(icons).map(key => (
+                    <IconButton key={key} active={formState.launcherIcon === key} onClick={() => handleChange('launcherIcon', key)}>
+                      {icons[key]}
+                    </IconButton>
+                  ))}
+                </div>
+                
+                <div style={{ height: '40px', width: '1px', background: '#E5E7EB', margin: '0 5px' }}></div>
+                
+                <button 
+                  onClick={() => launcherRef.current.click()}
+                  style={{ padding: '10px 16px', background: '#FFF', border: '1.5px dashed #D1D5DB', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <span>Upload Icon</span>
+                </button>
+                <input type="file" ref={launcherRef} onChange={(e) => handleFileUpload(e, 'launcher')} accept="image/*" style={{ display: 'none' }} />
               </div>
             </Card>
 
@@ -168,64 +164,61 @@ export default function UltimateSettings() {
                <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Support Avatar</label>
                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
                  <img src={formState.welcomeImg} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover', border: '1px solid #E5E7EB' }} alt="Avatar" />
-                 <button onClick={() => fileInputRef.current.click()} style={{ padding: '8px 16px', background: '#FFF', border: '1px solid #D1D5DB', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Upload New Image</button>
-                 <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" style={{ display: 'none' }} />
+                 <button onClick={() => avatarRef.current.click()} style={{ padding: '8px 16px', background: '#FFF', border: '1px solid #D1D5DB', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Change Photo</button>
+                 <input type="file" ref={avatarRef} onChange={(e) => handleFileUpload(e, 'avatar')} accept="image/*" style={{ display: 'none' }} />
                </div>
 
                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
-                <ColorBox label="Header BG" value={formState.headerBgColor} onChange={(v) => handleChange('headerBgColor', v)} />
-                <ColorBox label="Banner BG" value={formState.heroBgColor} onChange={(v) => handleChange('heroBgColor', v)} />
+                <ColorBox label="Header Background" value={formState.headerBgColor} onChange={(v) => handleChange('headerBgColor', v)} />
+                <ColorBox label="Banner Background" value={formState.heroBgColor} onChange={(v) => handleChange('heroBgColor', v)} />
               </div>
             </Card>
 
-            <Card title="UI Text Colors">
+            <Card title="Colors">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
                 <ColorBox label="Header Text" value={formState.headerTextColor} onChange={(v) => handleChange('headerTextColor', v)} />
-                <ColorBox label="Banner Text" value={formState.heroTextColor} onChange={(v) => handleChange('heroTextColor', v)} />
+                <ColorBox label="Hero Text" value={formState.heroTextColor} onChange={(v) => handleChange('heroTextColor', v)} />
                 <ColorBox label="Card Title" value={formState.cardTitleColor} onChange={(v) => handleChange('cardTitleColor', v)} />
-                <ColorBox label="Card Subtitle" value={formState.cardSubtitleColor} onChange={(v) => handleChange('cardSubtitleColor', v)} />
                 <ColorBox label="Onboarding Text" value={formState.onboardingTextColor} onChange={(v) => handleChange('onboardingTextColor', v)} />
               </div>
             </Card>
           </div>
         )}
 
-        {activeTab === 'typography' && (
-          <Card title="Font Style">
-              <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Font Family</label>
-              <select value={formState.fontFamily} onChange={(e) => handleChange('fontFamily', e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', background: '#FFF' }}>
-                {FONT_OPTIONS.map(font => <option key={font.value} value={font.value}>{font.label}</option>)}
-              </select>
-              <div style={{ marginTop: '20px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Base Font Size: {formState.baseFontSize}</label>
-                <input type="range" min="12" max="20" value={parseInt(formState.baseFontSize)} onChange={(e) => handleChange('baseFontSize', `${e.target.value}px`)} style={{ width: '100%', cursor: 'pointer', accentColor: '#4F46E5' }} />
-              </div>
-          </Card>
-        )}
-
         {activeTab === 'content' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <Card title="Header & Hero Content">
+            <Card title="Headings">
                <Field label="Header Title" value={formState.headerTitle} onChange={(v) => handleChange('headerTitle', v)} />
                <Field label="Hero Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
                <AreaField label="Hero Subtext" value={formState.welcomeSubtext} onChange={(v) => handleChange('welcomeSubtext', v)} />
             </Card>
-            <Card title="Conversation & Onboarding">
-               <Field label="Action Card Title" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
-               <Field label="Reply Time Text" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
-               <Field label="Onboarding Title" value={formState.onboardingTitle} onChange={(v) => handleChange('onboardingTitle', v)} />
-               <AreaField label="Onboarding Subtitle" value={formState.onboardingSubtitle} onChange={(v) => handleChange('onboardingSubtitle', v)} />
+            <Card title="Chat Card">
+               <Field label="Button Text" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
+               <Field label="Reply Status" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
             </Card>
           </div>
         )}
+
+        {activeTab === 'typography' && (
+          <Card title="Fonts">
+              <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Family</label>
+              <select value={formState.fontFamily} onChange={(e) => handleChange('fontFamily', e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', background: '#FFF' }}>
+                {FONT_OPTIONS.map(font => <option key={font.value} value={font.value}>{font.label}</option>)}
+              </select>
+              <div style={{ marginTop: '20px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>Size: {formState.baseFontSize}</label>
+                <input type="range" min="12" max="20" value={parseInt(formState.baseFontSize)} onChange={(e) => handleChange('baseFontSize', `${e.target.value}px`)} style={{ width: '100%', cursor: 'pointer', accentColor: '#111827' }} />
+              </div>
+          </Card>
+        )}
       </div>
 
-      {/* LIVE PREVIEW SECTION */}
+      {/* PREVIEW PANEL */}
       <div style={{ width: '450px', padding: '40px', background: '#F9FAFB', borderLeft: '1px solid #E5E7EB', position: 'sticky', top: 0, height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ marginBottom: '20px', fontSize: '12px', fontWeight: '800', color: '#9CA3AF' }}>PREVIEW</div>
+          <div style={{ marginBottom: '20px', fontSize: '12px', fontWeight: '800', color: '#9CA3AF', letterSpacing: '1px' }}>LIVE PREVIEW</div>
           
-          <div style={{ width: '350px', height: '620px', background: '#FFF', borderRadius: '28px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.1)', fontFamily: formState.fontFamily }}>
-            <div style={{ background: formState.headerBgColor, padding: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '350px', height: '600px', background: '#FFF', borderRadius: '32px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', fontFamily: formState.fontFamily }}>
+            <div style={{ background: formState.headerBgColor, padding: '24px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <img src={formState.welcomeImg} style={{ width: '40px', height: '40px', borderRadius: '12px', objectFit: 'cover' }} alt="avatar" />
                 <div>
                     <div style={{ fontWeight: '700', color: formState.headerTextColor, fontSize: formState.baseFontSize }}>{formState.headerTitle}</div>
@@ -233,30 +226,24 @@ export default function UltimateSettings() {
                 </div>
             </div>
 
-            <div style={{ flex: 1, background: '#f8fafc', overflowY: 'auto' }}>
-                <div style={{ background: formState.heroBgColor, padding: '40px 25px', color: formState.heroTextColor }}>
-                    <h1 style={{ fontSize: '24px', fontWeight: '700', margin: '0 0 10px 0' }}>{formState.welcomeText}</h1>
-                    <p style={{ fontSize: formState.baseFontSize, opacity: 0.9 }}>{formState.welcomeSubtext}</p>
+            <div style={{ flex: 1, background: '#F8FAFC', overflowY: 'auto' }}>
+                <div style={{ background: formState.heroBgColor, padding: '45px 25px', color: formState.heroTextColor }}>
+                    <h1 style={{ fontSize: '26px', fontWeight: '800', margin: '0 0 10px 0', lineHeight: 1.2 }}>{formState.welcomeText}</h1>
+                    <p style={{ fontSize: formState.baseFontSize, opacity: 0.9, lineHeight: 1.5 }}>{formState.welcomeSubtext}</p>
                 </div>
                 
-                <div style={{ background: '#FFF', margin: '-30px 20px 15px', padding: '15px', borderRadius: '16px', boxShadow: '0 10px 20px rgba(0,0,0,0.05)', border: `1.5px solid #f1f5f9` }}>
-                    <div>
-                      <div style={{ fontWeight: '700', color: formState.cardTitleColor }}>{formState.startConversationText}</div>
-                      <div style={{ fontSize: '12px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
-                    </div>
-                </div>
-
-                <div style={{ padding: '20px', textAlign: 'center' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: '700', color: formState.onboardingTextColor, marginBottom: '5px' }}>{formState.onboardingTitle}</h3>
-                    <p style={{ fontSize: '13px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</p>
+                <div style={{ background: '#FFF', margin: '-30px 20px 15px', padding: '18px', borderRadius: '20px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', border: `1px solid #E2E8F0` }}>
+                    <div style={{ fontWeight: '700', color: formState.cardTitleColor, marginBottom: '2px' }}>{formState.startConversationText}</div>
+                    <div style={{ fontSize: '12px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
                 </div>
             </div>
           </div>
 
-          <div style={{ marginTop: '20px', width: '60px', height: '60px', borderRadius: '50%', background: '#FFF', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-            <div style={{ borderRadius: '50%', padding: formState.launcherIcon === 'custom' ? '0' : '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {ICON_MAP[formState.launcherIcon]}
-            </div>
+          {/* Launcher Preview */}
+          <div style={{ marginTop: '25px', width: '60px', height: '60px', borderRadius: '50%', background: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+              <div style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {icons[formState.launcherIcon]}
+              </div>
           </div>
       </div>
 
@@ -265,38 +252,23 @@ export default function UltimateSettings() {
   );
 }
 
-// Sub-components
+// Components
 const NavIcon = ({ active, icon, title, onClick }) => (
     <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', transition: '0.2s', marginBottom: '20px' }}>
-        <div style={{ 
-          fontSize: '24px', 
-          background: active ? '#E5E7EB' : 'transparent', 
-          width: '50px', 
-          height: '50px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          borderRadius: '12px',
-          opacity: active ? 1 : 0.4 
-        }}>{icon}</div>
-        <div style={{ 
-          fontSize: '10px', 
-          fontWeight: active ? '800' : '600', 
-          marginTop: '5px', 
-          color: active ? '#111827' : '#9CA3AF' 
-        }}>{title}</div>
+        <div style={{ fontSize: '24px', background: active ? '#FFF' : 'transparent', width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px', border: active ? '1px solid #E5E7EB' : '1px solid transparent', boxShadow: active ? '0 4px 6px -1px rgba(0,0,0,0.05)' : 'none', opacity: active ? 1 : 0.4 }}>{icon}</div>
+        <div style={{ fontSize: '10px', fontWeight: '800', marginTop: '6px', color: active ? '#111827' : '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</div>
     </div>
 );
 
 const Card = ({ title, children }) => (
-    <div style={{ background: '#FFF', padding: '24px', borderRadius: '16px', border: '1px solid #E5E7EB', marginBottom: '10px' }}>
-      <h3 style={{ fontSize: '11px', fontWeight: '800', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase' }}>{title}</h3>
+    <div style={{ background: '#FFF', padding: '24px', borderRadius: '20px', border: '1px solid #E5E7EB', marginBottom: '10px' }}>
+      <h3 style={{ fontSize: '11px', fontWeight: '800', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '1px' }}>{title}</h3>
       {children}
     </div>
 );
 
 const IconButton = ({ children, active, onClick }) => (
-    <div onClick={onClick} style={{ width: '56px', height: '56px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2.5px solid #4F46E5' : '1.5px solid #E5E7EB', background: '#FFF' }}>
+    <div onClick={onClick} style={{ width: '50px', height: '50px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2.5px solid #111827' : '1.5px solid #E5E7EB', background: '#FFF', padding: '8px' }}>
       {children}
     </div>
 );
@@ -304,9 +276,9 @@ const IconButton = ({ children, active, onClick }) => (
 const ColorBox = ({ label, value, onChange }) => (
     <div>
       <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#F9FAFB', padding: '8px', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
-        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ border: 'none', background: 'none', width: '25px', height: '25px', cursor: 'pointer' }} />
-        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{value?.toUpperCase()}</span>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#F9FAFB', padding: '10px', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ border: 'none', background: 'none', width: '28px', height: '28px', cursor: 'pointer' }} />
+        <span style={{ fontSize: '13px', fontWeight: '700', color: '#374151' }}>{value?.toUpperCase()}</span>
       </div>
     </div>
 );
@@ -314,19 +286,19 @@ const ColorBox = ({ label, value, onChange }) => (
 const Field = ({ label, value, onChange }) => (
   <div style={{ marginBottom: '15px' }}>
     <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
-    <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px' }} />
+    <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: '14px', fontWeight: '500' }} />
   </div>
 );
 
 const AreaField = ({ label, value, onChange }) => (
   <div style={{ marginBottom: '15px' }}>
     <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
-    <textarea value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', minHeight: '60px', resize: 'none' }} />
+    <textarea value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: '14px', minHeight: '80px', resize: 'none', fontWeight: '500' }} />
   </div>
 );
 
 const Toast = ({ message }) => (
-    <div style={{ position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', background: '#111827', color: '#FFF', padding: '12px 24px', borderRadius: '50px', fontWeight: '600', zIndex: 9999 }}>
-      ✅ {message}
+    <div style={{ position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', background: '#111827', color: '#FFF', padding: '14px 28px', borderRadius: '16px', fontWeight: '600', zIndex: 9999, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+      {message}
     </div>
 );
