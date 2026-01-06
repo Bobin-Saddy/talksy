@@ -224,7 +224,7 @@
   let adminProfileImg = ""; 
   let renderedMessageIds = new Set();
 
-  // --- 1. SETTINGS SYNC & ICON MAPPING (RESTORED FROM YOUR CODE) ---
+  // --- 1. SETTINGS SYNC & ICON MAPPING ---
   async function fetchAndApplySettings() {
     const getIconHTML = (iconKey, customSrc) => {
       const maps = {
@@ -242,46 +242,37 @@
       const s = await response.json();
       
       if (s) {
-        // Typography & Colors
         if (s.fontFamily) document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
         if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
 
-        // Launcher Styles
         if(launcher) {
             launcher.style.background = "#ffffff";
             launcher.style.color = s.primaryColor;
         }
 
-        // Header & Hero Backgrounds
         const header = document.getElementById("chat-header");
         const hero = document.getElementById("home-hero-bg");
         if(header) header.style.background = s.headerBgColor;
         if(hero) hero.style.background = s.heroBgColor;
 
-        // Button Backgrounds
         ["chat-send", "chat-submit-info", "send-image-btn"].forEach(id => {
           const el = document.getElementById(id);
           if(el) el.style.background = s.primaryColor;
         });
 
-        // Dynamic Texts
         if(s.headerTitle) document.getElementById("header-title-text").innerText = s.headerTitle;
         if(s.welcomeText) document.getElementById("welcome-h1").innerText = s.welcomeText;
         if(s.welcomeSubtext) document.getElementById("welcome-p").innerText = s.welcomeSubtext;
         
-        // Card Texts
         const cardTitle = document.getElementById("card-msg-text");
         if(cardTitle) cardTitle.innerText = s.startConversationText || "Send us a message";
         const cardSub = document.getElementById("card-reply-time");
         if(cardSub) cardSub.innerText = s.replyTimeText || "Typically replies in 5 minutes";
 
-        // Admin Avatar
         adminProfileImg = s.welcomeImg; 
-        const avatar = document.getElementById("main-support-avatar");
-        if(avatar && s.welcomeImg) avatar.src = s.welcomeImg;
+        updateHeaderAvatar('home');
 
-        // Launcher Icon Swap
         const launcherIconContainer = document.getElementById("launcher-icon");
         if(launcherIconContainer) { 
             launcherIconContainer.innerHTML = getIconHTML(s.launcherIcon, s.customLauncherImg); 
@@ -290,7 +281,28 @@
     } catch (e) { console.error("Settings Sync failed", e); }
   }
 
-  // --- 2. VALIDATION LOGIC (WITH TEXT ERRORS) ---
+  // --- 2. INITIALS AVATAR LOGIC (FIXED) ---
+  function updateHeaderAvatar(activeTab) {
+    const avatarImg = document.getElementById("main-support-avatar");
+    if (!avatarImg) return;
+    
+    const fname = localStorage.getItem("chat_user_fname") || "";
+    const pColor = getComputedStyle(document.documentElement).getPropertyValue('--chat-primary').trim().replace('#', '') || '6366f1';
+
+    if (activeTab === 'chat' && fname) {
+      // Initials logic: Pehle 2 words ke first letters leta hai
+      const names = fname.split(" ");
+      let initials = names[0].charAt(0).toUpperCase();
+      if (names.length > 1) {
+        initials += names[names.length - 1].charAt(0).toUpperCase();
+      }
+      avatarImg.src = `https://ui-avatars.com/api/?name=${initials}&background=${pColor}&color=fff&bold=true`;
+    } else {
+      avatarImg.src = adminProfileImg || `https://ui-avatars.com/api/?name=Support&background=6366f1&color=fff`;
+    }
+  }
+
+  // --- 3. VALIDATION LOGIC ---
   function setValidationError(input, message) {
     input.style.borderColor = "red";
     let errorMsg = input.parentNode.querySelector(".err-msg");
@@ -328,7 +340,7 @@
     return isValid;
   }
 
-  // --- 3. EMOJI PICKER LOGIC ---
+  // --- 4. EMOJI PICKER ---
   const emojiBtn = document.getElementById("emoji-btn");
   const picker = document.getElementById("emoji-picker");
   const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏"];
@@ -345,7 +357,7 @@
     document.addEventListener('click', () => picker.classList.add("hidden-picker"));
   }
 
-  // --- 4. MESSAGE RENDERING (DUPLICATE PROTECTION) ---
+  // --- 5. MESSAGE RENDERING ---
   const addMessageToUI = (m) => {
     if (m.id && renderedMessageIds.has(m.id)) return;
     if (m.id) renderedMessageIds.add(m.id);
@@ -372,7 +384,7 @@
     msgBox.scrollTop = msgBox.scrollHeight;
   };
 
-  // --- 5. CORE ACTIONS (SEND/POLL/REGISTER) ---
+  // --- 6. CORE ACTIONS ---
   async function handleSend(customText = "", fileUrl = null) {
     const text = (customText || chatInput.value).trim();
     const sId = localStorage.getItem("chat_session");
@@ -413,7 +425,7 @@
     pollingInterval = setInterval(loadMessages, 3500); 
   }
 
-  // --- 6. LAUNCHER & UI FLOW ---
+  // --- 7. UI LOGIC ---
   launcher.onclick = () => {
     const isVisible = widget.classList.contains("chat-visible");
     widget.classList.toggle("chat-visible", !isVisible);
@@ -442,12 +454,12 @@
         localStorage.setItem("chat_user_fname", fname);
         document.getElementById("chat-onboarding-step").style.display = "none";
         document.getElementById("chat-chat-step").style.display = "flex";
+        updateHeaderAvatar('chat');
         startPolling();
       }
     } catch (e) {}
   };
 
-  // File Handling
   const fileInput = document.getElementById("chat-file-input");
   document.getElementById("file-btn").onclick = () => fileInput.click();
   fileInput.onchange = (e) => {
@@ -479,12 +491,12 @@
     document.getElementById("chat-footer").style.display = "flex";
   };
 
-  // Navigation Tabs
   function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById(`tab-${tabId}`).style.display = 'flex';
     if(document.querySelector(`[data-tab="${tabId}"]`)) document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+    updateHeaderAvatar(tabId);
   }
 
   document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', () => switchTab(item.dataset.tab)); });
@@ -493,13 +505,13 @@
   chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
   document.getElementById("chat-close").onclick = () => launcher.click();
 
-  // Initialization
   (async function init() {
     await fetchAndApplySettings();
     const session = localStorage.getItem("chat_session");
     if (session) {
       document.getElementById("chat-onboarding-step").style.display = "none";
       document.getElementById("chat-chat-step").style.display = "flex";
+      updateHeaderAvatar('chat');
       startPolling();
     }
   })();
