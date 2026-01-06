@@ -302,7 +302,7 @@ export default function NeuralChatAdmin() {
         <h4 style={{ fontSize: '12px', fontWeight: '900', color: '#a8a29e', textTransform: 'uppercase', letterSpacing: '1px' }}>Intelligence Hub</h4>
         {activeSession && (
           <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ padding: '24px', background: '#f0f9ff', borderRadius: '24px' }}>
+            {/* <div style={{ padding: '24px', background: '#f0f9ff', borderRadius: '24px' }}>
               <div style={{ fontSize: '10px', color: '#0369a1', fontWeight: '900', marginBottom: '12px' }}>VISITOR LOCATION</div>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 {liveLocation.flag ? (
@@ -315,7 +315,7 @@ export default function NeuralChatAdmin() {
                   <div style={{ fontSize: '12px', color: '#78716c' }}>{liveLocation.country}</div>
                 </div>
               </div>
-            </div>
+            </div> */}
             <div style={{ padding: '20px', background: '#f8f7f6', borderRadius: '24px' }}>
               <div style={{ fontSize: '10px', color: '#a8a29e', fontWeight: '800', marginBottom: '10px' }}>LOCAL TIME</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}>
