@@ -224,40 +224,123 @@
   let adminProfileImg = ""; 
   let renderedMessageIds = new Set();
 
-  // --- UI Updates ---
-  function updateHeaderAvatar(activeTab) {
-    const avatarImg = document.getElementById("main-support-avatar");
-    if (!avatarImg) return;
-    const fname = localStorage.getItem("chat_user_fname");
-    const lname = localStorage.getItem("chat_user_lname");
+  // --- 1. EMOJI LOGIC (FIXED) ---
+  const emojiBtn = document.getElementById("emoji-btn");
+  const picker = document.getElementById("emoji-picker");
+  const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏","🎉","📢"];
 
-    if (activeTab === 'chat' && fname && lname) {
-      const initials = (fname.charAt(0) + lname.charAt(0)).toUpperCase();
-      const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--chat-primary').trim().replace('#', '');
-      avatarImg.src = `https://ui-avatars.com/api/?name=${initials}&background=${primaryColor}&color=fff&bold=true`;
-    } else {
-      avatarImg.src = adminProfileImg || `https://ui-avatars.com/api/?name=Support&background=6366f1&color=fff`;
-    }
+  if(picker && emojiBtn) {
+    // Populate Emojis
+    picker.innerHTML = emojis.map(e => `<span class="emoji-item" style="cursor:pointer; font-size: 20px; padding: 5px; display:inline-block; user-select:none;">${e}</span>`).join("");
+    
+    // Toggle Picker
+    emojiBtn.onclick = (e) => {
+      e.stopPropagation();
+      picker.classList.toggle("hidden-picker");
+    };
+
+    // Emoji Click
+    picker.onclick = (e) => {
+      if(e.target.classList.contains('emoji-item')) {
+        chatInput.value += e.target.innerText;
+        picker.classList.add("hidden-picker");
+        chatInput.focus();
+      }
+    };
+
+    // Close picker when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!picker.contains(e.target) && e.target !== emojiBtn) {
+        picker.classList.add("hidden-picker");
+      }
+    });
   }
 
-  // --- Message Rendering (Fixes Duplicates) ---
+  // --- 2. VALIDATION LOGIC ---
+  function setValidationError(input, message) {
+    input.style.borderColor = "red";
+    let errorMsg = input.parentNode.querySelector(".err-msg");
+    if (!errorMsg) {
+      errorMsg = document.createElement("div");
+      errorMsg.className = "err-msg";
+      errorMsg.style.color = "red";
+      errorMsg.style.fontSize = "11px";
+      errorMsg.style.marginTop = "2px";
+      input.parentNode.appendChild(errorMsg);
+    }
+    errorMsg.textContent = message;
+  }
+
+  function clearValidationError(input) {
+    input.style.borderColor = "#ddd";
+    const errorMsg = input.parentNode.querySelector(".err-msg");
+    if (errorMsg) errorMsg.remove();
+  }
+
+  function validateForm() {
+    const fName = document.getElementById("chat-fname");
+    const lName = document.getElementById("chat-lname");
+    const email = document.getElementById("chat-email");
+    let isValid = true;
+
+    if (fName.value.trim().length < 2) {
+      setValidationError(fName, "First name is too short");
+      isValid = false;
+    } else { clearValidationError(fName); }
+
+    if (lName.value.trim().length < 2) {
+      setValidationError(lName, "Last name is too short");
+      isValid = false;
+    } else { clearValidationError(lName); }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email.value.trim())) {
+      setValidationError(email, "Invalid email format");
+      isValid = false;
+    } else { clearValidationError(email); }
+
+    return isValid;
+  }
+
+  // --- 3. LAUNCHER & ICON TOGGLE ---
+  if(launcher) {
+    launcher.onclick = () => {
+      const isVisible = widget.classList.contains("chat-visible");
+      widget.classList.toggle("chat-visible", !isVisible);
+      widget.classList.toggle("chat-hidden", isVisible);
+      
+      const appIcon = document.getElementById("launcher-icon");
+      const closeIcon = document.getElementById("close-launcher-icon");
+      
+      if (isVisible) {
+        if(appIcon) appIcon.style.display = "block";
+        if(closeIcon) closeIcon.style.display = "none";
+      } else {
+        if(appIcon) appIcon.style.display = "none";
+        if(closeIcon) closeIcon.style.display = "flex";
+      }
+    };
+  }
+
+  // --- 4. MESSAGE RENDERING ---
   const addMessageToUI = (m) => {
-    // Check if message ID already exists to prevent duplicates
     if (m.id && renderedMessageIds.has(m.id)) return;
     if (m.id) renderedMessageIds.add(m.id);
 
     const div = document.createElement("div");
-    div.className = `msg ${m.sender}`;
-    // Use sender 'bot' or 'admin' for left side, 'user' for right side
-    if (m.sender === 'admin' || m.sender === 'bot') div.classList.add('bot');
+    const isBot = (m.sender === 'admin' || m.sender === 'bot');
+    div.className = `msg ${isBot ? 'bot' : 'user'}`;
     
-    const isImg = m.fileUrl && m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg)$/i);
+    const isImg = m.fileUrl && (m.fileUrl.startsWith('data:image') || m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg|webp)$/i));
     
-    let contentHtml = `<div class="msg-content">${m.message || ""}`;
+    let contentHtml = `<div class="msg-content">`;
+    if(m.message) contentHtml += `<div style="margin-bottom:4px;">${m.message}</div>`;
     if(m.fileUrl) {
-      contentHtml += isImg 
-        ? `<img src="${m.fileUrl}" style="max-width:100%; border-radius:8px; margin-top:5px; display:block;" onclick="window.open('${m.fileUrl}')" />`
-        : `<br><a href="${m.fileUrl}" target="_blank" style="color:inherit; font-size:12px;">📎 Attachment</a>`;
+      if(isImg) {
+        contentHtml += `<img src="${m.fileUrl}" style="max-width:100%; border-radius:8px; display:block;" onclick="window.open('${m.fileUrl}')" />`;
+      } else {
+        contentHtml += `<a href="${m.fileUrl}" target="_blank" style="color:inherit; font-size:12px; text-decoration:underline;">📎 Attachment</a>`;
+      }
     }
     contentHtml += `</div>`;
     
@@ -266,93 +349,15 @@
     msgBox.scrollTop = msgBox.scrollHeight;
   };
 
-  // --- API Functions ---
-  async function loadMessages() {
-    const sessionId = localStorage.getItem("chat_session");
-    if (!sessionId) return;
-    try {
-      const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sessionId}`);
-      if (res.ok) {
-        const data = await res.json();
-        // Sort by time to ensure order
-        data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        data.forEach(m => addMessageToUI(m));
-      }
-    } catch (e) { console.error("Polling error", e); }
-  }
-
-  async function handleSend(customText = "", fileUrl = null) {
-    const text = customText || chatInput.value.trim();
-    const sId = localStorage.getItem("chat_session");
-    if ((!text && !fileUrl) || !sId) return;
-
-    // 1. Clear input immediately
-    chatInput.value = "";
-    
-    // 2. Send to server FIRST, then let polling handle the UI update
-    // This is the safest way to avoid duplicates
-    try {
-      const res = await fetch(`${BASE_URL}/app/chat/message`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            sessionId: sId, 
-            message: text, 
-            shop, 
-            email: localStorage.getItem("chat_user_email"), 
-            fname: localStorage.getItem("chat_user_fname"),
-            lname: localStorage.getItem("chat_user_lname"),
-            fileUrl 
-        })
-      });
-      
-      if (res.ok) {
-        // Immediately trigger a poll to show the message we just sent
-        loadMessages();
-      }
-    } catch (e) { console.error("Send error", e); }
-  }
-
-  // --- Event Listeners ---
-  launcher.onclick = () => {
-    const isVisible = widget.classList.contains("chat-visible");
-    widget.classList.toggle("chat-visible", !isVisible);
-    widget.classList.toggle("chat-hidden", isVisible);
-    
-    // Toggle icons ONLY inside the launcher circle
-    document.getElementById("launcher-icon").style.display = isVisible ? "block" : "none";
-    document.getElementById("close-launcher-icon").style.display = isVisible ? "none" : "block";
-  };
-
-  document.getElementById("chat-close").onclick = () => launcher.click();
-  
-  document.querySelectorAll('.nav-item').forEach(item => { 
-    item.addEventListener('click', () => {
-        const tabId = item.dataset.tab;
-        switchTab(tabId);
-    }); 
-  });
-
-  function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById(`tab-${tabId}`).style.display = 'flex';
-    document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
-    updateHeaderAvatar(tabId);
-  }
-
-  document.getElementById('start-chat-trigger').onclick = () => { 
-    switchTab('chat'); 
-    loadMessages(); 
-  };
-
+  // --- 5. SUBMIT & API ---
   const submitBtn = document.getElementById("chat-submit-info");
   if(submitBtn) {
     submitBtn.onclick = async () => {
+      if (!validateForm()) return; 
+
       const fname = document.getElementById("chat-fname").value.trim();
       const lname = document.getElementById("chat-lname").value.trim();
       const email = document.getElementById("chat-email").value.trim();
-      if (!fname || !lname || !email) return;
       
       const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
       try {
@@ -366,6 +371,7 @@
           localStorage.setItem("chat_user_email", email);
           localStorage.setItem("chat_user_fname", fname);
           localStorage.setItem("chat_user_lname", lname);
+          
           document.getElementById("chat-onboarding-step").style.display = "none";
           document.getElementById("chat-chat-step").style.display = "flex";
           updateHeaderAvatar('chat');
@@ -375,18 +381,76 @@
     };
   }
 
-  function startPolling() { 
-    if (pollingInterval) clearInterval(pollingInterval); 
-    loadMessages(); // Initial load
-    pollingInterval = setInterval(loadMessages, 3000); 
+  async function handleSend(customText = "", fileUrl = null) {
+    const text = (customText || chatInput.value).trim();
+    const sId = localStorage.getItem("chat_session");
+    if ((!text && !fileUrl) || !sId) return;
+
+    chatInput.value = "";
+    try {
+      const res = await fetch(`${BASE_URL}/app/chat/message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            sessionId: sId, message: text, shop, 
+            email: localStorage.getItem("chat_user_email"),
+            fname: localStorage.getItem("chat_user_fname"),
+            lname: localStorage.getItem("chat_user_lname"),
+            fileUrl 
+        })
+      });
+      if (res.ok) loadMessages();
+    } catch (e) {}
   }
 
-  document.getElementById("chat-send").onclick = () => handleSend();
-  chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
-  
-  // --- Image Logic ---
-  document.getElementById("file-btn").onclick = () => document.getElementById("chat-file-input").click();
-  document.getElementById("chat-file-input").onchange = (e) => {
+  async function loadMessages() {
+    const sessionId = localStorage.getItem("chat_session");
+    if (!sessionId) return;
+    try {
+      const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sessionId}`);
+      if (res.ok) {
+        const data = await res.json();
+        data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        data.forEach(m => addMessageToUI(m));
+      }
+    } catch (e) {}
+  }
+
+  function startPolling() { 
+    if (pollingInterval) clearInterval(pollingInterval); 
+    loadMessages();
+    pollingInterval = setInterval(loadMessages, 3500); 
+  }
+
+  // --- 6. NAVIGATION & AVATAR ---
+  function updateHeaderAvatar(activeTab) {
+    const avatarImg = document.getElementById("main-support-avatar");
+    if (!avatarImg) return;
+    const fname = localStorage.getItem("chat_user_fname");
+    const lname = localStorage.getItem("chat_user_lname");
+
+    if (activeTab === 'chat' && fname && lname) {
+      const initials = (fname.charAt(0) + lname.charAt(0)).toUpperCase();
+      const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--chat-primary').trim().replace('#', '') || '6366f1';
+      avatarImg.src = `https://ui-avatars.com/api/?name=${initials}&background=${primaryColor}&color=fff&bold=true`;
+    } else {
+      avatarImg.src = adminProfileImg || `https://ui-avatars.com/api/?name=Support&background=6366f1&color=fff`;
+    }
+  }
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`tab-${tabId}`).style.display = 'flex';
+    const activeNav = document.querySelector(`[data-tab="${tabId}"]`);
+    if(activeNav) activeNav.classList.add('active');
+    updateHeaderAvatar(tabId);
+  }
+
+  // --- 7. FILE HANDLING ---
+  const fileInput = document.getElementById("chat-file-input");
+  document.getElementById("file-btn").onclick = () => fileInput.click();
+  fileInput.onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -397,24 +461,36 @@
       document.getElementById("chat-footer").style.display = "none";
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
-  document.getElementById("send-image-btn").onclick = () => { 
-    handleSend("", selectedImage); 
-    selectedImage = null; 
-    document.getElementById("image-preview-container").style.display = "none"; 
-    document.getElementById("chat-footer").style.display = "flex"; 
+  document.getElementById("send-image-btn").onclick = () => {
+    if(selectedImage) {
+      handleSend("", selectedImage);
+      selectedImage = null;
+      document.getElementById("image-preview-container").style.display = "none";
+      document.getElementById("chat-footer").style.display = "flex";
+    }
   };
-  
+
   document.getElementById("remove-image-btn").onclick = () => {
     selectedImage = null;
     document.getElementById("image-preview-container").style.display = "none";
     document.getElementById("chat-footer").style.display = "flex";
   };
 
-  // --- Startup ---
+  // --- STARTUP ---
   async function init() {
-    await fetchAndApplySettings();
+    try {
+      const res = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
+      const s = await res.json();
+      if (s) {
+        document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
+        adminProfileImg = s.welcomeImg; 
+        updateHeaderAvatar('home');
+      }
+    } catch (e) {}
+    
     if (localStorage.getItem("chat_session")) {
       document.getElementById("chat-onboarding-step").style.display = "none";
       document.getElementById("chat-chat-step").style.display = "flex";
@@ -422,18 +498,11 @@
     }
   }
 
-  async function fetchAndApplySettings() {
-    try {
-      const response = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
-      if (!response.ok) return;
-      const s = await response.json();
-      if (s) {
-        document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
-        adminProfileImg = s.welcomeImg; 
-        updateHeaderAvatar('home');
-      }
-    } catch (e) {}
-  }
+  document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', () => switchTab(item.dataset.tab)); });
+  document.getElementById('start-chat-trigger').onclick = () => { switchTab('chat'); loadMessages(); };
+  document.getElementById("chat-send").onclick = () => handleSend();
+  chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
+  document.getElementById("chat-close").onclick = () => launcher.click();
 
   init();
 })();
