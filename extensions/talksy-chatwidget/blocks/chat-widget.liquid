@@ -253,13 +253,17 @@
     if(errorSpan) errorSpan.textContent = '';
   }
 
-  async function fetchAndApplySettings() {
-    const ICON_MAP = {
-      bubble: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`,
-      support: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
-      sparkle: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`,
-      send: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
-      custom: `<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:76px; height:74px; margin-top:11px;" />`
+async function fetchAndApplySettings() {
+    // Icon mapping function with support for dynamic custom images
+    const getIconHTML = (iconKey, customSrc) => {
+      const maps = {
+        bubble: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`,
+        send: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
+        defaultCustom: `<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width: 32px; height: 32px; object-fit: contain;" />`,
+        // 'custom' key tab trigger hogi jab admin icon upload karega
+        custom: `<img src="${customSrc}" style="width: 35px; height: 35px; border-radius: 4px; object-fit: cover;" />`
+      };
+      return maps[iconKey] || maps['bubble'];
     };
 
     try {
@@ -268,47 +272,89 @@
       const s = await response.json();
       
       if (s) {
+        // Apply Typography & Core Colors
         if (s.fontFamily) document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
         if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
 
+        // Launcher Background & Color
         if(launcher) {
             launcher.style.background = "#ffffff";
             launcher.style.color = s.primaryColor;
         }
 
+        // Apply Component Backgrounds
         const header = document.getElementById("chat-header");
         const hero = document.getElementById("home-hero-bg");
         if(header) header.style.background = s.headerBgColor;
         if(hero) hero.style.background = s.heroBgColor;
 
+        // Apply Button Colors
         ["chat-send", "chat-submit-info", "send-image-btn"].forEach(id => {
           const el = document.getElementById(id);
           if(el) el.style.background = s.primaryColor;
         });
 
+        // Apply Texts & Titles
         const titleText = document.getElementById("header-title-text");
-        if(titleText) { titleText.innerText = s.headerTitle || "Live Support"; titleText.style.color = s.headerTextColor; }
+        if(titleText) { 
+            titleText.innerText = s.headerTitle || "Live Support"; 
+            titleText.style.color = s.headerTextColor; 
+        }
+
         const welcomeH1 = document.getElementById("welcome-h1");
-        if(welcomeH1) { welcomeH1.innerText = s.welcomeText || "Hi there 👋"; welcomeH1.style.color = s.heroTextColor; }
+        if(welcomeH1) { 
+            welcomeH1.innerText = s.welcomeText || "Hi there 👋"; 
+            welcomeH1.style.color = s.heroTextColor; 
+        }
+
         const welcomeP = document.getElementById("welcome-p");
-        if(welcomeP) { welcomeP.innerText = s.welcomeSubtext || "We are here to help you!"; welcomeP.style.color = s.heroTextColor; }
+        if(welcomeP) { 
+            welcomeP.innerText = s.welcomeSubtext || "We are here to help you!"; 
+            welcomeP.style.color = s.heroTextColor; 
+        }
+
         const cardTitle = document.getElementById("card-msg-text");
+        if(cardTitle) { 
+            cardTitle.innerText = s.startConversationText || "Send us a message"; 
+            cardTitle.style.color = s.cardTitleColor; 
+        }
+
         const cardSub = document.getElementById("card-reply-time");
-        if(cardTitle) { cardTitle.innerText = s.startConversationText || "Send us a message"; cardTitle.style.color = s.cardTitleColor; }
-        if(cardSub) { cardSub.innerText = s.replyTimeText || "Typically replies in 5 minutes"; cardSub.style.color = s.cardSubtitleColor; }
+        if(cardSub) { 
+            cardSub.innerText = s.replyTimeText || "Typically replies in 5 minutes"; 
+            cardSub.style.color = s.cardSubtitleColor; 
+        }
+
         const onboardingTitle = document.getElementById("onboarding-title");
+        if(onboardingTitle) { 
+            onboardingTitle.innerText = s.onboardingTitle || "Start a conversation"; 
+            onboardingTitle.style.color = s.onboardingTextColor; 
+        }
+
         const onboardingSub = document.getElementById("onboarding-p");
-        if(onboardingTitle) { onboardingTitle.innerText = s.onboardingTitle || "Start a conversation"; onboardingTitle.style.color = s.onboardingTextColor; }
-        if(onboardingSub) { onboardingSub.innerText = s.onboardingSubtitle || "Please provide your details to begin."; onboardingSub.style.color = s.onboardingTextColor; }
+        if(onboardingSub) { 
+            onboardingSub.innerText = s.onboardingSubtitle || "Please provide your details to begin."; 
+            onboardingSub.style.color = s.onboardingTextColor; 
+        }
 
+        // Apply Support Avatar
+        if(s.welcomeImg) { 
+          const avatar = document.getElementById("main-support-avatar"); 
+          if(avatar) avatar.src = s.welcomeImg; 
+        }
+
+        // LAUNCHER ICON LOGIC (UPDATED)
         const launcherIconContainer = document.getElementById("launcher-icon");
-        if(launcherIconContainer) { launcherIconContainer.innerHTML = ICON_MAP[s.launcherIcon] || ICON_MAP['custom']; }
-        if(s.welcomeImg) { const avatar = document.getElementById("main-support-avatar"); if(avatar) avatar.src = s.welcomeImg; }
+        if(launcherIconContainer) { 
+            // Hum s.launcherIcon (key) aur s.customLauncherImg (image data) dono use kar rahe hain
+            launcherIconContainer.innerHTML = getIconHTML(s.launcherIcon, s.customLauncherImg); 
+        }
       }
-    } catch (e) { console.error("Settings sync failed", e); }
+    } catch (e) { 
+        console.error("Talksy: Settings sync failed", e); 
+    }
   }
-
   function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
