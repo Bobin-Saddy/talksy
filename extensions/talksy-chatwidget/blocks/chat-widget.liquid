@@ -224,22 +224,57 @@
   let adminProfileImg = ""; 
   let renderedMessageIds = new Set();
 
-  // --- 1. EMOJI LOGIC (FIXED) ---
+  // --- 1. SETTINGS SYNC (RESTORED FULL CODE) ---
+  async function fetchAndApplySettings() {
+    try {
+      const response = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
+      if (!response.ok) return;
+      const s = await response.json();
+      
+      if (s) {
+        // Apply Font Family
+        if (s.fontFamily) {
+          document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
+          document.body.style.fontFamily = s.fontFamily;
+        }
+        
+        // Apply Primary Color
+        if (s.primaryColor) {
+          document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
+          // Apply to buttons manually as fallback
+          const btns = ["chat-send", "chat-submit-info", "send-image-btn"];
+          btns.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.style.backgroundColor = s.primaryColor;
+          });
+        }
+
+        // Apply Header & Welcome Texts
+        if (s.headerTitle) document.getElementById("header-title-text").innerText = s.headerTitle;
+        if (s.welcomeText) document.getElementById("welcome-h1").innerText = s.welcomeText;
+        if (s.welcomeSubtext) document.getElementById("welcome-p").innerText = s.welcomeSubtext;
+
+        // Store and Apply Admin Image
+        adminProfileImg = s.welcomeImg; 
+        updateHeaderAvatar('home');
+
+        // Apply Custom App Icon to Launcher if exists
+        const appIconImg = document.getElementById("launcher-icon");
+        if (appIconImg && s.launcherIcon) {
+          appIconImg.src = s.launcherIcon;
+        }
+      }
+    } catch (e) { console.error("Settings Sync Error:", e); }
+  }
+
+  // --- 2. EMOJI LOGIC ---
   const emojiBtn = document.getElementById("emoji-btn");
   const picker = document.getElementById("emoji-picker");
-  const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏","🎉","📢"];
+  const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏","🎉"];
 
   if(picker && emojiBtn) {
-    // Populate Emojis
     picker.innerHTML = emojis.map(e => `<span class="emoji-item" style="cursor:pointer; font-size: 20px; padding: 5px; display:inline-block; user-select:none;">${e}</span>`).join("");
-    
-    // Toggle Picker
-    emojiBtn.onclick = (e) => {
-      e.stopPropagation();
-      picker.classList.toggle("hidden-picker");
-    };
-
-    // Emoji Click
+    emojiBtn.onclick = (e) => { e.stopPropagation(); picker.classList.toggle("hidden-picker"); };
     picker.onclick = (e) => {
       if(e.target.classList.contains('emoji-item')) {
         chatInput.value += e.target.innerText;
@@ -247,25 +282,17 @@
         chatInput.focus();
       }
     };
-
-    // Close picker when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!picker.contains(e.target) && e.target !== emojiBtn) {
-        picker.classList.add("hidden-picker");
-      }
-    });
+    document.addEventListener('click', (e) => { if (!picker.contains(e.target)) picker.classList.add("hidden-picker"); });
   }
 
-  // --- 2. VALIDATION LOGIC ---
+  // --- 3. VALIDATION ---
   function setValidationError(input, message) {
     input.style.borderColor = "red";
     let errorMsg = input.parentNode.querySelector(".err-msg");
     if (!errorMsg) {
       errorMsg = document.createElement("div");
       errorMsg.className = "err-msg";
-      errorMsg.style.color = "red";
-      errorMsg.style.fontSize = "11px";
-      errorMsg.style.marginTop = "2px";
+      errorMsg.style.cssText = "color:red; font-size:11px; margin-top:2px;";
       input.parentNode.appendChild(errorMsg);
     }
     errorMsg.textContent = message;
@@ -283,146 +310,14 @@
     const email = document.getElementById("chat-email");
     let isValid = true;
 
-    if (fName.value.trim().length < 2) {
-      setValidationError(fName, "First name is too short");
-      isValid = false;
-    } else { clearValidationError(fName); }
-
-    if (lName.value.trim().length < 2) {
-      setValidationError(lName, "Last name is too short");
-      isValid = false;
-    } else { clearValidationError(lName); }
-
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(email.value.trim())) {
-      setValidationError(email, "Invalid email format");
-      isValid = false;
-    } else { clearValidationError(email); }
-
+    if (fName.value.trim().length < 2) { setValidationError(fName, "First name required"); isValid = false; } else { clearValidationError(fName); }
+    if (lName.value.trim().length < 2) { setValidationError(lName, "Last name required"); isValid = false; } else { clearValidationError(lName); }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.value.trim())) { setValidationError(email, "Invalid email format"); isValid = false; } else { clearValidationError(email); }
     return isValid;
   }
 
-  // --- 3. LAUNCHER & ICON TOGGLE ---
-  if(launcher) {
-    launcher.onclick = () => {
-      const isVisible = widget.classList.contains("chat-visible");
-      widget.classList.toggle("chat-visible", !isVisible);
-      widget.classList.toggle("chat-hidden", isVisible);
-      
-      const appIcon = document.getElementById("launcher-icon");
-      const closeIcon = document.getElementById("close-launcher-icon");
-      
-      if (isVisible) {
-        if(appIcon) appIcon.style.display = "block";
-        if(closeIcon) closeIcon.style.display = "none";
-      } else {
-        if(appIcon) appIcon.style.display = "none";
-        if(closeIcon) closeIcon.style.display = "flex";
-      }
-    };
-  }
-
-  // --- 4. MESSAGE RENDERING ---
-  const addMessageToUI = (m) => {
-    if (m.id && renderedMessageIds.has(m.id)) return;
-    if (m.id) renderedMessageIds.add(m.id);
-
-    const div = document.createElement("div");
-    const isBot = (m.sender === 'admin' || m.sender === 'bot');
-    div.className = `msg ${isBot ? 'bot' : 'user'}`;
-    
-    const isImg = m.fileUrl && (m.fileUrl.startsWith('data:image') || m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg|webp)$/i));
-    
-    let contentHtml = `<div class="msg-content">`;
-    if(m.message) contentHtml += `<div style="margin-bottom:4px;">${m.message}</div>`;
-    if(m.fileUrl) {
-      if(isImg) {
-        contentHtml += `<img src="${m.fileUrl}" style="max-width:100%; border-radius:8px; display:block;" onclick="window.open('${m.fileUrl}')" />`;
-      } else {
-        contentHtml += `<a href="${m.fileUrl}" target="_blank" style="color:inherit; font-size:12px; text-decoration:underline;">📎 Attachment</a>`;
-      }
-    }
-    contentHtml += `</div>`;
-    
-    div.innerHTML = contentHtml;
-    msgBox.appendChild(div);
-    msgBox.scrollTop = msgBox.scrollHeight;
-  };
-
-  // --- 5. SUBMIT & API ---
-  const submitBtn = document.getElementById("chat-submit-info");
-  if(submitBtn) {
-    submitBtn.onclick = async () => {
-      if (!validateForm()) return; 
-
-      const fname = document.getElementById("chat-fname").value.trim();
-      const lname = document.getElementById("chat-lname").value.trim();
-      const email = document.getElementById("chat-email").value.trim();
-      
-      const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
-      try {
-        const res = await fetch(`${BASE_URL}/app/chat/register`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shop, fname, lname, email, sessionId })
-        });
-        if (res.ok) {
-          localStorage.setItem("chat_session", sessionId);
-          localStorage.setItem("chat_user_email", email);
-          localStorage.setItem("chat_user_fname", fname);
-          localStorage.setItem("chat_user_lname", lname);
-          
-          document.getElementById("chat-onboarding-step").style.display = "none";
-          document.getElementById("chat-chat-step").style.display = "flex";
-          updateHeaderAvatar('chat');
-          startPolling();
-        }
-      } catch (e) {}
-    };
-  }
-
-  async function handleSend(customText = "", fileUrl = null) {
-    const text = (customText || chatInput.value).trim();
-    const sId = localStorage.getItem("chat_session");
-    if ((!text && !fileUrl) || !sId) return;
-
-    chatInput.value = "";
-    try {
-      const res = await fetch(`${BASE_URL}/app/chat/message`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            sessionId: sId, message: text, shop, 
-            email: localStorage.getItem("chat_user_email"),
-            fname: localStorage.getItem("chat_user_fname"),
-            lname: localStorage.getItem("chat_user_lname"),
-            fileUrl 
-        })
-      });
-      if (res.ok) loadMessages();
-    } catch (e) {}
-  }
-
-  async function loadMessages() {
-    const sessionId = localStorage.getItem("chat_session");
-    if (!sessionId) return;
-    try {
-      const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sessionId}`);
-      if (res.ok) {
-        const data = await res.json();
-        data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        data.forEach(m => addMessageToUI(m));
-      }
-    } catch (e) {}
-  }
-
-  function startPolling() { 
-    if (pollingInterval) clearInterval(pollingInterval); 
-    loadMessages();
-    pollingInterval = setInterval(loadMessages, 3500); 
-  }
-
-  // --- 6. NAVIGATION & AVATAR ---
+  // --- 4. MESSAGE & AVATAR LOGIC ---
   function updateHeaderAvatar(activeTab) {
     const avatarImg = document.getElementById("main-support-avatar");
     if (!avatarImg) return;
@@ -431,23 +326,97 @@
 
     if (activeTab === 'chat' && fname && lname) {
       const initials = (fname.charAt(0) + lname.charAt(0)).toUpperCase();
-      const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--chat-primary').trim().replace('#', '') || '6366f1';
-      avatarImg.src = `https://ui-avatars.com/api/?name=${initials}&background=${primaryColor}&color=fff&bold=true`;
+      const pColor = getComputedStyle(document.documentElement).getPropertyValue('--chat-primary').trim().replace('#', '') || '6366f1';
+      avatarImg.src = `https://ui-avatars.com/api/?name=${initials}&background=${pColor}&color=fff&bold=true`;
     } else {
       avatarImg.src = adminProfileImg || `https://ui-avatars.com/api/?name=Support&background=6366f1&color=fff`;
     }
   }
 
-  function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById(`tab-${tabId}`).style.display = 'flex';
-    const activeNav = document.querySelector(`[data-tab="${tabId}"]`);
-    if(activeNav) activeNav.classList.add('active');
-    updateHeaderAvatar(tabId);
+  const addMessageToUI = (m) => {
+    if (m.id && renderedMessageIds.has(m.id)) return;
+    if (m.id) renderedMessageIds.add(m.id);
+    const div = document.createElement("div");
+    const isBot = (m.sender === 'admin' || m.sender === 'bot');
+    div.className = `msg ${isBot ? 'bot' : 'user'}`;
+    const isImg = m.fileUrl && (m.fileUrl.startsWith('data:image') || m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg|webp)$/i));
+    let html = `<div class="msg-content">`;
+    if(m.message) html += `<div style="margin-bottom:4px;">${m.message}</div>`;
+    if(m.fileUrl) {
+      html += isImg ? `<img src="${m.fileUrl}" style="max-width:100%; border-radius:8px; display:block;" onclick="window.open('${m.fileUrl}')" />` : `<a href="${m.fileUrl}" target="_blank">📎 Attachment</a>`;
+    }
+    html += `</div>`;
+    div.innerHTML = html;
+    msgBox.appendChild(div);
+    msgBox.scrollTop = msgBox.scrollHeight;
+  };
+
+  // --- 5. CORE ACTIONS ---
+  async function handleSend(customText = "", fileUrl = null) {
+    const text = (customText || chatInput.value).trim();
+    const sId = localStorage.getItem("chat_session");
+    if ((!text && !fileUrl) || !sId) return;
+    chatInput.value = "";
+    try {
+      const res = await fetch(`${BASE_URL}/app/chat/message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sId, message: text, shop, email: localStorage.getItem("chat_user_email"), fname: localStorage.getItem("chat_user_fname"), lname: localStorage.getItem("chat_user_lname"), fileUrl })
+      });
+      if (res.ok) loadMessages();
+    } catch (e) {}
   }
 
-  // --- 7. FILE HANDLING ---
+  async function loadMessages() {
+    const sId = localStorage.getItem("chat_session");
+    if (!sId) return;
+    try {
+      const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sId}`);
+      if (res.ok) {
+        const data = await res.json();
+        data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        data.forEach(m => addMessageToUI(m));
+      }
+    } catch (e) {}
+  }
+
+  function startPolling() { if (pollingInterval) clearInterval(pollingInterval); loadMessages(); pollingInterval = setInterval(loadMessages, 3500); }
+
+  // --- 6. INITIALIZATION & EVENTS ---
+  launcher.onclick = () => {
+    const isVisible = widget.classList.contains("chat-visible");
+    widget.classList.toggle("chat-visible", !isVisible);
+    widget.classList.toggle("chat-hidden", isVisible);
+    document.getElementById("launcher-icon").style.display = isVisible ? "block" : "none";
+    document.getElementById("close-launcher-icon").style.display = isVisible ? "none" : "flex";
+  };
+
+  document.getElementById("chat-submit-info").onclick = async () => {
+    if (!validateForm()) return;
+    const fname = document.getElementById("chat-fname").value.trim();
+    const lname = document.getElementById("chat-lname").value.trim();
+    const email = document.getElementById("chat-email").value.trim();
+    const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
+    try {
+      const res = await fetch(`${BASE_URL}/app/chat/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop, fname, lname, email, sessionId })
+      });
+      if (res.ok) {
+        localStorage.setItem("chat_session", sessionId);
+        localStorage.setItem("chat_user_email", email);
+        localStorage.setItem("chat_user_fname", fname);
+        localStorage.setItem("chat_user_lname", lname);
+        document.getElementById("chat-onboarding-step").style.display = "none";
+        document.getElementById("chat-chat-step").style.display = "flex";
+        updateHeaderAvatar('chat');
+        startPolling();
+      }
+    } catch (e) {}
+  };
+
+  // File Handling
   const fileInput = document.getElementById("chat-file-input");
   document.getElementById("file-btn").onclick = () => fileInput.click();
   fileInput.onchange = (e) => {
@@ -465,12 +434,10 @@
   };
 
   document.getElementById("send-image-btn").onclick = () => {
-    if(selectedImage) {
-      handleSend("", selectedImage);
-      selectedImage = null;
-      document.getElementById("image-preview-container").style.display = "none";
-      document.getElementById("chat-footer").style.display = "flex";
-    }
+    handleSend("", selectedImage);
+    selectedImage = null;
+    document.getElementById("image-preview-container").style.display = "none";
+    document.getElementById("chat-footer").style.display = "flex";
   };
 
   document.getElementById("remove-image-btn").onclick = () => {
@@ -479,23 +446,12 @@
     document.getElementById("chat-footer").style.display = "flex";
   };
 
-  // --- STARTUP ---
-  async function init() {
-    try {
-      const res = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
-      const s = await res.json();
-      if (s) {
-        document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
-        adminProfileImg = s.welcomeImg; 
-        updateHeaderAvatar('home');
-      }
-    } catch (e) {}
-    
-    if (localStorage.getItem("chat_session")) {
-      document.getElementById("chat-onboarding-step").style.display = "none";
-      document.getElementById("chat-chat-step").style.display = "flex";
-      startPolling();
-    }
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`tab-${tabId}`).style.display = 'flex';
+    if(document.querySelector(`[data-tab="${tabId}"]`)) document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+    updateHeaderAvatar(tabId);
   }
 
   document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', () => switchTab(item.dataset.tab)); });
@@ -504,7 +460,15 @@
   chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
   document.getElementById("chat-close").onclick = () => launcher.click();
 
-  init();
+  // Startup
+  (async function init() {
+    await fetchAndApplySettings();
+    if (localStorage.getItem("chat_session")) {
+      document.getElementById("chat-onboarding-step").style.display = "none";
+      document.getElementById("chat-chat-step").style.display = "flex";
+      startPolling();
+    }
+  })();
 })();
 </script>
 
