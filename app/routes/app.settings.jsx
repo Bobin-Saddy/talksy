@@ -33,7 +33,7 @@ export const loader = async ({ request }) => {
     cardSubtitleColor: "#64748b",
     onboardingTextColor: "#384959",
     welcomeImg: "https://ui-avatars.com/api/?name=Support&background=fff&color=4F46E5",
-    headerTitle: "Live Support",
+    headerTitle: "",
     headerSubtitle: "Online now",
     welcomeText: "Hi there 👋",
     welcomeSubtext: "We are here to help you! Ask us anything.",
