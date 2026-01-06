@@ -93,7 +93,7 @@ export default function UltimateSettings() {
   const navigation = useNavigation();
   
   const [formState, setFormState] = useState(settings);
-  const [activeTab, setActiveTab] = useState('style');
+  const [activeTab, setActiveTab] = useState('style'); // Active Tab State
   const [toast, setToast] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -132,22 +132,41 @@ export default function UltimateSettings() {
       
       {/* NAVIGATION SIDEBAR */}
       <div style={{ width: '100px', background: '#F9FAFB', borderRight: '1px solid #E5E7EB', padding: '30px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <NavIcon active={activeTab === 'style'} onClick={() => setActiveTab('style')} icon="🎨" title="Style" />
-          <NavIcon active={activeTab === 'content'} onClick={() => setActiveTab('content')} icon="🌐" title="Content" />
-          <NavIcon active={activeTab === 'typography'} onClick={() => setActiveTab('typography')} icon="Aa" title="Fonts" />
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <NavIcon 
+            active={activeTab === 'style'} 
+            onClick={() => setActiveTab('style')} 
+            icon="🎨" 
+            title="Style" 
+          />
+          <NavIcon 
+            active={activeTab === 'content'} 
+            onClick={() => setActiveTab('content')} 
+            icon="🌐" 
+            title="Content" 
+          />
+          <NavIcon 
+            active={activeTab === 'typography'} 
+            onClick={() => setActiveTab('typography')} 
+            icon="Aa" 
+            title="Fonts" 
+          />
         </nav>
       </div>
 
-      {/* CONFIGURATION PANEL */}
-      <div style={{ flex: 1, padding: '40px 50px' }}>
+      {/* CONFIGURATION CONTENT */}
+      <div style={{ flex: 1, padding: '40px 50px', maxWidth: '800px' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827' }}>
             {activeTab === 'style' && 'Appearance'}
             {activeTab === 'content' && 'Translations'}
             {activeTab === 'typography' && 'Typography'}
           </h1>
-          <button onClick={handleSave} style={{ padding: '12px 28px', background: '#111827', color: '#FFF', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', border: 'none' }}>
+          <button 
+            onClick={handleSave} 
+            disabled={navigation.state === "submitting"}
+            style={{ padding: '12px 28px', background: '#111827', color: '#FFF', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', border: 'none', opacity: navigation.state === "submitting" ? 0.7 : 1 }}
+          >
             {navigation.state === "submitting" ? "Syncing..." : "Save & Publish"}
           </button>
         </header>
@@ -225,6 +244,7 @@ export default function UltimateSettings() {
           <div style={{ marginBottom: '20px', fontSize: '12px', fontWeight: '800', color: '#9CA3AF' }}>PREVIEW</div>
           
           <div style={{ width: '350px', height: '620px', background: '#FFF', borderRadius: '28px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.1)', fontFamily: formState.fontFamily }}>
+            {/* Header */}
             <div style={{ background: formState.headerBgColor, padding: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <img src={formState.welcomeImg} style={{ width: '40px', height: '40px', borderRadius: '12px', objectFit: 'cover' }} alt="avatar" />
                 <div>
@@ -234,11 +254,13 @@ export default function UltimateSettings() {
             </div>
 
             <div style={{ flex: 1, background: '#f8fafc', overflowY: 'auto' }}>
+                {/* Hero */}
                 <div style={{ background: formState.heroBgColor, padding: '40px 25px', color: formState.heroTextColor }}>
                     <h1 style={{ fontSize: '24px', fontWeight: '700', margin: '0 0 10px 0' }}>{formState.welcomeText}</h1>
                     <p style={{ fontSize: formState.baseFontSize, opacity: 0.9 }}>{formState.welcomeSubtext}</p>
                 </div>
                 
+                {/* Action Card */}
                 <div style={{ background: '#FFF', margin: '-30px 20px 15px', padding: '15px', borderRadius: '16px', boxShadow: '0 10px 20px rgba(0,0,0,0.05)', border: `1.5px solid #f1f5f9` }}>
                     <div>
                       <div style={{ fontWeight: '700', color: formState.cardTitleColor }}>{formState.startConversationText}</div>
@@ -246,6 +268,7 @@ export default function UltimateSettings() {
                     </div>
                 </div>
 
+                {/* Onboarding */}
                 <div style={{ padding: '20px', textAlign: 'center' }}>
                     <h3 style={{ fontSize: '16px', fontWeight: '700', color: formState.onboardingTextColor, marginBottom: '5px' }}>{formState.onboardingTitle}</h3>
                     <p style={{ fontSize: '13px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</p>
@@ -267,24 +290,39 @@ export default function UltimateSettings() {
 
 // Sub-components
 const NavIcon = ({ active, icon, title, onClick }) => (
-    <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', transition: '0.2s', marginBottom: '20px' }}>
+    <div 
+      onClick={onClick} 
+      style={{ 
+        textAlign: 'center', 
+        cursor: 'pointer', 
+        transition: 'all 0.2s ease', 
+        marginBottom: '4px',
+        width: '64px'
+      }}
+    >
         <div style={{ 
           fontSize: '24px', 
-          background: active ? '#E5E7EB' : 'transparent', 
-          width: '50px', 
-          height: '50px', 
+          background: active ? '#EEF2FF' : 'transparent', // Added Active Background
+          width: '56px', 
+          height: '56px', 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center', 
-          borderRadius: '12px',
-          opacity: active ? 1 : 0.4 
-        }}>{icon}</div>
+          borderRadius: '14px',
+          margin: '0 auto',
+          opacity: active ? 1 : 0.5, // Distinct active opacity
+          border: active ? '1px solid #E0E7FF' : '1px solid transparent' // Subtle active border
+        }}>
+          {icon}
+        </div>
         <div style={{ 
-          fontSize: '10px', 
-          fontWeight: active ? '800' : '600', 
-          marginTop: '5px', 
-          color: active ? '#111827' : '#9CA3AF' 
-        }}>{title}</div>
+          fontSize: '11px', 
+          fontWeight: active ? '800' : '600', // Bold text on active
+          marginTop: '6px', 
+          color: active ? '#4F46E5' : '#6B7280' // Color shift on active
+        }}>
+          {title}
+        </div>
     </div>
 );
 
