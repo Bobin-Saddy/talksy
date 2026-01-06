@@ -104,15 +104,33 @@
 </div>
 
 <style>
-/* CSS remains the same as your provided code */
 :root { 
   --chat-primary: {{ primary_color }}; 
   --chat-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --chat-base-size: 15px; 
 }
+
 #chat-widget * { box-sizing: border-box; font-family: var(--chat-font-family) !important; }
-#chat-launcher { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 50%; background: #ffffff !important; color: var(--chat-primary) !important; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 999999; box-shadow: 0 10px 30px rgba(0,0,0,0.18); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+#chat-launcher { 
+  position: fixed; 
+  bottom: 25px; 
+  right: 25px; 
+  width: 60px; 
+  height: 60px; 
+  border-radius: 50%; 
+  background: #ffffff !important; 
+  color: var(--chat-primary) !important; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  cursor: pointer; 
+  z-index: 999999; 
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18); 
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+}
 #chat-launcher:hover { transform: scale(1.1); }
+
 #chat-widget { position: fixed; bottom: 100px; right: 25px; width: 370px; height: 600px; max-height: calc(100vh - 130px); background: #ffffff; border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.15); z-index: 999998; transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); border: 1px solid rgba(0,0,0,0.05); font-size: var(--chat-base-size); }
 .chat-hidden { opacity: 0; transform: translateY(20px) scale(0.95); pointer-events: none; }
 .chat-visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: all; }
@@ -120,13 +138,14 @@
 .header-content { display: flex; align-items: center; gap: 12px; }
 .avatar-stack { position: relative; width: 40px; height: 40px; }
 .avatar-stack img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.2); }
-.avatar-status { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: #22c55e; border: 2px solid #fff; border-radius: 50%; z-index: 1; }
+.avatar-status { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: #22c55e; border: 2px solid #fff; border-radius: 50%; }
 .header-title { display: block; font-weight: 700; font-size: 1.1em; }
 .header-subtitle { font-size: 0.8em; opacity: 0.9; display: flex; align-items: center; gap: 6px; }
 .pulse { display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse-animation 2s infinite; }
 @keyframes pulse-animation { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
 #chat-close { background: none; border: none; color: inherit; cursor: pointer; padding: 5px; opacity: 0.8; }
 .tab-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+.step-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .home-hero { padding: 30px 20px 60px; background: var(--chat-primary); color: #fff; text-align: left; }
 .home-hero h1 { font-size: 1.8em; margin: 0 0 8px; font-weight: 700; }
 .home-hero p { font-size: 0.95em; opacity: 0.9; margin: 0; line-height: 1.4; }
@@ -159,8 +178,25 @@
 #remove-image-btn { position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; }
 #send-image-btn { width: 100%; padding: 10px; background: var(--chat-primary); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
 #chat-footer { padding: 12px; background: #fff; border-top: 1px solid #f1f5f9; }
-.input-wrapper { display: flex; align-items: center; background: #f1f5f9; border-radius: 12px; padding: 6px 10px; gap: 5px; border: 1px solid var(--chat-primary); }
-#chat-input { flex: 1; border: none; background: transparent; outline: none; padding: 8px; font-size: 0.95em; border-radius: 8px; box-shadow: none; }
+.input-wrapper {
+    display: flex;
+    align-items: center;
+    background: #f1f5f9;
+    border-radius: 12px;
+    padding: 6px 10px;
+    gap: 5px;
+    border: 1px solid rgb(84, 51, 235);
+}
+#chat-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    padding: 8px;
+    font-size: 0.95em;
+    border-radius: 8px;
+    box-shadow: none;
+}
 .tool-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 4px; display: flex; align-items: center; color: #64748b; }
 #chat-send { background: var(--chat-primary); color: #fff; border: none; border-radius: 8px; padding: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 #chat-nav { display: flex; border-top: 1px solid #f1f5f9; background: #fff; padding: 5px 0; flex-shrink: 0; }
@@ -168,7 +204,10 @@
 .nav-item.active { color: var(--chat-primary); font-weight: 600; }
 .hidden-picker { display: none !important; }
 #emoji-picker { position: absolute; bottom: 70px; left: 10px; right: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; z-index: 10; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
-.header-text { display: flex; gap: 6px; flex-direction: column; }
+.header-text {
+    display: flex;
+    gap: 6px;
+}
 </style>
 
 <script>
@@ -179,118 +218,55 @@
   const launcher = document.getElementById("chat-launcher");
   const chatInput = document.getElementById("chat-input");
   const msgBox = document.getElementById("chat-messages");
+  
   let selectedImage = null;
   let pollingInterval = null; 
+  let adminProfileImg = ""; 
   let renderedMessageIds = new Set();
 
-  function validateName(name, fieldName = "Name") {
-    const trimmed = name.trim();
-    if (trimmed.length < 1) return { valid: false, error: `${fieldName} is required` };
-    if (trimmed.length > 50) return { valid: false, error: `${fieldName} is too long` };
-    if (!/^[a-zA-Z\s'-]+$/.test(trimmed)) return { valid: false, error: `${fieldName} contains invalid characters` };
-    return { valid: true, error: "" };
-  }
-
-  function validateEmail(email) {
-    const trimmed = email.trim();
-    if (!trimmed) return { valid: false, error: "Email is required" };
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmed)) return { valid: false, error: "Please enter a valid email address" };
-    return { valid: true, error: "" };
-  }
-
-  function showError(inputId, errorId, errorMessage) {
-    const input = document.getElementById(inputId);
-    const errorSpan = document.getElementById(errorId);
-    if(input) input.classList.add('error');
-    if(errorSpan) errorSpan.textContent = errorMessage;
-  }
-
-  function clearError(inputId, errorId) {
-    const input = document.getElementById(inputId);
-    const errorSpan = document.getElementById(errorId);
-    if(input) input.classList.remove('error');
-    if(errorSpan) errorSpan.textContent = '';
-  }
-
-  // --- UPDATED AVATAR LOGIC ---
-  function updateUserAvatar() {
-    const fname = localStorage.getItem("chat_fname") || "";
-    const lname = localStorage.getItem("chat_lname") || "";
+  // --- UI Updates ---
+  function updateHeaderAvatar(activeTab) {
     const avatarImg = document.getElementById("main-support-avatar");
-    
-    if (fname && lname && avatarImg) {
+    if (!avatarImg) return;
+    const fname = localStorage.getItem("chat_user_fname");
+    const lname = localStorage.getItem("chat_user_lname");
+
+    if (activeTab === 'chat' && fname && lname) {
       const initials = (fname.charAt(0) + lname.charAt(0)).toUpperCase();
       const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--chat-primary').trim().replace('#', '');
-      // Generating a UI-Avatar based on user initials
       avatarImg.src = `https://ui-avatars.com/api/?name=${initials}&background=${primaryColor}&color=fff&bold=true`;
+    } else {
+      avatarImg.src = adminProfileImg || `https://ui-avatars.com/api/?name=Support&background=6366f1&color=fff`;
     }
   }
 
-  async function fetchAndApplySettings() {
-    try {
-      const response = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
-      if (!response.ok) return;
-      const s = await response.json();
-      if (s) {
-        if (s.fontFamily) document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
-        document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
-        
-        // Initial Avatar update after settings load
-        updateUserAvatar();
-      }
-    } catch (e) { console.error("Settings sync failed", e); }
-  }
-
-  function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    const targetTab = document.getElementById(`tab-${tabId}`);
-    const targetNav = document.querySelector(`[data-tab="${tabId}"]`);
-    if(targetTab) targetTab.style.display = 'flex';
-    if(targetNav) targetNav.classList.add('active');
-  }
-
-  if(launcher) {
-    launcher.addEventListener('click', () => {
-      const isVisible = widget.classList.contains("chat-visible");
-      widget.classList.toggle("chat-visible", !isVisible);
-      widget.classList.toggle("chat-hidden", isVisible);
-      const lIcon = document.getElementById("launcher-icon");
-      const cIcon = document.getElementById("close-launcher-icon");
-      if(lIcon) lIcon.style.display = isVisible ? "block" : "none";
-      if(cIcon) cIcon.style.display = isVisible ? "none" : "block";
-    });
-  }
-
-  const closeBtn = document.getElementById("chat-close");
-  if(closeBtn) closeBtn.onclick = () => launcher.click();
-  document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', () => switchTab(item.dataset.tab)); });
-  
-  const startTrigger = document.getElementById('start-chat-trigger');
-  if(startTrigger) { startTrigger.addEventListener('click', () => { switchTab('chat'); loadMessages(); }); }
-
+  // --- Message Rendering (Fixes Duplicates) ---
   const addMessageToUI = (m) => {
+    // Check if message ID already exists to prevent duplicates
     if (m.id && renderedMessageIds.has(m.id)) return;
-    const displayId = m.id || `temp-${Date.now()}`;
     if (m.id) renderedMessageIds.add(m.id);
 
     const div = document.createElement("div");
-    div.id = `msg-${displayId}`;
     div.className = `msg ${m.sender}`;
-    const isImg = m.fileUrl && (m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg)$/i) || m.fileUrl.startsWith('data:image'));
+    // Use sender 'bot' or 'admin' for left side, 'user' for right side
+    if (m.sender === 'admin' || m.sender === 'bot') div.classList.add('bot');
+    
+    const isImg = m.fileUrl && m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg)$/i);
+    
     let contentHtml = `<div class="msg-content">${m.message || ""}`;
     if(m.fileUrl) {
       contentHtml += isImg 
-        ? `<img src="${m.fileUrl}" style="max-width:100%; border-radius:8px; margin-top:5px;" />`
-        : `<br><a href="${m.fileUrl}" target="_blank">📎 Attachment</a>`;
+        ? `<img src="${m.fileUrl}" style="max-width:100%; border-radius:8px; margin-top:5px; display:block;" onclick="window.open('${m.fileUrl}')" />`
+        : `<br><a href="${m.fileUrl}" target="_blank" style="color:inherit; font-size:12px;">📎 Attachment</a>`;
     }
     contentHtml += `</div>`;
+    
     div.innerHTML = contentHtml;
     msgBox.appendChild(div);
     msgBox.scrollTop = msgBox.scrollHeight;
   };
 
+  // --- API Functions ---
   async function loadMessages() {
     const sessionId = localStorage.getItem("chat_session");
     if (!sessionId) return;
@@ -298,32 +274,86 @@
       const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sessionId}`);
       if (res.ok) {
         const data = await res.json();
+        // Sort by time to ensure order
         data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         data.forEach(m => addMessageToUI(m));
       }
-    } catch (e) {}
+    } catch (e) { console.error("Polling error", e); }
   }
 
-  // --- REGISTRATION LOGIC WITH LAST NAME ---
-  const fNameEl = document.getElementById("chat-fname");
-  const lNameEl = document.getElementById("chat-lname");
-  const emailEl = document.getElementById("chat-email");
+  async function handleSend(customText = "", fileUrl = null) {
+    const text = customText || chatInput.value.trim();
+    const sId = localStorage.getItem("chat_session");
+    if ((!text && !fileUrl) || !sId) return;
+
+    // 1. Clear input immediately
+    chatInput.value = "";
+    
+    // 2. Send to server FIRST, then let polling handle the UI update
+    // This is the safest way to avoid duplicates
+    try {
+      const res = await fetch(`${BASE_URL}/app/chat/message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            sessionId: sId, 
+            message: text, 
+            shop, 
+            email: localStorage.getItem("chat_user_email"), 
+            fname: localStorage.getItem("chat_user_fname"),
+            lname: localStorage.getItem("chat_user_lname"),
+            fileUrl 
+        })
+      });
+      
+      if (res.ok) {
+        // Immediately trigger a poll to show the message we just sent
+        loadMessages();
+      }
+    } catch (e) { console.error("Send error", e); }
+  }
+
+  // --- Event Listeners ---
+  launcher.onclick = () => {
+    const isVisible = widget.classList.contains("chat-visible");
+    widget.classList.toggle("chat-visible", !isVisible);
+    widget.classList.toggle("chat-hidden", isVisible);
+    
+    // Toggle icons ONLY inside the launcher circle
+    document.getElementById("launcher-icon").style.display = isVisible ? "block" : "none";
+    document.getElementById("close-launcher-icon").style.display = isVisible ? "none" : "block";
+  };
+
+  document.getElementById("chat-close").onclick = () => launcher.click();
+  
+  document.querySelectorAll('.nav-item').forEach(item => { 
+    item.addEventListener('click', () => {
+        const tabId = item.dataset.tab;
+        switchTab(tabId);
+    }); 
+  });
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`tab-${tabId}`).style.display = 'flex';
+    document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+    updateHeaderAvatar(tabId);
+  }
+
+  document.getElementById('start-chat-trigger').onclick = () => { 
+    switchTab('chat'); 
+    loadMessages(); 
+  };
 
   const submitBtn = document.getElementById("chat-submit-info");
   if(submitBtn) {
     submitBtn.onclick = async () => {
-      const fname = fNameEl.value.trim();
-      const lname = lNameEl.value.trim();
-      const email = emailEl.value.trim();
+      const fname = document.getElementById("chat-fname").value.trim();
+      const lname = document.getElementById("chat-lname").value.trim();
+      const email = document.getElementById("chat-email").value.trim();
+      if (!fname || !lname || !email) return;
       
-      const nv = validateName(fname, "First Name");
-      const lv = validateName(lname, "Last Name");
-      const ev = validateEmail(email);
-      
-      if (!nv.valid) return showError('chat-fname', 'fname-error', nv.error);
-      if (!lv.valid) return showError('chat-lname', 'lname-error', lv.error);
-      if (!ev.valid) return showError('chat-email', 'email-error', ev.error);
-
       const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
       try {
         const res = await fetch(`${BASE_URL}/app/chat/register`, {
@@ -334,67 +364,78 @@
         if (res.ok) {
           localStorage.setItem("chat_session", sessionId);
           localStorage.setItem("chat_user_email", email);
-          localStorage.setItem("chat_fname", fname);
-          localStorage.setItem("chat_lname", lname);
-          
+          localStorage.setItem("chat_user_fname", fname);
+          localStorage.setItem("chat_user_lname", lname);
           document.getElementById("chat-onboarding-step").style.display = "none";
           document.getElementById("chat-chat-step").style.display = "flex";
-          
-          updateUserAvatar();
-          loadMessages();
+          updateHeaderAvatar('chat');
           startPolling();
         }
       } catch (e) {}
     };
   }
 
-  async function handleSend(customText = "", fileUrl = null) {
-    const text = customText || chatInput.value.trim();
-    const sId = localStorage.getItem("chat_session");
-    const email = localStorage.getItem("chat_user_email");
-    if ((!text && !fileUrl) || !sId) return;
-    
-    addMessageToUI({ sender: 'user', message: text, fileUrl });
-    chatInput.value = "";
+  function startPolling() { 
+    if (pollingInterval) clearInterval(pollingInterval); 
+    loadMessages(); // Initial load
+    pollingInterval = setInterval(loadMessages, 3000); 
+  }
+
+  document.getElementById("chat-send").onclick = () => handleSend();
+  chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
+  
+  // --- Image Logic ---
+  document.getElementById("file-btn").onclick = () => document.getElementById("chat-file-input").click();
+  document.getElementById("chat-file-input").onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      selectedImage = ev.target.result;
+      document.getElementById("image-preview").src = selectedImage;
+      document.getElementById("image-preview-container").style.display = "block";
+      document.getElementById("chat-footer").style.display = "none";
+    };
+    reader.readAsDataURL(file);
+  };
+
+  document.getElementById("send-image-btn").onclick = () => { 
+    handleSend("", selectedImage); 
+    selectedImage = null; 
+    document.getElementById("image-preview-container").style.display = "none"; 
+    document.getElementById("chat-footer").style.display = "flex"; 
+  };
+  
+  document.getElementById("remove-image-btn").onclick = () => {
+    selectedImage = null;
+    document.getElementById("image-preview-container").style.display = "none";
+    document.getElementById("chat-footer").style.display = "flex";
+  };
+
+  // --- Startup ---
+  async function init() {
+    await fetchAndApplySettings();
+    if (localStorage.getItem("chat_session")) {
+      document.getElementById("chat-onboarding-step").style.display = "none";
+      document.getElementById("chat-chat-step").style.display = "flex";
+      startPolling();
+    }
+  }
+
+  async function fetchAndApplySettings() {
     try {
-      await fetch(`${BASE_URL}/app/chat/message`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sId, message: text, shop, email, fileUrl })
-      });
+      const response = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
+      if (!response.ok) return;
+      const s = await response.json();
+      if (s) {
+        document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
+        adminProfileImg = s.welcomeImg; 
+        updateHeaderAvatar('home');
+      }
     } catch (e) {}
   }
 
-  function startPolling() { 
-    if (pollingInterval) clearInterval(pollingInterval); 
-    pollingInterval = setInterval(loadMessages, 4000); 
-  }
-
-  const sendAction = document.getElementById("chat-send");
-  if(sendAction) sendAction.onclick = () => handleSend();
-  if(chatInput) chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
-  
-  // Emoji & File handling remains same
-  const fileTrigger = document.getElementById("file-btn");
-  if(fileTrigger) fileTrigger.onclick = () => document.getElementById("chat-file-input").click();
-  
-  const emojiBtn = document.getElementById("emoji-btn");
-  const picker = document.getElementById("emoji-picker");
-  const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨"];
-  if(picker && emojiBtn) {
-    picker.innerHTML = emojis.map(e => `<span style="cursor:pointer; font-size: 18px;">${e}</span>`).join("");
-    emojiBtn.onclick = () => picker.classList.toggle("hidden-picker");
-    picker.onclick = (e) => { if(e.target.tagName === 'SPAN') { chatInput.value += e.target.innerText; picker.classList.add("hidden-picker"); chatInput.focus(); } };
-  }
-
-  fetchAndApplySettings();
-  if (localStorage.getItem("chat_session")) {
-    document.getElementById("chat-onboarding-step").style.display = "none";
-    document.getElementById("chat-chat-step").style.display = "flex";
-    updateUserAvatar();
-    loadMessages();
-    startPolling();
-  }
+  init();
 })();
 </script>
 
