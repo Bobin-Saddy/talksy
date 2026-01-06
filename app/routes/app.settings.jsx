@@ -53,7 +53,6 @@ export const action = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const formData = await request.formData();
   
-  // Explicitly mapping each field to ensure Prisma picks it up
   const data = {
     shop: session.shop,
     primaryColor: formData.get("primaryColor"),
@@ -98,11 +97,8 @@ export default function UltimateSettings() {
   const [toast, setToast] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Sync form state when loader data changes (after save)
   useEffect(() => {
-    if (settings) {
-      setFormState(settings);
-    }
+    if (settings) setFormState(settings);
   }, [settings]);
 
   useEffect(() => { 
@@ -134,10 +130,8 @@ export default function UltimateSettings() {
   return (
     <div style={{ background: '#F3F4F6', minHeight: '100vh', display: 'flex', fontFamily: 'Inter, sans-serif' }}>
       
-      {/* NAVIGATION */}
+      {/* NAVIGATION SIDEBAR */}
       <div style={{ width: '100px', background: '#F9FAFB', borderRight: '1px solid #E5E7EB', padding: '30px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
- 
-        
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <NavIcon active={activeTab === 'style'} onClick={() => setActiveTab('style')} icon="🎨" title="Style" />
           <NavIcon active={activeTab === 'content'} onClick={() => setActiveTab('content')} icon="🌐" title="Content" />
@@ -145,7 +139,7 @@ export default function UltimateSettings() {
         </nav>
       </div>
 
-      {/* CONFIGURATION */}
+      {/* CONFIGURATION PANEL */}
       <div style={{ flex: 1, padding: '40px 50px' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827' }}>
@@ -179,7 +173,6 @@ export default function UltimateSettings() {
                </div>
 
                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
-                {/* <ColorBox label="Primary Color" value={formState.primaryColor} onChange={(v) => handleChange('primaryColor', v)} /> */}
                 <ColorBox label="Header BG" value={formState.headerBgColor} onChange={(v) => handleChange('headerBgColor', v)} />
                 <ColorBox label="Banner BG" value={formState.heroBgColor} onChange={(v) => handleChange('heroBgColor', v)} />
               </div>
@@ -214,7 +207,6 @@ export default function UltimateSettings() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <Card title="Header & Hero Content">
                <Field label="Header Title" value={formState.headerTitle} onChange={(v) => handleChange('headerTitle', v)} />
-               {/* <Field label="Header Subtitle" value={formState.headerSubtitle} onChange={(v) => handleChange('headerSubtitle', v)} /> */}
                <Field label="Hero Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
                <AreaField label="Hero Subtext" value={formState.welcomeSubtext} onChange={(v) => handleChange('welcomeSubtext', v)} />
             </Card>
@@ -233,7 +225,6 @@ export default function UltimateSettings() {
           <div style={{ marginBottom: '20px', fontSize: '12px', fontWeight: '800', color: '#9CA3AF' }}>PREVIEW</div>
           
           <div style={{ width: '350px', height: '620px', background: '#FFF', borderRadius: '28px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.1)', fontFamily: formState.fontFamily }}>
-            {/* Header */}
             <div style={{ background: formState.headerBgColor, padding: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <img src={formState.welcomeImg} style={{ width: '40px', height: '40px', borderRadius: '12px', objectFit: 'cover' }} alt="avatar" />
                 <div>
@@ -243,13 +234,11 @@ export default function UltimateSettings() {
             </div>
 
             <div style={{ flex: 1, background: '#f8fafc', overflowY: 'auto' }}>
-                {/* Hero Section */}
                 <div style={{ background: formState.heroBgColor, padding: '40px 25px', color: formState.heroTextColor }}>
                     <h1 style={{ fontSize: '24px', fontWeight: '700', margin: '0 0 10px 0' }}>{formState.welcomeText}</h1>
                     <p style={{ fontSize: formState.baseFontSize, opacity: 0.9 }}>{formState.welcomeSubtext}</p>
                 </div>
                 
-                {/* Conversation Card */}
                 <div style={{ background: '#FFF', margin: '-30px 20px 15px', padding: '15px', borderRadius: '16px', boxShadow: '0 10px 20px rgba(0,0,0,0.05)', border: `1.5px solid #f1f5f9` }}>
                     <div>
                       <div style={{ fontWeight: '700', color: formState.cardTitleColor }}>{formState.startConversationText}</div>
@@ -257,7 +246,6 @@ export default function UltimateSettings() {
                     </div>
                 </div>
 
-                {/* Onboarding Preview */}
                 <div style={{ padding: '20px', textAlign: 'center' }}>
                     <h3 style={{ fontSize: '16px', fontWeight: '700', color: formState.onboardingTextColor, marginBottom: '5px' }}>{formState.onboardingTitle}</h3>
                     <p style={{ fontSize: '13px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</p>
@@ -265,7 +253,6 @@ export default function UltimateSettings() {
             </div>
           </div>
 
-          {/* Launcher Button Preview */}
           <div style={{ marginTop: '20px', width: '60px', height: '60px', borderRadius: '50%', background: '#FFF', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
             <div style={{ borderRadius: '50%', padding: formState.launcherIcon === 'custom' ? '0' : '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {ICON_MAP[formState.launcherIcon]}
@@ -280,22 +267,40 @@ export default function UltimateSettings() {
 
 // Sub-components
 const NavIcon = ({ active, icon, title, onClick }) => (
-    <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', opacity: active ? 1 : 0.5, transition: '0.2s', marginBottom: '20px' }}>
-        <div style={{ fontSize: '24px', background: active ? '#F3F4F6' : 'transparent', width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>{icon}</div>
-        <div style={{ fontSize: '10px', fontWeight: '700', marginTop: '5px', color: '#4B5563' }}>{title}</div>
+    <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', transition: '0.2s', marginBottom: '20px' }}>
+        <div style={{ 
+          fontSize: '24px', 
+          background: active ? '#E5E7EB' : 'transparent', 
+          width: '50px', 
+          height: '50px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          borderRadius: '12px',
+          opacity: active ? 1 : 0.4 
+        }}>{icon}</div>
+        <div style={{ 
+          fontSize: '10px', 
+          fontWeight: active ? '800' : '600', 
+          marginTop: '5px', 
+          color: active ? '#111827' : '#9CA3AF' 
+        }}>{title}</div>
     </div>
 );
+
 const Card = ({ title, children }) => (
     <div style={{ background: '#FFF', padding: '24px', borderRadius: '16px', border: '1px solid #E5E7EB', marginBottom: '10px' }}>
       <h3 style={{ fontSize: '11px', fontWeight: '800', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase' }}>{title}</h3>
       {children}
     </div>
 );
+
 const IconButton = ({ children, active, onClick }) => (
     <div onClick={onClick} style={{ width: '56px', height: '56px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2.5px solid #4F46E5' : '1.5px solid #E5E7EB', background: '#FFF' }}>
       {children}
     </div>
 );
+
 const ColorBox = ({ label, value, onChange }) => (
     <div>
       <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
@@ -305,18 +310,21 @@ const ColorBox = ({ label, value, onChange }) => (
       </div>
     </div>
 );
+
 const Field = ({ label, value, onChange }) => (
   <div style={{ marginBottom: '15px' }}>
     <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
     <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px' }} />
   </div>
 );
+
 const AreaField = ({ label, value, onChange }) => (
   <div style={{ marginBottom: '15px' }}>
     <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
     <textarea value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', minHeight: '60px', resize: 'none' }} />
   </div>
 );
+
 const Toast = ({ message }) => (
     <div style={{ position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', background: '#111827', color: '#FFF', padding: '12px 24px', borderRadius: '50px', fontWeight: '600', zIndex: 9999 }}>
       ✅ {message}
