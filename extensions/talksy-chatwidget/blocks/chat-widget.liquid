@@ -290,12 +290,18 @@
     const pColor = getComputedStyle(document.documentElement).getPropertyValue('--chat-primary').trim().replace('#', '') || '6366f1';
 
     if (activeTab === 'chat' && fname) {
-      // Initials logic: Pehle 2 words ke first letters leta hai
-      const names = fname.split(" ");
-      let initials = names[0].charAt(0).toUpperCase();
-      if (names.length > 1) {
-        initials += names[names.length - 1].charAt(0).toUpperCase();
+      // Fixed: First name aur last name dono ke first letters
+      const names = fname.trim().split(/\s+/).filter(n => n.length > 0);
+      let initials = "";
+      
+      if (names.length === 1) {
+        // Agar sirf ek word hai toh uska first letter
+        initials = names[0].charAt(0).toUpperCase();
+      } else if (names.length >= 2) {
+        // First word ka first letter + last word ka first letter
+        initials = names[0].charAt(0).toUpperCase() + names[names.length - 1].charAt(0).toUpperCase();
       }
+      
       avatarImg.src = `https://ui-avatars.com/api/?name=${initials}&background=${pColor}&color=fff&bold=true`;
     } else {
       avatarImg.src = adminProfileImg || `https://ui-avatars.com/api/?name=Support&background=6366f1&color=fff`;
