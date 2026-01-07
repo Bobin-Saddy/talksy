@@ -67,8 +67,6 @@ model ChatSettings {
   cardTitleColor        String   @default("#384959")
   cardSubtitleColor     String   @default("#64748b")
   onboardingTextColor   String   @default("#384959")
-  bottomNavActiveColor   String   @default("#4F46E5")
-  bottomNavInactiveColor String   @default("#94a3b8")
   customLauncherImg     String?
   welcomeImg            String   @default("https://ui-avatars.com/api/?name=Support&background=fff&color=4F46E5")
   headerTitle           String   @default("Live Support")

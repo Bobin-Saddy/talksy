@@ -9,10 +9,7 @@ const ICON_MAP = (customImg) => ({
   bubble: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   send: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
   defaultCustom: <img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" alt="custom" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />,
-  custom: customImg ? <img src={customImg} alt="User upload" style={{ width: '100%', height: '100%', borderRadius: '4px', objectFit: 'cover' }} /> : <span style={{ fontSize: '20px' }}>+</span>,
-  // Nav Icons for Preview
-  home: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
-  msg: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  custom: customImg ? <img src={customImg} alt="User upload" style={{ width: '100%', height: '100%', borderRadius: '4px', objectFit: 'cover' }} /> : <span style={{ fontSize: '20px' }}>+</span>
 });
 
 const FONT_OPTIONS = [
@@ -36,8 +33,6 @@ export const loader = async ({ request }) => {
     cardTitleColor: "#384959",
     cardSubtitleColor: "#64748b",
     onboardingTextColor: "#384959",
-    bottomNavActiveColor: "#4F46E5",
-    bottomNavInactiveColor: "#94a3b8",
     welcomeImg: "https://ui-avatars.com/api/?name=Support&background=fff&color=4F46E5",
     headerTitle: "Live Support",
     headerSubtitle: "Online now",
@@ -182,14 +177,7 @@ export default function UltimateSettings() {
               </div>
             </Card>
 
-            <Card title="Bottom Navigation Colors">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
-                <ColorBox label="Active (Home)" value={formState.bottomNavActiveColor} onChange={(v) => handleChange('bottomNavActiveColor', v)} />
-                <ColorBox label="Inactive (Messages)" value={formState.bottomNavInactiveColor} onChange={(v) => handleChange('bottomNavInactiveColor', v)} />
-              </div>
-            </Card>
-
-            <Card title="Other Colors">
+            <Card title="Colors">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
                 <ColorBox label="Header Text" value={formState.headerTextColor} onChange={(v) => handleChange('headerTextColor', v)} />
                 <ColorBox label="Hero Text" value={formState.heroTextColor} onChange={(v) => handleChange('heroTextColor', v)} />
@@ -211,6 +199,7 @@ export default function UltimateSettings() {
                <Field label="Card Button Text" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
                <Field label="Reply Status Text" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
             </Card>
+            {/* INCLUDED MISSING FIELDS HERE */}
             <Card title="Onboarding Screen">
                <Field label="Onboarding Title" value={formState.onboardingTitle} onChange={(v) => handleChange('onboardingTitle', v)} />
                <AreaField label="Onboarding Subtitle" value={formState.onboardingSubtitle} onChange={(v) => handleChange('onboardingSubtitle', v)} />
@@ -255,17 +244,10 @@ export default function UltimateSettings() {
                     <div style={{ fontWeight: '700', color: formState.cardTitleColor }}>{formState.startConversationText}</div>
                     <div style={{ fontSize: '12px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
                 </div>
-            </div>
 
-            {/* UPDATED BOTTOM NAV PREVIEW */}
-            <div style={{ height: '70px', borderTop: '1px solid #E5E7EB', display: 'flex', background: '#FFF' }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: formState.bottomNavActiveColor }}>
-                    {icons.home}
-                    <span style={{ fontSize: '10px', fontWeight: '700', marginTop: '4px' }}>Home</span>
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: formState.bottomNavInactiveColor }}>
-                    {icons.msg}
-                    <span style={{ fontSize: '10px', fontWeight: '700', marginTop: '4px' }}>Messages</span>
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                   <div style={{ fontSize: '14px', fontWeight: '700', color: formState.onboardingTextColor, marginBottom: '4px' }}>{formState.onboardingTitle}</div>
+                   <div style={{ fontSize: '12px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</div>
                 </div>
             </div>
           </div>
