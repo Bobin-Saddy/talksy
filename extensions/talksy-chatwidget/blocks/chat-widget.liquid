@@ -290,16 +290,16 @@
     const pColor = getComputedStyle(document.documentElement).getPropertyValue('--chat-primary').trim().replace('#', '') || '6366f1';
 
     if (activeTab === 'chat' && fname) {
-      // Fixed: First name aur last name dono ke first letters
+      // Fixed: First name + Last name ke first letters (e.g., "Sahil Sharma" → "SS")
       const names = fname.trim().split(/\s+/).filter(n => n.length > 0);
       let initials = "";
       
       if (names.length === 1) {
         // Agar sirf ek word hai toh uska first letter
         initials = names[0].charAt(0).toUpperCase();
-      } else if (names.length >= 2) {
-        // First word ka first letter + last word ka first letter
-        initials = names[0].charAt(0).toUpperCase() + names[names.length - 1].charAt(0).toUpperCase();
+      } else {
+        // First name ka first letter + Second name (last name) ka first letter
+        initials = names[0].charAt(0).toUpperCase() + names[1].charAt(0).toUpperCase();
       }
       
       avatarImg.src = `https://ui-avatars.com/api/?name=${initials}&background=${pColor}&color=fff&bold=true`;
