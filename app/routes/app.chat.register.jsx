@@ -13,14 +13,19 @@ export const action = async ({ request }) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
 
   try {
-    const { shop, fname, email, sessionId } = await request.json();
+    const { shop, firstName, lastName, email, sessionId } = await request.json();
     
     const session = await prisma.chatSession.upsert({
       where: { sessionId: sessionId },
-      update: { email, firstName: fname },
+      update: { 
+        email, 
+        firstName: firstName || null, 
+        lastName: lastName || null 
+      },
       create: { 
         shop, 
-        firstName: fname, 
+        firstName: firstName || null, 
+        lastName: lastName || null,
         email, 
         sessionId 
       },
