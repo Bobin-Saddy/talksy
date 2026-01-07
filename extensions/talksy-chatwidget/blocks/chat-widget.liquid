@@ -247,6 +247,22 @@
         if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
 
+        // --- NEW: DYNAMIC CSS INJECTION FOR NAV & MESSAGES ---
+        const styleTag = document.getElementById("chat-dynamic-styles") || document.createElement('style');
+        styleTag.id = "chat-dynamic-styles";
+        styleTag.innerHTML = `
+          .nav-item.active { 
+            color: ${s.navActiveColor} !important; 
+            border-top: 3px solid ${s.navActiveColor} !important; 
+          }
+          .nav-item.active svg { stroke: ${s.navActiveColor} !important; }
+          .msg.user .msg-content { 
+            background-color: ${s.chatMsgBgColor} !important; 
+            color: #ffffff !important; 
+          }
+        `;
+        if(!document.getElementById("chat-dynamic-styles")) document.head.appendChild(styleTag);
+
         // Launcher
         if(launcher) {
             launcher.style.background = "#ffffff";
@@ -256,12 +272,14 @@
         // Section Backgrounds
         const header = document.getElementById("chat-header");
         const hero = document.getElementById("home-hero-bg");
-        if(header) header.style.background = s.headerBgColor;
-        if(hero) hero.style.background = s.heroBgColor;
-
-        // --- NEW: Applying Text Colors (Fix for Top Banner) ---
-        if(header && s.headerTextColor) header.style.color = s.headerTextColor;
-        if(hero && s.heroTextColor) hero.style.color = s.heroTextColor;
+        if(header) {
+            header.style.background = s.headerBgColor;
+            header.style.color = s.headerTextColor;
+        }
+        if(hero) {
+            hero.style.background = s.heroBgColor;
+            hero.style.color = s.heroTextColor;
+        }
         
         // Ensure onboarding text updates
         const onboardingArea = document.getElementById("chat-onboarding-step");
@@ -289,7 +307,7 @@
 
         // Onboarding Content Strings
         if(s.onboardingTitle) {
-          const oT = document.getElementById("onboarding-title-text"); // Make sure this ID exists in HTML
+          const oT = document.getElementById("onboarding-title-text");
           if(oT) oT.innerText = s.onboardingTitle;
         }
         

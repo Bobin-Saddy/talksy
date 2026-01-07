@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
-// Icon Map function
 const ICON_MAP = (customImg) => ({
   bubble: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   send: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
@@ -33,6 +32,8 @@ export const loader = async ({ request }) => {
     cardTitleColor: "#384959",
     cardSubtitleColor: "#64748b",
     onboardingTextColor: "#384959",
+    navActiveColor: "#4F46E5", // Added New
+    chatMsgBgColor: "#4F46E5", // Added New
     welcomeImg: "https://ui-avatars.com/api/?name=Support&background=fff&color=4F46E5",
     headerTitle: "Live Support",
     headerSubtitle: "Online now",
@@ -123,7 +124,6 @@ export default function UltimateSettings() {
         </nav>
       </div>
 
-      {/* MAIN CONFIG */}
       <div style={{ flex: 1, padding: '40px 50px' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827' }}>
@@ -177,12 +177,12 @@ export default function UltimateSettings() {
               </div>
             </Card>
 
-            <Card title="Text Colors">
+            <Card title="Widget & Navigation Colors">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
                 <ColorBox label="Header Text Color" value={formState.headerTextColor} onChange={(v) => handleChange('headerTextColor', v)} />
                 <ColorBox label="Banner (Hero) Text Color" value={formState.heroTextColor} onChange={(v) => handleChange('heroTextColor', v)} />
-                <ColorBox label="Card Text Color" value={formState.cardTitleColor} onChange={(v) => handleChange('cardTitleColor', v)} />
-                <ColorBox label="Onboarding Text Color" value={formState.onboardingTextColor} onChange={(v) => handleChange('onboardingTextColor', v)} />
+                <ColorBox label="Nav Active Border Color" value={formState.navActiveColor} onChange={(v) => handleChange('navActiveColor', v)} />
+                <ColorBox label="User Msg Background" value={formState.chatMsgBgColor} onChange={(v) => handleChange('chatMsgBgColor', v)} />
               </div>
             </Card>
           </div>
@@ -225,7 +225,6 @@ export default function UltimateSettings() {
           <div style={{ marginBottom: '20px', fontSize: '12px', fontWeight: '800', color: '#9CA3AF', letterSpacing: '1px' }}>LIVE PREVIEW</div>
           
           <div style={{ width: '350px', height: '600px', background: '#FFF', borderRadius: '32px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', fontFamily: formState.fontFamily }}>
-            {/* Header Area */}
             <div style={{ background: formState.headerBgColor, padding: '24px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <img src={formState.welcomeImg} style={{ width: '40px', height: '40px', borderRadius: '12px', objectFit: 'cover' }} alt="avatar" />
                 <div style={{ color: formState.headerTextColor }}>
@@ -235,22 +234,33 @@ export default function UltimateSettings() {
             </div>
 
             <div style={{ flex: 1, background: '#F8FAFC', overflowY: 'auto' }}>
-                {/* Hero / Banner Area */}
                 <div style={{ background: formState.heroBgColor, padding: '45px 25px', color: formState.heroTextColor }}>
                     <h1 style={{ fontSize: '26px', fontWeight: '800', margin: '0 0 10px 0', lineHeight: 1.2, color: 'inherit' }}>{formState.welcomeText}</h1>
                     <p style={{ fontSize: formState.baseFontSize, opacity: 0.9, color: 'inherit' }}>{formState.welcomeSubtext}</p>
                 </div>
                 
-                {/* Card Area */}
-                <div style={{ background: '#FFF', margin: '-30px 20px 15px', padding: '18px', borderRadius: '20px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', border: `1px solid #E2E8F0` }}>
+                {/* User Message Preview */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 20px' }}>
+                    <div style={{ background: formState.chatMsgBgColor, color: '#FFF', padding: '8px 14px', borderRadius: '16px 16px 0 16px', fontSize: '13px', maxWidth: '80%', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                      Hello! How can I help?
+                    </div>
+                </div>
+
+                <div style={{ background: '#FFF', margin: '10px 20px 15px', padding: '18px', borderRadius: '20px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', border: `1px solid #E2E8F0` }}>
                     <div style={{ fontWeight: '700', color: formState.cardTitleColor }}>{formState.startConversationText}</div>
                     <div style={{ fontSize: '12px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
                 </div>
+            </div>
 
-                {/* Onboarding Area */}
-                <div style={{ padding: '20px', textAlign: 'center' }}>
-                   <div style={{ fontSize: '14px', fontWeight: '700', color: formState.onboardingTextColor, marginBottom: '4px' }}>{formState.onboardingTitle}</div>
-                   <div style={{ fontSize: '12px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</div>
+            {/* Bottom Nav Preview */}
+            <div style={{ display: 'flex', borderTop: '1px solid #E5E7EB', background: '#FFF' }}>
+                <div style={{ flex: 1, padding: '12px', textAlign: 'center', color: formState.navActiveColor, borderTop: `3px solid ${formState.navActiveColor}` }}>
+                    <div style={{ fontSize: '18px' }}>🏠</div>
+                    <div style={{ fontSize: '10px', fontWeight: '700' }}>Home</div>
+                </div>
+                <div style={{ flex: 1, padding: '12px', textAlign: 'center', color: '#9CA3AF' }}>
+                    <div style={{ fontSize: '18px' }}>💬</div>
+                    <div style={{ fontSize: '10px', fontWeight: '700' }}>Messages</div>
                 </div>
             </div>
           </div>
@@ -267,7 +277,6 @@ export default function UltimateSettings() {
   );
 }
 
-// Sub-Components remains the same...
 const NavIcon = ({ active, icon, title, onClick }) => (
     <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', transition: '0.2s', marginBottom: '20px' }}>
         <div style={{ fontSize: '24px', background: active ? '#FFF' : 'transparent', width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px', border: active ? '1px solid #E5E7EB' : '1px solid transparent', boxShadow: active ? '0 4px 6px -1px rgba(0,0,0,0.05)' : 'none', opacity: active ? 1 : 0.4 }}>{icon}</div>
