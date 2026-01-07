@@ -28,7 +28,7 @@ export const loader = async ({ request }) => {
     primaryColor: "#4F46E5",
     headerBgColor: "#384959",
     heroBgColor: "#bdddfc",
-    headerTextColor: "#bdddfc",
+    headerTextColor: "#ffffff",
     heroTextColor: "#384959",
     cardTitleColor: "#384959",
     cardSubtitleColor: "#64748b",
@@ -172,17 +172,17 @@ export default function UltimateSettings() {
                  <input type="file" ref={avatarRef} onChange={(e) => handleFileUpload(e, 'avatar')} accept="image/*" style={{ display: 'none' }} />
                </div>
                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
-                <ColorBox label="Header BG" value={formState.headerBgColor} onChange={(v) => handleChange('headerBgColor', v)} />
-                <ColorBox label="Banner BG" value={formState.heroBgColor} onChange={(v) => handleChange('heroBgColor', v)} />
+                <ColorBox label="Header Background" value={formState.headerBgColor} onChange={(v) => handleChange('headerBgColor', v)} />
+                <ColorBox label="Banner (Hero) Background" value={formState.heroBgColor} onChange={(v) => handleChange('heroBgColor', v)} />
               </div>
             </Card>
 
-            <Card title="Colors">
+            <Card title="Text Colors">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
-                <ColorBox label="Header Text" value={formState.headerTextColor} onChange={(v) => handleChange('headerTextColor', v)} />
-                <ColorBox label="Hero Text" value={formState.heroTextColor} onChange={(v) => handleChange('heroTextColor', v)} />
-                <ColorBox label="Card Title" value={formState.cardTitleColor} onChange={(v) => handleChange('cardTitleColor', v)} />
-                <ColorBox label="Onboarding Text" value={formState.onboardingTextColor} onChange={(v) => handleChange('onboardingTextColor', v)} />
+                <ColorBox label="Header Text Color" value={formState.headerTextColor} onChange={(v) => handleChange('headerTextColor', v)} />
+                <ColorBox label="Banner (Hero) Text Color" value={formState.heroTextColor} onChange={(v) => handleChange('heroTextColor', v)} />
+                <ColorBox label="Card Text Color" value={formState.cardTitleColor} onChange={(v) => handleChange('cardTitleColor', v)} />
+                <ColorBox label="Onboarding Text Color" value={formState.onboardingTextColor} onChange={(v) => handleChange('onboardingTextColor', v)} />
               </div>
             </Card>
           </div>
@@ -199,7 +199,6 @@ export default function UltimateSettings() {
                <Field label="Card Button Text" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
                <Field label="Reply Status Text" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
             </Card>
-            {/* INCLUDED MISSING FIELDS HERE */}
             <Card title="Onboarding Screen">
                <Field label="Onboarding Title" value={formState.onboardingTitle} onChange={(v) => handleChange('onboardingTitle', v)} />
                <AreaField label="Onboarding Subtitle" value={formState.onboardingSubtitle} onChange={(v) => handleChange('onboardingSubtitle', v)} />
@@ -226,6 +225,7 @@ export default function UltimateSettings() {
           <div style={{ marginBottom: '20px', fontSize: '12px', fontWeight: '800', color: '#9CA3AF', letterSpacing: '1px' }}>LIVE PREVIEW</div>
           
           <div style={{ width: '350px', height: '600px', background: '#FFF', borderRadius: '32px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', fontFamily: formState.fontFamily }}>
+            {/* Header Area */}
             <div style={{ background: formState.headerBgColor, padding: '24px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <img src={formState.welcomeImg} style={{ width: '40px', height: '40px', borderRadius: '12px', objectFit: 'cover' }} alt="avatar" />
                 <div style={{ color: formState.headerTextColor }}>
@@ -235,16 +235,19 @@ export default function UltimateSettings() {
             </div>
 
             <div style={{ flex: 1, background: '#F8FAFC', overflowY: 'auto' }}>
+                {/* Hero / Banner Area */}
                 <div style={{ background: formState.heroBgColor, padding: '45px 25px', color: formState.heroTextColor }}>
-                    <h1 style={{ fontSize: '26px', fontWeight: '800', margin: '0 0 10px 0', lineHeight: 1.2 }}>{formState.welcomeText}</h1>
-                    <p style={{ fontSize: formState.baseFontSize, opacity: 0.9 }}>{formState.welcomeSubtext}</p>
+                    <h1 style={{ fontSize: '26px', fontWeight: '800', margin: '0 0 10px 0', lineHeight: 1.2, color: 'inherit' }}>{formState.welcomeText}</h1>
+                    <p style={{ fontSize: formState.baseFontSize, opacity: 0.9, color: 'inherit' }}>{formState.welcomeSubtext}</p>
                 </div>
                 
+                {/* Card Area */}
                 <div style={{ background: '#FFF', margin: '-30px 20px 15px', padding: '18px', borderRadius: '20px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', border: `1px solid #E2E8F0` }}>
                     <div style={{ fontWeight: '700', color: formState.cardTitleColor }}>{formState.startConversationText}</div>
                     <div style={{ fontSize: '12px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
                 </div>
 
+                {/* Onboarding Area */}
                 <div style={{ padding: '20px', textAlign: 'center' }}>
                    <div style={{ fontSize: '14px', fontWeight: '700', color: formState.onboardingTextColor, marginBottom: '4px' }}>{formState.onboardingTitle}</div>
                    <div style={{ fontSize: '12px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</div>
@@ -264,7 +267,7 @@ export default function UltimateSettings() {
   );
 }
 
-// Sub-Components
+// Sub-Components remains the same...
 const NavIcon = ({ active, icon, title, onClick }) => (
     <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', transition: '0.2s', marginBottom: '20px' }}>
         <div style={{ fontSize: '24px', background: active ? '#FFF' : 'transparent', width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px', border: active ? '1px solid #E5E7EB' : '1px solid transparent', boxShadow: active ? '0 4px 6px -1px rgba(0,0,0,0.05)' : 'none', opacity: active ? 1 : 0.4 }}>{icon}</div>
