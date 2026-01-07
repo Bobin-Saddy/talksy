@@ -34,6 +34,7 @@ export const loader = async ({ request }) => {
     onboardingTextColor: "#384959",
     navActiveColor: "#4F46E5", // Added New
     chatMsgBgColor: "#4F46E5", // Added New
+    launcherIconColor: "#4F46E5", // Add this
     welcomeImg: "https://ui-avatars.com/api/?name=Support&background=fff&color=4F46E5",
     headerTitle: "Admin",
     headerSubtitle: "Online now",
@@ -183,6 +184,11 @@ export default function UltimateSettings() {
                 <ColorBox label="Banner (Hero) Text Color" value={formState.heroTextColor} onChange={(v) => handleChange('heroTextColor', v)} />
                 <ColorBox label="Nav Active Border Color" value={formState.navActiveColor} onChange={(v) => handleChange('navActiveColor', v)} />
                 <ColorBox label="User Msg Background" value={formState.chatMsgBgColor} onChange={(v) => handleChange('chatMsgBgColor', v)} />
+                <ColorBox 
+  label="Launcher Icon Color" 
+  value={formState.launcherIconColor} 
+  onChange={(v) => handleChange('launcherIconColor', v)} 
+/>
               </div>
             </Card>
           </div>
