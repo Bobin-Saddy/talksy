@@ -35,7 +35,7 @@ export const loader = async ({ request }) => {
     navActiveColor: "#4F46E5", // Added New
     chatMsgBgColor: "#4F46E5", // Added New
     welcomeImg: "https://ui-avatars.com/api/?name=Support&background=fff&color=4F46E5",
-    headerTitle: "Live Support",
+    headerTitle: "Admin",
     headerSubtitle: "Online now",
     welcomeText: "Hi there 👋",
     welcomeSubtext: "We are here to help you! Ask us anything.",
