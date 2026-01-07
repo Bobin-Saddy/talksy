@@ -224,7 +224,7 @@
   let adminProfileImg = ""; 
   let renderedMessageIds = new Set();
 
-  // --- 1. SETTINGS SYNC & ICON MAPPING ---
+  // --- 1. SETTINGS SYNC & ICON MAPPING (UPDATED WITH NEW BORDER/BG LOGIC) ---
   async function fetchAndApplySettings() {
     const getIconHTML = (iconKey, customSrc) => {
       const maps = {
@@ -242,19 +242,50 @@
       const s = await response.json();
       
       if (s) {
+        // --- NAYE STYLE UPDATES YAHAN HAIN ---
         if (s.fontFamily) document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
         if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
+        
+        // Primary and Launcher Colors
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
-
         if(launcher) {
             launcher.style.background = "#ffffff";
             launcher.style.color = s.primaryColor;
+            launcher.style.borderColor = s.widgetBorderColor || "#E5E7EB"; // Apply border color to launcher
         }
+
+        // Widget Main Box Background and Border
+        if (widget) {
+          widget.style.borderColor = s.widgetBorderColor || "#E5E7EB";
+          widget.style.background = s.chatBoxBgColor || "#ffffff";
+        }
+
+        // Apply background to the messages area
+        if (msgBox) msgBox.style.background = s.chatBoxBgColor || "transparent";
+
+        // Navigation/Footer Border Color
+        const footer = document.getElementById("chat-footer");
+        const nav = document.querySelector(".chat-nav");
+        if(footer) footer.style.borderTopColor = s.widgetBorderColor || "#E5E7EB";
+        if(nav) nav.style.borderTopColor = s.widgetBorderColor || "#E5E7EB";
+
+        // Message/Card Background
+        document.querySelectorAll(".card-container, .msg.user .msg-content").forEach(el => {
+          el.style.background = s.messageBgColor || "#ffffff";
+          el.style.borderColor = s.widgetBorderColor || "#E5E7EB";
+        });
+        // --- STYLE UPDATES END ---
 
         const header = document.getElementById("chat-header");
         const hero = document.getElementById("home-hero-bg");
-        if(header) header.style.background = s.headerBgColor;
-        if(hero) hero.style.background = s.heroBgColor;
+        if(header) {
+            header.style.background = s.headerBgColor;
+            header.style.borderBottomColor = s.widgetBorderColor || "#E5E7EB";
+        }
+        if(hero) {
+            hero.style.background = s.heroBgColor;
+            hero.style.borderBottomColor = s.widgetBorderColor || "#E5E7EB";
+        }
 
         ["chat-send", "chat-submit-info", "send-image-btn"].forEach(id => {
           const el = document.getElementById(id);
@@ -281,7 +312,7 @@
     } catch (e) { console.error("Settings Sync failed", e); }
   }
 
-  // --- 2. INITIALS AVATAR LOGIC (FIXED) ---
+  // --- 2. INITIALS AVATAR LOGIC (NO CHANGES) ---
   function updateHeaderAvatar(activeTab) {
     const avatarImg = document.getElementById("main-support-avatar");
     if (!avatarImg) return;
@@ -290,7 +321,6 @@
     const pColor = getComputedStyle(document.documentElement).getPropertyValue('--chat-primary').trim().replace('#', '') || '6366f1';
 
     if (activeTab === 'chat' && fname) {
-      // Initials logic: Pehle 2 words ke first letters leta hai
       const names = fname.split(" ");
       let initials = names[0].charAt(0).toUpperCase();
       if (names.length > 1) {
@@ -302,7 +332,7 @@
     }
   }
 
-  // --- 3. VALIDATION LOGIC ---
+  // --- 3. VALIDATION LOGIC (NO CHANGES) ---
   function setValidationError(input, message) {
     input.style.borderColor = "red";
     let errorMsg = input.parentNode.querySelector(".err-msg");
@@ -325,22 +355,19 @@
     const fName = document.getElementById("chat-fname");
     const email = document.getElementById("chat-email");
     let isValid = true;
-
     if (fName.value.trim().length < 2) {
       setValidationError(fName, "Name must be at least 2 characters");
       isValid = false;
     } else { clearValidationError(fName); }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.value.trim())) {
       setValidationError(email, "Please enter a valid email address");
       isValid = false;
     } else { clearValidationError(email); }
-
     return isValid;
   }
 
-  // --- 4. EMOJI PICKER ---
+  // --- 4. EMOJI PICKER (NO CHANGES) ---
   const emojiBtn = document.getElementById("emoji-btn");
   const picker = document.getElementById("emoji-picker");
   const emojis = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏"];
@@ -357,17 +384,14 @@
     document.addEventListener('click', () => picker.classList.add("hidden-picker"));
   }
 
-  // --- 5. MESSAGE RENDERING ---
+  // --- 5. MESSAGE RENDERING (NO CHANGES) ---
   const addMessageToUI = (m) => {
     if (m.id && renderedMessageIds.has(m.id)) return;
     if (m.id) renderedMessageIds.add(m.id);
-
     const div = document.createElement("div");
     const isBot = (m.sender === 'admin' || m.sender === 'bot');
     div.className = `msg ${isBot ? 'bot' : 'user'}`;
-    
     const isImg = m.fileUrl && (m.fileUrl.startsWith('data:image') || m.fileUrl.match(/\.(jpeg|jpg|gif|png|svg|webp)$/i));
-    
     let contentHtml = `<div class="msg-content">`;
     if(m.message) contentHtml += `<div style="margin-bottom:4px;">${m.message}</div>`;
     if(m.fileUrl) {
@@ -376,20 +400,17 @@
         : `<a href="${m.fileUrl}" target="_blank" style="font-size:12px; text-decoration:underline;">📎 Attachment</a>`;
     }
     contentHtml += `</div>`;
-    
     const time = m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     div.innerHTML = `${contentHtml}<div class="msg-meta" style="font-size:9px; opacity:0.5; margin-top:2px;">${time}</div>`;
-    
     msgBox.appendChild(div);
     msgBox.scrollTop = msgBox.scrollHeight;
   };
 
-  // --- 6. CORE ACTIONS ---
+  // --- 6. CORE ACTIONS (NO CHANGES) ---
   async function handleSend(customText = "", fileUrl = null) {
     const text = (customText || chatInput.value).trim();
     const sId = localStorage.getItem("chat_session");
     if ((!text && !fileUrl) || !sId) return;
-
     chatInput.value = "";
     try {
       const res = await fetch(`${BASE_URL}/app/chat/message`, {
@@ -425,12 +446,11 @@
     pollingInterval = setInterval(loadMessages, 3500); 
   }
 
-  // --- 7. UI LOGIC ---
+  // --- 7. UI LOGIC (NO CHANGES) ---
   launcher.onclick = () => {
     const isVisible = widget.classList.contains("chat-visible");
     widget.classList.toggle("chat-visible", !isVisible);
     widget.classList.toggle("chat-hidden", isVisible);
-    
     const lIcon = document.getElementById("launcher-icon");
     const cIcon = document.getElementById("close-launcher-icon");
     if(lIcon) lIcon.style.display = isVisible ? "block" : "none";
@@ -494,7 +514,8 @@
   function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById(`tab-${tabId}`).style.display = 'flex';
+    const targetTab = document.getElementById(`tab-${tabId}`);
+    if(targetTab) targetTab.style.display = 'flex';
     if(document.querySelector(`[data-tab="${tabId}"]`)) document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
     updateHeaderAvatar(tabId);
   }
