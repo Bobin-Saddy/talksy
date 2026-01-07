@@ -281,30 +281,37 @@
     } catch (e) { console.error("Settings Sync failed", e); }
   }
 
-  // --- 2. INITIALS AVATAR LOGIC (FIXED) ---
+  // --- 2. INITIALS AVATAR LOGIC (PROPERLY FIXED FOR DB STRUCTURE) ---
   function updateHeaderAvatar(activeTab) {
     const avatarImg = document.getElementById("main-support-avatar");
     if (!avatarImg) return;
     
-    const fname = localStorage.getItem("chat_user_fname") || "";
+    // DB mein firstName aur lastName separately hain, but localStorage mein combined fname
+    const firstName = localStorage.getItem("chat_user_fname") || "";
+    const lastName = localStorage.getItem("chat_user_lname") || "";
     const pColor = getComputedStyle(document.documentElement).getPropertyValue('--chat-primary').trim().replace('#', '') || '6366f1';
 
-    if (activeTab === 'chat' && fname) {
-      // Fixed: First name + Last name ke first letters (e.g., "Sahil Sharma" → "SS")
-      const names = fname.trim().split(/\s+/).filter(n => n.length > 0);
+    if (activeTab === 'chat' && firstName) {
       let initials = "";
       
-      if (names.length === 1) {
-        // Agar sirf ek word hai toh uska first letter
-        initials = names[0].charAt(0).toUpperCase();
+      if (lastName && lastName.trim().length > 0) {
+        // Agar lastName hai toh dono ka first letter
+        initials = firstName.charAt(0).toUpperCase() + lastName.charAt(0).toUpperCase();
       } else {
-        // First name ka first letter + Second name (last name) ka first letter
-        initials = names[0].charAt(0).toUpperCase() + names[1].charAt(0).toUpperCase();
+        // Agar sirf firstName hai toh check karo multiple words hain ya nahi
+        const names = firstName.trim().split(/\s+/).filter(n => n.length > 0);
+        if (names.length >= 2) {
+          // "Sahil Sharma" case - split karke dono letters lo
+          initials = names[0].charAt(0).toUpperCase() + names[names.length - 1].charAt(0).toUpperCase();
+        } else {
+          // Sirf ek word
+          initials = names[0].charAt(0).toUpperCase();
+        }
       }
       
-      avatarImg.src = `https://ui-avatars.com/api/?name=${initials}&background=${pColor}&color=fff&bold=true`;
+      avatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=${pColor}&color=fff&bold=true&size=128`;
     } else {
-      avatarImg.src = adminProfileImg || `https://ui-avatars.com/api/?name=Support&background=6366f1&color=fff`;
+      avatarImg.src = adminProfileImg || `https://ui-avatars.com/api/?name=Support&background=6366f1&color=fff&size=128`;
     }
   }
 
@@ -402,9 +409,12 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-            sessionId: sId, message: text, shop, 
+            sessionId: sId, 
+            message: text, 
+            shop, 
             email: localStorage.getItem("chat_user_email"),
-            fname: localStorage.getItem("chat_user_fname"),
+            firstName: localStorage.getItem("chat_user_fname"),
+            lastName: localStorage.getItem("chat_user_lname"),
             fileUrl 
         })
       });
@@ -445,19 +455,32 @@
 
   document.getElementById("chat-submit-info").onclick = async () => {
     if (!validateForm()) return;
-    const fname = document.getElementById("chat-fname").value.trim();
+    const fullName = document.getElementById("chat-fname").value.trim();
     const email = document.getElementById("chat-email").value.trim();
     const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
+    
+    // Name ko split karo firstName aur lastName mein
+    const nameParts = fullName.split(/\s+/).filter(n => n.length > 0);
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+    
     try {
       const res = await fetch(`${BASE_URL}/app/chat/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shop, fname, email, sessionId })
+        body: JSON.stringify({ 
+          shop, 
+          firstName, 
+          lastName, 
+          email, 
+          sessionId 
+        })
       });
       if (res.ok) {
         localStorage.setItem("chat_session", sessionId);
         localStorage.setItem("chat_user_email", email);
-        localStorage.setItem("chat_user_fname", fname);
+        localStorage.setItem("chat_user_fname", firstName);
+        localStorage.setItem("chat_user_lname", lastName);
         document.getElementById("chat-onboarding-step").style.display = "none";
         document.getElementById("chat-chat-step").style.display = "flex";
         updateHeaderAvatar('chat');
