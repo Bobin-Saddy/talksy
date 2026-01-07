@@ -242,74 +242,28 @@
       const s = await response.json();
       
       if (s) {
-        // Global Variables
         if (s.fontFamily) document.documentElement.style.setProperty('--chat-font-family', s.fontFamily);
         if (s.baseFontSize) document.documentElement.style.setProperty('--chat-base-size', s.baseFontSize);
         document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
 
-        // --- NEW: DYNAMIC CSS INJECTION FOR NAV & MESSAGES ---
-        const styleTag = document.getElementById("chat-dynamic-styles") || document.createElement('style');
-        styleTag.id = "chat-dynamic-styles";
-        styleTag.innerHTML = `
-          .nav-item.active { 
-            color: ${s.navActiveColor} !important; 
-            border-top: 3px solid ${s.navActiveColor} !important; 
-          }
-          .nav-item.active svg { stroke: ${s.navActiveColor} !important; }
-          .msg.user .msg-content { 
-            background-color: ${s.chatMsgBgColor} !important; 
-            color: #ffffff !important; 
-          }
-        `;
-        if(!document.getElementById("chat-dynamic-styles")) document.head.appendChild(styleTag);
-
-        // Launcher
         if(launcher) {
             launcher.style.background = "#ffffff";
             launcher.style.color = s.primaryColor;
         }
 
-        // Section Backgrounds
         const header = document.getElementById("chat-header");
         const hero = document.getElementById("home-hero-bg");
-        if(header) {
-            header.style.background = s.headerBgColor;
-            header.style.color = s.headerTextColor;
-        }
-        if(hero) {
-            hero.style.background = s.heroBgColor;
-            hero.style.color = s.heroTextColor;
-        }
-        
-        // Ensure onboarding text updates
-        const onboardingArea = document.getElementById("chat-onboarding-step");
-        if(onboardingArea && s.onboardingTextColor) onboardingArea.style.color = s.onboardingTextColor;
+        if(header) header.style.background = s.headerBgColor;
+        if(hero) hero.style.background = s.heroBgColor;
 
-        // Buttons
         ["chat-send", "chat-submit-info", "send-image-btn"].forEach(id => {
           const el = document.getElementById(id);
           if(el) el.style.background = s.primaryColor;
         });
 
-        // Content Strings
-        if(s.headerTitle) {
-           const hTitle = document.getElementById("header-title-text");
-           if(hTitle) hTitle.innerText = s.headerTitle;
-        }
-        if(s.welcomeText) {
-           const wH1 = document.getElementById("welcome-h1");
-           if(wH1) wH1.innerText = s.welcomeText;
-        }
-        if(s.welcomeSubtext) {
-           const wP = document.getElementById("welcome-p");
-           if(wP) wP.innerText = s.welcomeSubtext;
-        }
-
-        // Onboarding Content Strings
-        if(s.onboardingTitle) {
-          const oT = document.getElementById("onboarding-title-text");
-          if(oT) oT.innerText = s.onboardingTitle;
-        }
+        if(s.headerTitle) document.getElementById("header-title-text").innerText = s.headerTitle;
+        if(s.welcomeText) document.getElementById("welcome-h1").innerText = s.welcomeText;
+        if(s.welcomeSubtext) document.getElementById("welcome-p").innerText = s.welcomeSubtext;
         
         const cardTitle = document.getElementById("card-msg-text");
         if(cardTitle) cardTitle.innerText = s.startConversationText || "Send us a message";
@@ -327,7 +281,7 @@
     } catch (e) { console.error("Settings Sync failed", e); }
   }
 
-  // --- 2. INITIALS AVATAR LOGIC ---
+  // --- 2. INITIALS AVATAR LOGIC (FIXED) ---
   function updateHeaderAvatar(activeTab) {
     const avatarImg = document.getElementById("main-support-avatar");
     if (!avatarImg) return;
@@ -336,7 +290,8 @@
     const pColor = getComputedStyle(document.documentElement).getPropertyValue('--chat-primary').trim().replace('#', '') || '6366f1';
 
     if (activeTab === 'chat' && fname) {
-      const names = fname.split(" ").filter(n => n.length > 0);
+      // Initials logic: Pehle 2 words ke first letters leta hai
+      const names = fname.split(" ");
       let initials = names[0].charAt(0).toUpperCase();
       if (names.length > 1) {
         initials += names[names.length - 1].charAt(0).toUpperCase();
@@ -371,14 +326,14 @@
     const email = document.getElementById("chat-email");
     let isValid = true;
 
-    if (!fName || fName.value.trim().length < 2) {
-      if(fName) setValidationError(fName, "Name must be at least 2 characters");
+    if (fName.value.trim().length < 2) {
+      setValidationError(fName, "Name must be at least 2 characters");
       isValid = false;
     } else { clearValidationError(fName); }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || !emailRegex.test(email.value.trim())) {
-      if(email) setValidationError(email, "Please enter a valid email address");
+    if (!emailRegex.test(email.value.trim())) {
+      setValidationError(email, "Please enter a valid email address");
       isValid = false;
     } else { clearValidationError(email); }
 
@@ -471,120 +426,91 @@
   }
 
   // --- 7. UI LOGIC ---
-  if(launcher) {
-    launcher.onclick = () => {
-      const isVisible = widget.classList.contains("chat-visible");
-      widget.classList.toggle("chat-visible", !isVisible);
-      widget.classList.toggle("chat-hidden", isVisible);
-      
-      const lIcon = document.getElementById("launcher-icon");
-      const cIcon = document.getElementById("close-launcher-icon");
-      if(lIcon) lIcon.style.display = isVisible ? "block" : "none";
-      if(cIcon) cIcon.style.display = isVisible ? "none" : "flex";
-    };
-  }
+  launcher.onclick = () => {
+    const isVisible = widget.classList.contains("chat-visible");
+    widget.classList.toggle("chat-visible", !isVisible);
+    widget.classList.toggle("chat-hidden", isVisible);
+    
+    const lIcon = document.getElementById("launcher-icon");
+    const cIcon = document.getElementById("close-launcher-icon");
+    if(lIcon) lIcon.style.display = isVisible ? "block" : "none";
+    if(cIcon) cIcon.style.display = isVisible ? "none" : "flex";
+  };
 
-  const submitInfoBtn = document.getElementById("chat-submit-info");
-  if(submitInfoBtn) {
-    submitInfoBtn.onclick = async () => {
-      if (!validateForm()) return;
-      const fname = document.getElementById("chat-fname").value.trim();
-      const email = document.getElementById("chat-email").value.trim();
-      const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
-      try {
-        const res = await fetch(`${BASE_URL}/app/chat/register`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shop, fname, email, sessionId })
-        });
-        if (res.ok) {
-          localStorage.setItem("chat_session", sessionId);
-          localStorage.setItem("chat_user_email", email);
-          localStorage.setItem("chat_user_fname", fname);
-          document.getElementById("chat-onboarding-step").style.display = "none";
-          document.getElementById("chat-chat-step").style.display = "flex";
-          updateHeaderAvatar('chat');
-          startPolling();
-        }
-      } catch (e) {}
-    };
-  }
+  document.getElementById("chat-submit-info").onclick = async () => {
+    if (!validateForm()) return;
+    const fname = document.getElementById("chat-fname").value.trim();
+    const email = document.getElementById("chat-email").value.trim();
+    const sessionId = "sess_" + Math.random().toString(36).substr(2, 9);
+    try {
+      const res = await fetch(`${BASE_URL}/app/chat/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop, fname, email, sessionId })
+      });
+      if (res.ok) {
+        localStorage.setItem("chat_session", sessionId);
+        localStorage.setItem("chat_user_email", email);
+        localStorage.setItem("chat_user_fname", fname);
+        document.getElementById("chat-onboarding-step").style.display = "none";
+        document.getElementById("chat-chat-step").style.display = "flex";
+        updateHeaderAvatar('chat');
+        startPolling();
+      }
+    } catch (e) {}
+  };
 
   const fileInput = document.getElementById("chat-file-input");
-  const fileBtn = document.getElementById("file-btn");
-  if(fileBtn && fileInput) {
-    fileBtn.onclick = () => fileInput.click();
-    fileInput.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        selectedImage = ev.target.result;
-        document.getElementById("image-preview").src = selectedImage;
-        document.getElementById("image-preview-container").style.display = "block";
-        document.getElementById("chat-footer").style.display = "none";
-      };
-      reader.readAsDataURL(file);
-      e.target.value = '';
+  document.getElementById("file-btn").onclick = () => fileInput.click();
+  fileInput.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      selectedImage = ev.target.result;
+      document.getElementById("image-preview").src = selectedImage;
+      document.getElementById("image-preview-container").style.display = "block";
+      document.getElementById("chat-footer").style.display = "none";
     };
-  }
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
-  const sendImgBtn = document.getElementById("send-image-btn");
-  if(sendImgBtn) {
-    sendImgBtn.onclick = () => {
-      if(selectedImage) {
-        handleSend("", selectedImage);
-        selectedImage = null;
-        document.getElementById("image-preview-container").style.display = "none";
-        document.getElementById("chat-footer").style.display = "flex";
-      }
-    };
-  }
-
-  const removeImgBtn = document.getElementById("remove-image-btn");
-  if(removeImgBtn) {
-    removeImgBtn.onclick = () => {
+  document.getElementById("send-image-btn").onclick = () => {
+    if(selectedImage) {
+      handleSend("", selectedImage);
       selectedImage = null;
       document.getElementById("image-preview-container").style.display = "none";
       document.getElementById("chat-footer").style.display = "flex";
-    };
-  }
+    }
+  };
+
+  document.getElementById("remove-image-btn").onclick = () => {
+    selectedImage = null;
+    document.getElementById("image-preview-container").style.display = "none";
+    document.getElementById("chat-footer").style.display = "flex";
+  };
 
   function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    const targetTab = document.getElementById(`tab-${tabId}`);
-    if(targetTab) targetTab.style.display = 'flex';
-    const navItem = document.querySelector(`[data-tab="${tabId}"]`);
-    if(navItem) navItem.classList.add('active');
+    document.getElementById(`tab-${tabId}`).style.display = 'flex';
+    if(document.querySelector(`[data-tab="${tabId}"]`)) document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
     updateHeaderAvatar(tabId);
   }
 
-  document.querySelectorAll('.nav-item').forEach(item => { 
-    item.addEventListener('click', () => switchTab(item.dataset.tab)); 
-  });
-
-  const startTrigger = document.getElementById('start-chat-trigger');
-  if(startTrigger) startTrigger.onclick = () => { switchTab('chat'); loadMessages(); };
-  
-  const sendBtn = document.getElementById("chat-send");
-  if(sendBtn) sendBtn.onclick = () => handleSend();
-  
-  if(chatInput) {
-    chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
-  }
-  
-  const closeBtn = document.getElementById("chat-close");
-  if(closeBtn) closeBtn.onclick = () => launcher.click();
+  document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', () => switchTab(item.dataset.tab)); });
+  document.getElementById('start-chat-trigger').onclick = () => { switchTab('chat'); loadMessages(); };
+  document.getElementById("chat-send").onclick = () => handleSend();
+  chatInput.onkeydown = (e) => { if (e.key === "Enter") handleSend(); };
+  document.getElementById("chat-close").onclick = () => launcher.click();
 
   (async function init() {
     await fetchAndApplySettings();
     const session = localStorage.getItem("chat_session");
     if (session) {
-      const onboard = document.getElementById("chat-onboarding-step");
-      const chatStep = document.getElementById("chat-chat-step");
-      if(onboard) onboard.style.display = "none";
-      if(chatStep) chatStep.style.display = "flex";
+      document.getElementById("chat-onboarding-step").style.display = "none";
+      document.getElementById("chat-chat-step").style.display = "flex";
       updateHeaderAvatar('chat');
       startPolling();
     }
