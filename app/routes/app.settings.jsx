@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
+// Icon Map function
 const ICON_MAP = (customImg) => ({
   bubble: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   send: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
@@ -91,6 +92,21 @@ export default function UltimateSettings() {
 
   const handleChange = (f, v) => setFormState(p => ({ ...p, [f]: v }));
   
+  const handleFileUpload = (event, field) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (field === 'launcher') {
+          setFormState(p => ({ ...p, customLauncherImg: reader.result, launcherIcon: 'custom' }));
+        } else {
+          handleChange('welcomeImg', reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = () => {
     const formData = new FormData();
     Object.entries(formState).forEach(([key, value]) => {
@@ -119,8 +135,8 @@ export default function UltimateSettings() {
       <div style={{ flex: 1, padding: '40px 50px', maxWidth: '750px', overflowY: 'auto', height: '100vh' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#111827' }}>
-            {activeTab === 'style' && 'Appearance Settings'}
-            {activeTab === 'content' && 'Widget Content'}
+            {activeTab === 'style' && 'Appearance'}
+            {activeTab === 'content' && 'Content Settings'}
             {activeTab === 'typography' && 'Typography'}
           </h1>
           <button onClick={handleSave} style={{ padding: '10px 24px', background: '#111827', color: '#FFF', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', border: 'none' }}>
@@ -130,6 +146,27 @@ export default function UltimateSettings() {
 
         {activeTab === 'style' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <Card title="Launcher Icon">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {['bubble', 'send', 'defaultCustom'].map(key => (
+                    <IconButton key={key} active={formState.launcherIcon === key} onClick={() => handleChange('launcherIcon', key)}>
+                      {icons[key]}
+                    </IconButton>
+                  ))}
+                  {formState.customLauncherImg && (
+                    <IconButton active={formState.launcherIcon === 'custom'} onClick={() => handleChange('launcherIcon', 'custom')}>
+                      {icons['custom']}
+                    </IconButton>
+                  )}
+                </div>
+                <button onClick={() => launcherRef.current.click()} style={{ padding: '10px 16px', background: '#FFF', border: '1px solid #D1D5DB', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                  Upload Custom
+                </button>
+                <input type="file" ref={launcherRef} onChange={(e) => handleFileUpload(e, 'launcher')} accept="image/*" style={{ display: 'none' }} />
+              </div>
+            </Card>
+
             <Card title="Colors & Theming">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
                 <ColorBox label="Primary Action Color" value={formState.primaryColor} onChange={(v) => handleChange('primaryColor', v)} />
@@ -141,24 +178,12 @@ export default function UltimateSettings() {
               </div>
             </Card>
 
-            <Card title="Launcher & Branding">
+            <Card title="Brand Assets">
                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: '#6B7280' }}>Support Avatar</label>
-               <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                  <img src={formState.welcomeImg} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #EEE' }} alt="Avatar" />
-                 <button onClick={() => avatarRef.current.click()} style={{ fontSize: '12px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #DDD', background: '#FFF', cursor: 'pointer' }}>Upload New</button>
-                 <input type="file" ref={avatarRef} style={{ display: 'none' }} onChange={(e) => {
-                    const reader = new FileReader();
-                    reader.onload = () => handleChange('welcomeImg', reader.result);
-                    reader.readAsDataURL(e.target.files[0]);
-                 }} />
-               </div>
-               <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: '#6B7280' }}>Launcher Icon</label>
-               <div style={{ display: 'flex', gap: '10px' }}>
-                  {['bubble', 'send'].map(key => (
-                    <IconButton key={key} active={formState.launcherIcon === key} onClick={() => handleChange('launcherIcon', key)}>
-                      {icons[key]}
-                    </IconButton>
-                  ))}
+                 <button onClick={() => avatarRef.current.click()} style={{ fontSize: '12px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #DDD', background: '#FFF', cursor: 'pointer' }}>Change Photo</button>
+                 <input type="file" ref={avatarRef} onChange={(e) => handleFileUpload(e, 'avatar')} accept="image/*" style={{ display: 'none' }} />
                </div>
             </Card>
           </div>
@@ -166,28 +191,22 @@ export default function UltimateSettings() {
 
         {activeTab === 'content' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <Card title="Hero & Header Text">
+            <Card title="Messaging Content">
                <Field label="Header Title" value={formState.headerTitle} onChange={(v) => handleChange('headerTitle', v)} />
                <Field label="Header Subtitle" value={formState.headerSubtitle} onChange={(v) => handleChange('headerSubtitle', v)} />
-               <Field label="Main Welcome Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
+               <Field label="Hero Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
                <AreaField label="Hero Description" value={formState.welcomeSubtext} onChange={(v) => handleChange('welcomeSubtext', v)} />
-            </Card>
-            <Card title="Action Card & Onboarding">
-               <Field label="Card Action Text" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
-               <Field label="Response Time Text" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
                <hr style={{ margin: '20px 0', border: '0', borderTop: '1px solid #F3F4F6' }} />
+               <Field label="Card Button Text" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
+               <Field label="Reply Status Text" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
                <Field label="Onboarding Title" value={formState.onboardingTitle} onChange={(v) => handleChange('onboardingTitle', v)} />
                <AreaField label="Onboarding Subtitle" value={formState.onboardingSubtitle} onChange={(v) => handleChange('onboardingSubtitle', v)} />
-               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginTop: '10px' }}>
-                <ColorBox label="Onboarding Text Color" value={formState.onboardingTextColor} onChange={(v) => handleChange('onboardingTextColor', v)} />
-                <ColorBox label="Card Title Color" value={formState.cardTitleColor} onChange={(v) => handleChange('cardTitleColor', v)} />
-               </div>
             </Card>
           </div>
         )}
 
         {activeTab === 'typography' && (
-          <Card title="Font Styles">
+          <Card title="Fonts">
               <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: '#6B7280' }}>Font Family</label>
               <select value={formState.fontFamily} onChange={(e) => handleChange('fontFamily', e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #DDD', fontSize: '14px' }}>
                 {FONT_OPTIONS.map(font => <option key={font.value} value={font.value}>{font.label}</option>)}
@@ -200,9 +219,8 @@ export default function UltimateSettings() {
         )}
       </div>
 
-      {/* PREVIEW PANEL - SYNCED WITH YOUR SCREENSHOT */}
+      {/* PREVIEW PANEL - SYNCED WITH SCREENSHOT DESIGN */}
       <div style={{ flex: 1, background: '#F9FAFB', borderLeft: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
-          <div style={{ marginBottom: '15px', fontSize: '11px', fontWeight: '800', color: '#9CA3AF', letterSpacing: '2px' }}>WIDGET PREVIEW</div>
           
           <div style={{ 
             width: '370px', 
@@ -216,11 +234,11 @@ export default function UltimateSettings() {
             fontFamily: formState.fontFamily,
             overflow: 'hidden'
           }}>
-            {/* Header */}
+            {/* Widget Header */}
             <div style={{ background: formState.headerBgColor, padding: '25px 25px 15px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ position: 'relative' }}>
-                        <img src={formState.welcomeImg} style={{ width: '36px', height: '36px', borderRadius: '50%', background: formState.primaryColor }} alt="avatar" />
+                        <img src={formState.welcomeImg} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} alt="avatar" />
                         <div style={{ position: 'absolute', bottom: 0, right: 0, width: '9px', height: '9px', background: '#4ADE80', borderRadius: '50%', border: '2px solid #FFF' }}></div>
                     </div>
                     <div style={{ fontWeight: '700', fontSize: '17px', color: formState.headerTextColor }}>{formState.headerTitle}</div>
@@ -228,15 +246,13 @@ export default function UltimateSettings() {
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5"><path d="m6 9 6 6 6-6"/></svg>
             </div>
 
-            {/* Scrollable Body */}
+            {/* Widget Body */}
             <div style={{ flex: 1, overflowY: 'auto', textAlign: 'center' }}>
-                {/* Hero Section */}
                 <div style={{ background: formState.heroBgColor, padding: '40px 30px 30px', color: formState.heroTextColor }}>
                     <h1 style={{ fontSize: '30px', fontWeight: '800', marginBottom: '10px' }}>{formState.welcomeText}</h1>
                     <p style={{ fontSize: formState.baseFontSize, color: '#4B5563', lineHeight: '1.5', opacity: 0.9 }}>{formState.welcomeSubtext}</p>
                 </div>
                 
-                {/* Action Card */}
                 <div style={{ 
                     background: formState.messageBgColor, 
                     margin: '0 25px 40px', 
@@ -258,16 +274,15 @@ export default function UltimateSettings() {
                     </div>
                 </div>
 
-                {/* Onboarding Section */}
                 <div style={{ padding: '0 40px' }}>
                     <div style={{ fontWeight: '700', color: formState.onboardingTextColor, fontSize: '20px', marginBottom: '8px' }}>{formState.onboardingTitle}</div>
                     <div style={{ fontSize: '14px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</div>
                 </div>
             </div>
 
-            {/* Bottom Navigation */}
+            {/* Widget Footer */}
             <div style={{ height: '85px', borderTop: `1px solid ${formState.widgetBorderColor}`, display: 'flex', alignItems: 'center', justifyContent: 'space-around', paddingBottom: '10px', background: '#FFF' }}>
-                <div style={{ textAlign: 'center', cursor: 'pointer' }}>
+                <div style={{ textAlign: 'center' }}>
                     <div style={{ color: formState.primaryColor, marginBottom: '4px' }}>
                         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                     </div>
@@ -281,30 +296,50 @@ export default function UltimateSettings() {
                 </div>
             </div>
           </div>
+
+          {/* Launcher Preview Button */}
+          <div style={{ 
+              marginTop: '25px',
+              width: '60px', 
+              height: '60px', 
+              borderRadius: '50%', 
+              background: '#FFF', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              boxShadow: '0 10px 20px rgba(0,0,0,0.1)', 
+              border: `1px solid ${formState.widgetBorderColor}`,
+              color: formState.primaryColor,
+              overflow: 'hidden'
+          }}>
+              <div style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {icons[formState.launcherIcon]}
+              </div>
+          </div>
       </div>
 
-      {toast && <Toast message="Design Saved Successfully!" />}
+      {toast && <Toast message="Settings Saved Successfully!" />}
     </div>
   );
 }
 
-// REUSABLE COMPONENTS
+// UI HELPERS
 const NavIcon = ({ active, icon, title, onClick }) => (
     <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', marginBottom: '25px' }}>
-        <div style={{ fontSize: '22px', background: active ? '#FFF' : 'transparent', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '14px', border: active ? '1px solid #E5E7EB' : '1px solid transparent', boxShadow: active ? '0 4px 6px rgba(0,0,0,0.05)' : 'none', opacity: active ? 1 : 0.5 }}>{icon}</div>
+        <div style={{ fontSize: '22px', background: active ? '#FFF' : 'transparent', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '14px', border: active ? '1px solid #E5E7EB' : '1px solid transparent', opacity: active ? 1 : 0.5 }}>{icon}</div>
         <div style={{ fontSize: '10px', fontWeight: '800', marginTop: '6px', color: active ? '#111827' : '#9CA3AF', textTransform: 'uppercase' }}>{title}</div>
     </div>
 );
 
 const Card = ({ title, children }) => (
-    <div style={{ background: '#FFF', padding: '24px', borderRadius: '20px', border: '1px solid #E5E7EB' }}>
-      <h3 style={{ fontSize: '11px', fontWeight: '800', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '1px' }}>{title}</h3>
+    <div style={{ background: '#FFF', padding: '24px', borderRadius: '20px', border: '1px solid #E5E7EB', marginBottom: '10px' }}>
+      <h3 style={{ fontSize: '11px', fontWeight: '800', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase' }}>{title}</h3>
       {children}
     </div>
 );
 
 const IconButton = ({ children, active, onClick }) => (
-    <div onClick={onClick} style={{ width: '50px', height: '50px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2px solid #111827' : '1px solid #E5E7EB', background: '#FFF' }}>
+    <div onClick={onClick} style={{ width: '50px', height: '50px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: active ? '2.5px solid #111827' : '1.5px solid #E5E7EB', background: '#FFF', transition: '0.2s' }}>
       {children}
     </div>
 );
