@@ -24,8 +24,14 @@ export const loader = async ({ request }) => {
 
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
-    include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
-    orderBy: { createdAt: "desc" }
+    include: { 
+      messages: { 
+        orderBy: { createdAt: "desc" }, 
+        take: 1 
+      } 
+    },
+    // SORT BY updatedAt: This ensures sessions with the latest messages float to the top
+    orderBy: { updatedAt: "desc" } 
   });
   return json({ sessions, currentShop: shop });
 };
@@ -60,7 +66,6 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
-  // FIXED: Improved Geolocation fetching
   const fetchUserLocation = async () => {
     setLiveLocation({ city: "Detecting...", country: "", flag: "" });
     try {
@@ -77,8 +82,15 @@ export default function NeuralChatAdmin() {
     }
   };
 
+  // UPDATED FILTERED SESSIONS: Now sorts by the latest message timestamp
   const filteredSessions = useMemo(() => {
-    return sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+    return [...sessions]
+      .filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => {
+        const dateA = new Date(a.messages[0]?.createdAt || a.createdAt);
+        const dateB = new Date(b.messages[0]?.createdAt || b.createdAt);
+        return dateB - dateA;
+      });
   }, [sessions, searchTerm]);
 
   useEffect(() => {
@@ -89,9 +101,22 @@ export default function NeuralChatAdmin() {
 
   const notifyNewMessage = (session, message) => {
     if (audioRef.current) audioRef.current.play().catch(() => {});
+    
+    // Move the active chat to the top of the list locally
+    setSessions(prev => {
+        const otherSessions = prev.filter(s => s.sessionId !== session.sessionId);
+        const updatedSession = prev.find(s => s.sessionId === session.sessionId);
+        if (updatedSession) {
+            updatedSession.messages = [message]; // Update preview message
+            return [updatedSession, ...otherSessions];
+        }
+        return prev;
+    });
+
     if (activeSession?.sessionId !== session.sessionId) {
       setUnreadCounts(prev => ({ ...prev, [session.sessionId]: (prev[session.sessionId] || 0) + 1 }));
     }
+    
     if (document.visibilityState !== 'visible' && Notification.permission === "granted") {
       new Notification(`New message from ${session.email || 'Customer'}`, { body: message.message, icon: '/favicon.ico' });
     }
@@ -122,7 +147,7 @@ export default function NeuralChatAdmin() {
     setActiveSession(session);
     setUnreadCounts(prev => ({ ...prev, [session.sessionId]: 0 }));
     isFirstLoadRef.current = true;
-    fetchUserLocation(); // Trigger location fetch on chat click
+    fetchUserLocation();
     try {
       const res = await fetch(`/app/chat/messages?sessionId=${session.sessionId}`);
       const data = await res.json();
@@ -142,10 +167,8 @@ export default function NeuralChatAdmin() {
     reader.readAsDataURL(file);
   };
 
-  // FIXED: Logic to handle Emoji Clicks
   const addEmoji = (emoji) => {
     setReply(prev => prev + emoji);
-    // Keep focus on input if you want
     setShowEmojiPicker(false);
   };
 
@@ -167,6 +190,14 @@ export default function NeuralChatAdmin() {
     };
 
     setMessages(prev => [...prev, newMessage]);
+    
+    // Move this session to top when admin replies
+    setSessions(prev => {
+        const otherSessions = prev.filter(s => s.sessionId !== activeSession.sessionId);
+        const current = prev.find(s => s.sessionId === activeSession.sessionId);
+        return [{ ...current, messages: [newMessage] }, ...otherSessions];
+    });
+
     lastMessageIdRef.current = tempId;
     setReply("");
     setFilePreview(null);
@@ -236,7 +267,7 @@ export default function NeuralChatAdmin() {
                   <div style={{ padding: '14px 18px', borderRadius: '20px', background: msg.sender === 'admin' ? accentColor : '#fff', color: msg.sender === 'admin' ? '#fff' : '#433d3c', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: msg.sender === 'admin' ? 'none' : '1px solid #f0f0f0' }}>
                     {msg.fileUrl ? (
                       msg.fileUrl.includes('image') || msg.fileUrl.startsWith('data:image') ? 
-                      <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '12px', cursor: 'zoom-in' }} /> :
+                      <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '12px', cursor: 'zoom-in' }} alt="Attachment" /> :
                       <div style={{display:'flex', gap:'8px'}}><Icons.FileText /><a href={msg.fileUrl} target="_blank" style={{color: 'inherit', fontWeight: '600'}}>View Document</a></div>
                     ) : (
                       <div style={{ fontSize: '15px', lineHeight: '1.5' }}>{msg.message}</div>
@@ -254,7 +285,7 @@ export default function NeuralChatAdmin() {
               <div style={{ padding: '15px 40px', background: '#fff', borderTop: `2px solid ${accentColor}`, display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <div style={{ position: 'relative' }}>
                   {filePreview.type.includes('image') ? (
-                     <img src={filePreview.url} style={{ height: '60px', width:'60px', objectFit:'cover', borderRadius: '12px', border: '1px solid #eee' }} />
+                     <img src={filePreview.url} style={{ height: '60px', width:'60px', objectFit:'cover', borderRadius: '12px', border: '1px solid #eee' }} alt="File preview" />
                   ) : (
                     <div style={{height:'60px', width:'60px', background:'#f3f4f6', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'12px'}}><Icons.FileText /></div>
                   )}
@@ -269,11 +300,10 @@ export default function NeuralChatAdmin() {
 
             <div style={{ padding: '30px 40px', background: '#fff', borderTop: '1px solid #f0f0f0', position: 'relative' }}>
               
-              {/* FIXED EMOJI PICKER UI */}
               {showEmojiPicker && (
                 <div style={{ position: 'absolute', bottom: '90px', left: '40px', background: 'white', padding: '10px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #eee', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', zIndex: 10 }}>
                   {emojis.map(e => (
-                    <button key={e} onClick={() => addEmoji(e)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', padding: '5px', borderRadius: '8px' }} onMouseEnter={(e) => e.target.style.background = '#f3f4f6'} onMouseLeave={(e) => e.target.style.background = 'none'}>
+                    <button key={e} onClick={() => addEmoji(e)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', padding: '5px', borderRadius: '8px' }}>
                       {e}
                     </button>
                   ))}
@@ -302,20 +332,6 @@ export default function NeuralChatAdmin() {
         <h4 style={{ fontSize: '12px', fontWeight: '900', color: '#a8a29e', textTransform: 'uppercase', letterSpacing: '1px' }}>Intelligence Hub</h4>
         {activeSession && (
           <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* <div style={{ padding: '24px', background: '#f0f9ff', borderRadius: '24px' }}>
-              <div style={{ fontSize: '10px', color: '#0369a1', fontWeight: '900', marginBottom: '12px' }}>VISITOR LOCATION</div>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                {liveLocation.flag ? (
-                  <img src={liveLocation.flag} width="32" style={{ borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} />
-                ) : (
-                  <div style={{width: 32, height: 20, background: '#e0e0e0', borderRadius: 4}} />
-                )}
-                <div>
-                  <div style={{ fontWeight: '800', fontSize: '16px' }}>{liveLocation.city}</div>
-                  <div style={{ fontSize: '12px', color: '#78716c' }}>{liveLocation.country}</div>
-                </div>
-              </div>
-            </div> */}
             <div style={{ padding: '20px', background: '#f8f7f6', borderRadius: '24px' }}>
               <div style={{ fontSize: '10px', color: '#a8a29e', fontWeight: '800', marginBottom: '10px' }}>LOCAL TIME</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}>
