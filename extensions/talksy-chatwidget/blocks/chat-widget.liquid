@@ -121,8 +121,20 @@
 :root { 
   --chat-primary: {{ primary_color }}; 
   --chat-bg: #ffffff;
-  --chat-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif, Euclid Circular ;
+  /* System fonts pehle, fir aapka Euclid font, aur aakhir mein generic fallback */
+  --chat-font: "Euclid Circular", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
   --chat-font-size: 15px;
+  --chat-weight-semibold: 600;
+}
+
+/* Isse font weight apply karna aur asan ho jayega */
+.header-title, 
+.home-hero h1, 
+.home-card strong, 
+.promo-section h3,
+#chat-submit-info {
+  font-family: var(--chat-font) !important;
+  font-weight: var(--chat-weight-semibold) !important;
 }
 
 #chat-widget * { box-sizing: border-box; font-family: var(--chat-font) !important; margin: 0;  }

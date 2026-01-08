@@ -122,7 +122,6 @@ export default function UltimateSettings() {
   return (
     <div style={{ background: '#F3F4F6', minHeight: '100vh', display: 'flex', fontFamily: 'Inter, sans-serif' }}>
       
-      {/* SIDE NAV */}
       <div style={{ width: '100px', background: '#F3F4F6', borderRight: '1px solid #E5E7EB', padding: '30px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <NavIcon active={activeTab === 'style'} onClick={() => setActiveTab('style')} icon="🎨" title="Style" />
@@ -131,7 +130,6 @@ export default function UltimateSettings() {
         </nav>
       </div>
 
-      {/* MAIN CONFIG */}
       <div style={{ flex: 1, padding: '40px 50px', maxWidth: '750px', overflowY: 'auto', height: '100vh' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#111827' }}>
@@ -167,7 +165,7 @@ export default function UltimateSettings() {
               </div>
             </Card>
 
-            <Card title="Colors & Theming">
+            <Card title="Background Colors">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
                 <ColorBox label="Primary Action Color" value={formState.primaryColor} onChange={(v) => handleChange('primaryColor', v)} />
                 <ColorBox label="Widget Border Color" value={formState.widgetBorderColor} onChange={(v) => handleChange('widgetBorderColor', v)} />
@@ -175,6 +173,16 @@ export default function UltimateSettings() {
                 <ColorBox label="Message Bubble BG" value={formState.messageBgColor} onChange={(v) => handleChange('messageBgColor', v)} />
                 <ColorBox label="Header BG Color" value={formState.headerBgColor} onChange={(v) => handleChange('headerBgColor', v)} />
                 <ColorBox label="Hero BG Color" value={formState.heroBgColor} onChange={(v) => handleChange('heroBgColor', v)} />
+              </div>
+            </Card>
+
+            <Card title="Text & Content Colors">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
+                <ColorBox label="Header Text" value={formState.headerTextColor} onChange={(v) => handleChange('headerTextColor', v)} />
+                <ColorBox label="Hero Text" value={formState.heroTextColor} onChange={(v) => handleChange('heroTextColor', v)} />
+                <ColorBox label="Card Title Text" value={formState.cardTitleColor} onChange={(v) => handleChange('cardTitleColor', v)} />
+                <ColorBox label="Card Subtitle Text" value={formState.cardSubtitleColor} onChange={(v) => handleChange('cardSubtitleColor', v)} />
+                <ColorBox label="Onboarding Text" value={formState.onboardingTextColor} onChange={(v) => handleChange('onboardingTextColor', v)} />
               </div>
             </Card>
 
@@ -219,7 +227,6 @@ export default function UltimateSettings() {
         )}
       </div>
 
-      {/* PREVIEW PANEL - SEMI-BOLD UPDATED */}
       <div style={{ flex: 1, background: '#F9FAFB', borderLeft: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
           
           <div style={{ 
@@ -234,25 +241,21 @@ export default function UltimateSettings() {
             fontFamily: formState.fontFamily,
             overflow: 'hidden'
           }}>
-            {/* Widget Header */}
             <div style={{ background: formState.headerBgColor, padding: '25px 25px 15px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ position: 'relative' }}>
                         <img src={formState.welcomeImg} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} alt="avatar" />
                         <div style={{ position: 'absolute', bottom: 0, right: 0, width: '9px', height: '9px', background: '#4ADE80', borderRadius: '50%', border: '2px solid #FFF' }}></div>
                     </div>
-                    {/* Header Title - SemiBold 600 */}
                     <div style={{ fontWeight: '600', fontSize: '17px', color: formState.headerTextColor }}>{formState.headerTitle}</div>
                 </div>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5"><path d="m6 9 6 6 6-6"/></svg>
             </div>
 
-            {/* Widget Body */}
             <div style={{ flex: 1, overflowY: 'auto', textAlign: 'center' }}>
                 <div style={{ background: formState.heroBgColor, padding: '40px 30px 30px', color: formState.heroTextColor }}>
-                    {/* Hero Title - SemiBold 600 */}
                     <h1 style={{ fontSize: '30px', fontWeight: '600', marginBottom: '10px' }}>{formState.welcomeText}</h1>
-                    <p style={{ fontSize: formState.baseFontSize, color: '#4B5563', lineHeight: '1.5', opacity: 0.9 }}>{formState.welcomeSubtext}</p>
+                    <p style={{ fontSize: formState.baseFontSize, color: formState.heroTextColor, lineHeight: '1.5', opacity: 0.8 }}>{formState.welcomeSubtext}</p>
                 </div>
                 
                 <div style={{ 
@@ -268,7 +271,6 @@ export default function UltimateSettings() {
                     textAlign: 'left'
                 }}>
                     <div>
-                        {/* Card Title - SemiBold 600 */}
                         <div style={{ fontWeight: '600', color: formState.cardTitleColor, fontSize: '16px', marginBottom: '4px' }}>{formState.startConversationText}</div>
                         <div style={{ fontSize: '13px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
                     </div>
@@ -278,13 +280,11 @@ export default function UltimateSettings() {
                 </div>
 
                 <div style={{ padding: '0 40px' }}>
-                    {/* Onboarding Title - SemiBold 600 */}
                     <div style={{ fontWeight: '600', color: formState.onboardingTextColor, fontSize: '20px', marginBottom: '8px' }}>{formState.onboardingTitle}</div>
                     <div style={{ fontSize: '14px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</div>
                 </div>
             </div>
 
-            {/* Widget Footer */}
             <div style={{ height: '85px', borderTop: `1px solid ${formState.widgetBorderColor}`, display: 'flex', alignItems: 'center', justifyContent: 'space-around', paddingBottom: '10px', background: '#FFF' }}>
                 <div style={{ textAlign: 'center' }}>
                     <div style={{ color: formState.primaryColor, marginBottom: '4px' }}>
@@ -301,7 +301,6 @@ export default function UltimateSettings() {
             </div>
           </div>
 
-          {/* Launcher Preview */}
           <div style={{ 
               marginTop: '25px',
               width: '60px', 
@@ -327,7 +326,6 @@ export default function UltimateSettings() {
   );
 }
 
-// UI HELPERS (Common logic)
 const NavIcon = ({ active, icon, title, onClick }) => (
     <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', marginBottom: '25px' }}>
         <div style={{ fontSize: '22px', background: active ? '#FFF' : 'transparent', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '14px', border: active ? '1px solid #E5E7EB' : '1px solid transparent', opacity: active ? 1 : 0.5 }}>{icon}</div>
