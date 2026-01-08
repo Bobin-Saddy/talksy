@@ -1,3 +1,6 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Flow+Circular&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 {%- assign primary_color = section.settings.primary_color | default: '#6366f1' -%}
 
 <div id="chat-launcher" aria-label="Open Chat" style="background: #ffffff; color: {{ primary_color }};">
@@ -120,29 +123,9 @@
 <style>
 :root { 
   --chat-primary: {{ primary_color }}; 
-  /* Euclid Circular A ko priority di gayi hai */
-  --chat-font: "Euclid Circular A", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+  --chat-bg: #ffffff;
+  --chat-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif, "Euclid Circular", sans-serif; 
   --chat-font-size: 15px;
-  /* Medium weight usually 500 hota hai */
-  --chat-weight-medium: 500; 
-}
-
-#chat-widget * { 
-  font-family: var(--chat-font) !important; 
-}
-
-.header-title, .home-hero h1, .home-card strong {
-  font-weight: var(--chat-weight-medium) !important;
-}
-
-/* Isse font weight apply karna aur asan ho jayega */
-.header-title, 
-.home-hero h1, 
-.home-card strong, 
-.promo-section h3,
-#chat-submit-info {
-  font-family: var(--chat-font) !important;
-  font-weight: var(--chat-weight-semibold) !important;
 }
 
 #chat-widget * { box-sizing: border-box; font-family: var(--chat-font) !important; margin: 0;  }

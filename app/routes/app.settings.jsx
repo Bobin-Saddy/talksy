@@ -15,7 +15,8 @@ const ICON_MAP = (customImg) => ({
 const FONT_OPTIONS = [
   { 
     label: "Euclid Circular A (Medium)", 
-    value: "'Euclid Circular A', -apple-system, BlinkMacSystemFont, sans-serif" 
+    // Updated value to prioritize the Medium variant
+    value: "'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, BlinkMacSystemFont, sans-serif" 
   },
   { label: "Inter", value: "'Inter', sans-serif" },
   { label: "Poppins", value: "'Poppins', sans-serif" },
@@ -51,7 +52,8 @@ export const loader = async ({ request }) => {
     onboardingSubtitle: "Please provide your details to begin.",
     launcherIcon: "bubble",
     customLauncherImg: "", 
-    fontFamily: "'Euclid Circular', sans-serif",
+fontFamily: "'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+baseFontSize: "15px",
     baseFontSize: "15px"
   };
 
@@ -250,12 +252,13 @@ export default function UltimateSettings() {
                         <img src={formState.welcomeImg} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} alt="avatar" />
                         <div style={{ position: 'absolute', bottom: 0, right: 0, width: '9px', height: '9px', background: '#4ADE80', borderRadius: '50%', border: '2px solid #FFF' }}></div>
                     </div>
-                    <div style={{ 
-    fontWeight: formState.fontFamily.includes('Euclid') ? '500' : '600', // Medium is 500
+<div style={{ 
+    fontWeight: formState.fontFamily.includes('Euclid') ? '500' : '600', 
     fontSize: '17px', 
     color: formState.headerTextColor,
     fontFamily: formState.fontFamily 
-}}>{formState.headerTitle}
+}}>
+    {formState.headerTitle}
 </div>
                 </div>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5"><path d="m6 9 6 6 6-6"/></svg>
