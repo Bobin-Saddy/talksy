@@ -84,7 +84,7 @@ model ChatSettings {
   onboardingTitle       String   @default("Start a conversation")
   onboardingSubtitle    String   @default("Please provide your details to begin.")
   launcherIcon          String   @default("custom")
-  fontFamily            String   @default("-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif")
+  fontFamily            String   @default("-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, Euclid Circular")
   baseFontSize          String   @default("15px")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt

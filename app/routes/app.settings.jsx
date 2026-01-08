@@ -16,8 +16,9 @@ const FONT_OPTIONS = [
   { label: "Inter", value: "'Inter', sans-serif" },
   { label: "Poppins", value: "'Poppins', sans-serif" },
   { label: "Montserrat", value: "'Montserrat', sans-serif" },
+  { label: "Euclid Circular", value: "'Euclid Circular', sans-serif" },
   { label: "Playfair Display", value: "'Playfair Display', serif" },
-  { label: "Monospace", value: "ui-monospace, SFMono-Regular, monospace" }
+  { label: "Monospace", value: "ui-monospace, SFMono-Regular, monospace" },
 ];
 
 export const loader = async ({ request }) => {
