@@ -16,16 +16,18 @@ export const action = async ({ request }) => {
     const body = await request.json();
     const { sessionId, message, sender, shop, email, fileUrl } = body;
 
-    const chatSession = await prisma.chatSession.upsert({
-      where: { sessionId: sessionId },
-      update: {}, 
-      create: {
-        sessionId: sessionId,
-        shop: shop || "unknown-shop",
-        email: email || "customer@email.com",
-        firstName: "Customer"
-      }
-    });
+const chatSession = await prisma.chatSession.upsert({
+  where: { sessionId: sessionId },
+  update: {
+    updatedAt: new Date(), // 🔥 bump chat to top
+  },
+  create: {
+    sessionId: sessionId,
+    shop: shop || "unknown-shop",
+    email: email || "customer@email.com",
+    firstName: "Customer"
+  }
+});
 
     const newMessage = await prisma.chatMessage.create({
       data: {
