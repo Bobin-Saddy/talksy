@@ -7,13 +7,13 @@ import { authenticate } from "../shopify.server";
 // --- ICONS SET ---
 const Icons = {
   Send: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>,
-  Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" x1="21" x2="16.65" y2="16.65"></line></svg>,
+  Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   User: ({ size = 20 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>,
   Clock: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
   Store: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>,
   Paperclip: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>,
   Smile: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" cy="9" x2="9.01" cy="9"></line><line x1="15" cy="9" x2="15.01" cy="9"></line></svg>,
-  X: ({ size = 20, color = "currentColor" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+  X: ({ size = 20, color = "currentColor" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x1="6" x2="6" y2="18"></line><line x1="6" cy="6" x2="18" y2="18"></line></svg>,
   FileText: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
 };
 
@@ -25,8 +25,7 @@ export const loader = async ({ request }) => {
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
     include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
-    // Use createdAt since updatedAt doesn't exist in your schema
-    orderBy: { createdAt: "desc" } 
+    orderBy: { updatedAt: "desc" } // Loader me updatedAt use karein taaki fresh order mile
   });
   return json({ sessions, currentShop: shop });
 };
@@ -42,7 +41,6 @@ export default function NeuralChatAdmin() {
   const [selectedImage, setSelectedImage] = useState(null); 
   const [filePreview, setFilePreview] = useState(null); 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [liveLocation, setLiveLocation] = useState({ city: "Detecting...", country: "", flag: "" });
   const [unreadCounts, setUnreadCounts] = useState({});
 
   const fetcher = useFetcher();
@@ -56,37 +54,10 @@ export default function NeuralChatAdmin() {
 
   useEffect(() => {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
   }, []);
 
-  const fetchUserLocation = async () => {
-    setLiveLocation({ city: "Detecting...", country: "", flag: "" });
-    try {
-      const res = await fetch('https://ipapi.co/json/');
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setLiveLocation({
-        city: data.city || "Unknown",
-        country: data.country_name || "Private",
-        flag: data.country_code ? `https://flagcdn.com/w40/${data.country_code.toLowerCase()}.png` : ""
-      });
-    } catch (e) {
-      setLiveLocation({ city: "Not Available", country: "Secured", flag: "" });
-    }
-  };
-
-  // --- LOGIC: Always show session with newest message at the top ---
   const filteredSessions = useMemo(() => {
-    return [...sessions]
-      .filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()))
-      .sort((a, b) => {
-        // Use the timestamp of the last message if it exists, otherwise use session creation time
-        const timeA = new Date(a.messages?.[0]?.createdAt || a.createdAt).getTime();
-        const timeB = new Date(b.messages?.[0]?.createdAt || b.createdAt).getTime();
-        return timeB - timeA;
-      });
+    return sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [sessions, searchTerm]);
 
   useEffect(() => {
@@ -95,27 +66,34 @@ export default function NeuralChatAdmin() {
     }
   }, [messages]);
 
+  // --- UPDATED LOGIC: Shift session to top ---
+  const moveSessionToTop = (sessionId, lastMessage) => {
+    setSessions(prevSessions => {
+      const sessionIndex = prevSessions.findIndex(s => s.sessionId === sessionId);
+      if (sessionIndex === -1) return prevSessions;
+
+      const updatedSessions = [...prevSessions];
+      const targetSession = { ...updatedSessions[sessionIndex] };
+      
+      // Message preview update karein
+      targetSession.messages = [lastMessage];
+      
+      // List se nikalein aur sabse upar daal dein
+      updatedSessions.splice(sessionIndex, 1);
+      return [targetSession, ...updatedSessions];
+    });
+  };
+
   const notifyNewMessage = (session, message) => {
     if (audioRef.current) audioRef.current.play().catch(() => {});
-    
-    // Update the sessions state to move the chat to the top immediately
-    setSessions(prev => {
-      const otherSessions = prev.filter(s => s.sessionId !== session.sessionId);
-      const matched = prev.find(s => s.sessionId === session.sessionId);
-      if (matched) {
-        return [{ ...matched, messages: [message] }, ...otherSessions];
-      }
-      return prev;
-    });
-
     if (activeSession?.sessionId !== session.sessionId) {
       setUnreadCounts(prev => ({ ...prev, [session.sessionId]: (prev[session.sessionId] || 0) + 1 }));
     }
-    if (document.visibilityState !== 'visible' && Notification.permission === "granted") {
-      new Notification(`New message from ${session.email || 'Customer'}`, { body: message.message, icon: '/favicon.ico' });
-    }
+    // Session list me top par shift karein
+    moveSessionToTop(session.sessionId, message);
   };
 
+  // Polling logic for messages
   useEffect(() => {
     if (!activeSession) return;
     const interval = setInterval(async () => {
@@ -125,11 +103,16 @@ export default function NeuralChatAdmin() {
         if (data.length > 0) {
           const latestServerMsg = data[data.length - 1];
           if (latestServerMsg.id !== lastMessageIdRef.current) {
-            if (latestServerMsg.sender === "user" && !isFirstLoadRef.current) {
-              notifyNewMessage(activeSession, latestServerMsg);
-            }
             setMessages(data);
             lastMessageIdRef.current = latestServerMsg.id;
+
+            // Agar user ka message hai to top pe shift karein aur notify karein
+            if (latestServerMsg.sender === "user" && !isFirstLoadRef.current) {
+              notifyNewMessage(activeSession, latestServerMsg);
+            } else {
+              // Admin ka message hai tab bhi top pe shift kar sakte hain update ke liye
+              moveSessionToTop(activeSession.sessionId, latestServerMsg);
+            }
           }
         }
       } catch (err) {}
@@ -141,7 +124,6 @@ export default function NeuralChatAdmin() {
     setActiveSession(session);
     setUnreadCounts(prev => ({ ...prev, [session.sessionId]: 0 }));
     isFirstLoadRef.current = true;
-    fetchUserLocation(); 
     try {
       const res = await fetch(`/app/chat/messages?sessionId=${session.sessionId}`);
       const data = await res.json();
@@ -149,16 +131,6 @@ export default function NeuralChatAdmin() {
       setMessages(data);
       setTimeout(() => { isFirstLoadRef.current = false; }, 500);
     } catch (err) {}
-  };
-
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setFilePreview({ url: reader.result, name: file.name, type: file.type });
-    };
-    reader.readAsDataURL(file);
   };
 
   const addEmoji = (emoji) => {
@@ -169,7 +141,6 @@ export default function NeuralChatAdmin() {
   const handleReply = (text = null) => {
     const finalMsg = text || reply;
     const finalFile = filePreview?.url;
-    
     if ((!finalMsg.trim() && !finalFile) || !activeSession) return;
 
     const tempId = `temp-${Date.now()}`;
@@ -184,18 +155,13 @@ export default function NeuralChatAdmin() {
     };
 
     setMessages(prev => [...prev, newMessage]);
-    
-    // Move session to top on admin reply too
-    setSessions(prev => {
-      const others = prev.filter(s => s.sessionId !== activeSession.sessionId);
-      const current = prev.find(s => s.sessionId === activeSession.sessionId);
-      return [{ ...current, messages: [newMessage] }, ...others];
-    });
-
     lastMessageIdRef.current = tempId;
     setReply("");
     setFilePreview(null);
     setShowEmojiPicker(false);
+
+    // Admin reply par bhi list update
+    moveSessionToTop(activeSession.sessionId, newMessage);
 
     fetcher.submit(JSON.stringify(newMessage), {
       method: "post",
@@ -227,18 +193,18 @@ export default function NeuralChatAdmin() {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
           {filteredSessions.map(session => (
-            <div key={session.sessionId} onClick={() => loadChat(session)} style={{ position: 'relative', padding: '16px', borderRadius: '20px', cursor: 'pointer', marginBottom: '8px', background: activeSession?.sessionId === session.sessionId ? '#fff' : 'transparent', border: activeSession?.sessionId === session.sessionId ? '1px solid #f0f0f0' : '1px solid transparent', transition: 'all 0.2s' }}>
+            <div key={session.sessionId} onClick={() => loadChat(session)} style={{ position: 'relative', padding: '16px', borderRadius: '20px', cursor: 'pointer', marginBottom: '8px', background: activeSession?.sessionId === session.sessionId ? '#fff' : 'transparent', border: activeSession?.sessionId === session.sessionId ? '1px solid #f0f0f0' : '1px solid transparent', transition: 'all 0.3s ease' }}>
               <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
                 <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: activeSession?.sessionId === session.sessionId ? accentColor : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: activeSession?.sessionId === session.sessionId ? 'white' : '#9d9489', flexShrink: 0 }}>
                   <Icons.User size={24} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: '700', fontSize: '15px' }}>{session.email?.split('@')[0] || 'User'}</div>
-                  <div style={{ fontSize: '13px', color: '#78716c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.messages[0]?.message || 'New Chat'}</div>
+                  <div style={{ fontSize: '13px', color: '#78716c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.messages?.[0]?.message || 'New Chat'}</div>
                 </div>
                 {unreadCounts[session.sessionId] > 0 && (
-                  <div style={{ background: '#ef4444', color: 'white', fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', boxShadow: '0 4px 10px rgba(239, 68, 68, 0.3)' }}>
-                    {unreadCounts[session.sessionId]} New
+                  <div style={{ background: '#ef4444', color: 'white', fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px' }}>
+                    {unreadCounts[session.sessionId]}
                   </div>
                 )}
               </div>
@@ -261,8 +227,8 @@ export default function NeuralChatAdmin() {
                   <div style={{ padding: '14px 18px', borderRadius: '20px', background: msg.sender === 'admin' ? accentColor : '#fff', color: msg.sender === 'admin' ? '#fff' : '#433d3c', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: msg.sender === 'admin' ? 'none' : '1px solid #f0f0f0' }}>
                     {msg.fileUrl ? (
                       msg.fileUrl.includes('image') || msg.fileUrl.startsWith('data:image') ? 
-                      <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '12px', cursor: 'zoom-in' }} alt="Chat attachment" /> :
-                      <div style={{display:'flex', gap:'8px'}}><Icons.FileText /><a href={msg.fileUrl} target="_blank" style={{color: 'inherit', fontWeight: '600'}}>View Document</a></div>
+                      <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '12px', cursor: 'zoom-in' }} alt="Attachment" /> :
+                      <div style={{display:'flex', gap:'8px'}}><Icons.FileText /><a href={msg.fileUrl} target="_blank" rel="noreferrer" style={{color: 'inherit', fontWeight: '600'}}>View Document</a></div>
                     ) : (
                       <div style={{ fontSize: '15px', lineHeight: '1.5' }}>{msg.message}</div>
                     )}
@@ -274,36 +240,24 @@ export default function NeuralChatAdmin() {
               ))}
             </div>
 
-            {/* PREVIEW CONTAINER */}
-            {filePreview && (
-              <div style={{ padding: '15px 40px', background: '#fff', borderTop: `2px solid ${accentColor}`, display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <div style={{ position: 'relative' }}>
-                  {filePreview.type.includes('image') ? (
-                     <img src={filePreview.url} style={{ height: '60px', width:'60px', objectFit:'cover', borderRadius: '12px', border: '1px solid #eee' }} alt="Preview" />
-                  ) : (
-                    <div style={{height:'60px', width:'60px', background:'#f3f4f6', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'12px'}}><Icons.FileText /></div>
-                  )}
-                  <button onClick={() => setFilePreview(null)} style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', borderRadius: '50%', border: 'none', cursor: 'pointer', padding: '4px', display:'flex' }}><Icons.X size={12} color="white" /></button>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: '700' }}>{filePreview.name}</div>
-                  <div style={{ fontSize: '12px', color: '#78716c' }}>Ready to send</div>
-                </div>
-              </div>
-            )}
-
             <div style={{ padding: '30px 40px', background: '#fff', borderTop: '1px solid #f0f0f0', position: 'relative' }}>
               {showEmojiPicker && (
                 <div style={{ position: 'absolute', bottom: '90px', left: '40px', background: 'white', padding: '10px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #eee', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', zIndex: 10 }}>
                   {emojis.map(e => (
-                    <button key={e} onClick={() => addEmoji(e)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', padding: '5px', borderRadius: '8px' }}>
-                      {e}
-                    </button>
+                    <button key={e} onClick={() => addEmoji(e)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', padding: '5px', borderRadius: '8px' }}>{e}</button>
                   ))}
                 </div>
               )}
+
               <div style={{ display: 'flex', alignItems: 'center', background: '#f8f7f6', borderRadius: '20px', padding: '8px 10px', border: '1px solid #eee' }}>
-                <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} accept="image/*,.pdf" />
+                <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={(e) => {
+                   const file = e.target.files[0];
+                   if (file) {
+                     const reader = new FileReader();
+                     reader.onloadend = () => setFilePreview({ url: reader.result, name: file.name, type: file.type });
+                     reader.readAsDataURL(file);
+                   }
+                }} accept="image/*,.pdf" />
                 <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: showEmojiPicker ? accentColor : '#a8a29e' }}><Icons.Smile /></button>
                 <button onClick={() => fileInputRef.current.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', margin: '0 12px', color: '#a8a29e' }}><Icons.Paperclip /></button>
                 <input placeholder="Write a message..." style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '15px' }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyPress={(e) => { if(e.key === 'Enter') handleReply(); }} />
