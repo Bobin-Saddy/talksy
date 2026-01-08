@@ -13,7 +13,7 @@ const ICON_MAP = (customImg) => ({
 });
 
 const FONT_OPTIONS = [
-  { label: "Euclid Circular", value: "'Euclid Circular', sans-serif" },
+  { label: "Euclid Circular (Semi-Bold)", value: "'Euclid Circular', sans-serif" },
   { label: "Inter", value: "'Inter', sans-serif" },
   { label: "Poppins", value: "'Poppins', sans-serif" },
   { label: "Montserrat", value: "'Montserrat', sans-serif" },
@@ -219,7 +219,7 @@ export default function UltimateSettings() {
         )}
       </div>
 
-      {/* PREVIEW PANEL - SYNCED WITH SCREENSHOT DESIGN */}
+      {/* PREVIEW PANEL - SEMI-BOLD UPDATED */}
       <div style={{ flex: 1, background: '#F9FAFB', borderLeft: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
           
           <div style={{ 
@@ -241,7 +241,8 @@ export default function UltimateSettings() {
                         <img src={formState.welcomeImg} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} alt="avatar" />
                         <div style={{ position: 'absolute', bottom: 0, right: 0, width: '9px', height: '9px', background: '#4ADE80', borderRadius: '50%', border: '2px solid #FFF' }}></div>
                     </div>
-                    <div style={{ fontWeight: '700', fontSize: '17px', color: formState.headerTextColor }}>{formState.headerTitle}</div>
+                    {/* Header Title - SemiBold 600 */}
+                    <div style={{ fontWeight: '600', fontSize: '17px', color: formState.headerTextColor }}>{formState.headerTitle}</div>
                 </div>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5"><path d="m6 9 6 6 6-6"/></svg>
             </div>
@@ -249,7 +250,8 @@ export default function UltimateSettings() {
             {/* Widget Body */}
             <div style={{ flex: 1, overflowY: 'auto', textAlign: 'center' }}>
                 <div style={{ background: formState.heroBgColor, padding: '40px 30px 30px', color: formState.heroTextColor }}>
-                    <h1 style={{ fontSize: '30px', fontWeight: '800', marginBottom: '10px' }}>{formState.welcomeText}</h1>
+                    {/* Hero Title - SemiBold 600 */}
+                    <h1 style={{ fontSize: '30px', fontWeight: '600', marginBottom: '10px' }}>{formState.welcomeText}</h1>
                     <p style={{ fontSize: formState.baseFontSize, color: '#4B5563', lineHeight: '1.5', opacity: 0.9 }}>{formState.welcomeSubtext}</p>
                 </div>
                 
@@ -266,7 +268,8 @@ export default function UltimateSettings() {
                     textAlign: 'left'
                 }}>
                     <div>
-                        <div style={{ fontWeight: '700', color: formState.cardTitleColor, fontSize: '16px', marginBottom: '4px' }}>{formState.startConversationText}</div>
+                        {/* Card Title - SemiBold 600 */}
+                        <div style={{ fontWeight: '600', color: formState.cardTitleColor, fontSize: '16px', marginBottom: '4px' }}>{formState.startConversationText}</div>
                         <div style={{ fontSize: '13px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
                     </div>
                     <div style={{ width: '42px', height: '42px', background: formState.primaryColor, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -275,7 +278,8 @@ export default function UltimateSettings() {
                 </div>
 
                 <div style={{ padding: '0 40px' }}>
-                    <div style={{ fontWeight: '700', color: formState.onboardingTextColor, fontSize: '20px', marginBottom: '8px' }}>{formState.onboardingTitle}</div>
+                    {/* Onboarding Title - SemiBold 600 */}
+                    <div style={{ fontWeight: '600', color: formState.onboardingTextColor, fontSize: '20px', marginBottom: '8px' }}>{formState.onboardingTitle}</div>
                     <div style={{ fontSize: '14px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</div>
                 </div>
             </div>
@@ -286,18 +290,18 @@ export default function UltimateSettings() {
                     <div style={{ color: formState.primaryColor, marginBottom: '4px' }}>
                         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                     </div>
-                    <div style={{ fontSize: '11px', fontWeight: '800', color: formState.primaryColor }}>Home</div>
+                    <div style={{ fontSize: '11px', fontWeight: '600', color: formState.primaryColor }}>Home</div>
                 </div>
                 <div style={{ textAlign: 'center', opacity: 0.3 }}>
                     <div style={{ color: '#9CA3AF', marginBottom: '4px' }}>
                         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     </div>
-                    <div style={{ fontSize: '11px', fontWeight: '800' }}>Messages</div>
+                    <div style={{ fontSize: '11px', fontWeight: '600' }}>Messages</div>
                 </div>
             </div>
           </div>
 
-          {/* Launcher Preview Button */}
+          {/* Launcher Preview */}
           <div style={{ 
               marginTop: '25px',
               width: '60px', 
@@ -323,17 +327,17 @@ export default function UltimateSettings() {
   );
 }
 
-// UI HELPERS
+// UI HELPERS (Common logic)
 const NavIcon = ({ active, icon, title, onClick }) => (
     <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', marginBottom: '25px' }}>
         <div style={{ fontSize: '22px', background: active ? '#FFF' : 'transparent', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '14px', border: active ? '1px solid #E5E7EB' : '1px solid transparent', opacity: active ? 1 : 0.5 }}>{icon}</div>
-        <div style={{ fontSize: '10px', fontWeight: '800', marginTop: '6px', color: active ? '#111827' : '#9CA3AF', textTransform: 'uppercase' }}>{title}</div>
+        <div style={{ fontSize: '10px', fontWeight: '600', marginTop: '6px', color: active ? '#111827' : '#9CA3AF', textTransform: 'uppercase' }}>{title}</div>
     </div>
 );
 
 const Card = ({ title, children }) => (
     <div style={{ background: '#FFF', padding: '24px', borderRadius: '20px', border: '1px solid #E5E7EB', marginBottom: '10px' }}>
-      <h3 style={{ fontSize: '11px', fontWeight: '800', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase' }}>{title}</h3>
+      <h3 style={{ fontSize: '11px', fontWeight: '600', color: '#9CA3AF', marginBottom: '20px', textTransform: 'uppercase' }}>{title}</h3>
       {children}
     </div>
 );
@@ -349,7 +353,7 @@ const ColorBox = ({ label, value, onChange }) => (
       <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#F9FAFB', padding: '10px', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
         <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ border: 'none', background: 'none', width: '28px', height: '28px', cursor: 'pointer' }} />
-        <span style={{ fontSize: '13px', fontWeight: '700' }}>{value?.toUpperCase()}</span>
+        <span style={{ fontSize: '13px', fontWeight: '600' }}>{value?.toUpperCase()}</span>
       </div>
     </div>
 );
