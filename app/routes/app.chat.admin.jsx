@@ -30,18 +30,12 @@ const sessions = await prisma.chatSession.findMany({
       take: 1,
     },
   },
+  orderBy: {
+    updatedAt: "desc",   // 🔥 REAL SORTING
+  },
 });
 
-// 🔥 Sort sessions by last message time (most recent first)
-sessions.sort((a, b) => {
-  const aTime = a.messages[0]?.createdAt
-    ? new Date(a.messages[0].createdAt).getTime()
-    : 0;
-  const bTime = b.messages[0]?.createdAt
-    ? new Date(b.messages[0].createdAt).getTime()
-    : 0;
-  return bTime - aTime;
-});
+
 
 return json({ sessions, currentShop: shop });
 
@@ -127,10 +121,11 @@ export default function NeuralChatAdmin() {
               notifyNewMessage(activeSession, latestServerMsg);
             }
             setMessages(data);
-            setSessions(prev => {
+setSessions(prev => {
   const updated = prev.filter(s => s.sessionId !== activeSession.sessionId);
   return [activeSession, ...updated];
 });
+
             lastMessageIdRef.current = latestServerMsg.id;
           }
         }
@@ -188,10 +183,11 @@ export default function NeuralChatAdmin() {
     };
 
     setMessages(prev => [...prev, newMessage]);
-    setSessions(prev => {
+setSessions(prev => {
   const updated = prev.filter(s => s.sessionId !== activeSession.sessionId);
   return [activeSession, ...updated];
 });
+
     lastMessageIdRef.current = tempId;
     setReply("");
     setFilePreview(null);

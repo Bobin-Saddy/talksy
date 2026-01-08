@@ -19,7 +19,7 @@ export const action = async ({ request }) => {
 const chatSession = await prisma.chatSession.upsert({
   where: { sessionId: sessionId },
   update: {
-    updatedAt: new Date(), // 🔥 bump chat to top
+    updatedAt: new Date(),   // 🔥 THIS LINE FIXES EVERYTHING
   },
   create: {
     sessionId: sessionId,
@@ -28,6 +28,7 @@ const chatSession = await prisma.chatSession.upsert({
     firstName: "Customer"
   }
 });
+
 
     const newMessage = await prisma.chatMessage.create({
       data: {
