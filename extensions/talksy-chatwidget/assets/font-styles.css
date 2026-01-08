@@ -1,0 +1,7 @@
+@font-face {
+  font-family: 'Euclid Circular A Medium';
+  src: url('https://your-external-link.com/euclid-medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}

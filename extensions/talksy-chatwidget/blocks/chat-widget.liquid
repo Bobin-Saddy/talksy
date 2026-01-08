@@ -118,16 +118,61 @@
       <span>Messages</span>
     </div>
   </div>
-</div>
+</div> {{ 'font-styles.css' | asset_url | stylesheet_tag }}
 
 <style>
-:root { 
-  --chat-primary: {{ primary_color }}; 
-  --chat-bg: #ffffff;
-  --chat-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif, "Euclid Circular", sans-serif; 
-  --chat-font-size: 15px;
+ 
+div#image-preview-wrapper {
+    position: relative;
+}
+img#image-preview {
+    width: 150px;
+}
+button#send-image-btn {
+    background: #f3f4f6;
+    color: #6c6c6c;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    margin: 0 0 12px 20px;
+}
+button#remove-image-btn {
+    position: absolute;
+    background: #f3f4f6;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 20px !important;
 }
 
+
+@font-face {
+    font-family: 'Euclid Circular A Medium';
+    /* Replace this URL with your actual font link (e.g. from Edgeone or Google Drive direct link) */
+    src: url('https://your-cdn-link.com/euclid-medium.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root { 
+    --chat-primary: {{ primary_color }}; 
+    --chat-bg: #ffffff;
+    /* Default fallback stack */
+    --chat-font: 'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, sans-serif; 
+    --chat-font-size: 15px;
+  }
+
+  /* Force font on all widget elements */
+  #chat-widget, #chat-widget *, #chat-launcher, #chat-launcher * { 
+    box-sizing: border-box; 
+    font-family: var(--chat-font) !important; 
+    margin: 0;  
+  }
+
+  /* Specific fix for Medium Weight on Titles */
+  .header-title, #welcome-h1, #card-msg-text, #onboarding-title-text {
+    font-weight: 500 !important; /* Euclid Medium 500 hota hai */
+  }
 #chat-widget * { box-sizing: border-box; font-family: var(--chat-font) !important; margin: 0;  }
 
 #chat-launcher { 
@@ -232,14 +277,16 @@
 
   async function loadSettings() {
     try {
-      const r = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
-      const s = await r.json();
-      currentConfig = s;
-      
-      // 1. COLORS, FONTS & BORDERS
-      document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
-      document.documentElement.style.setProperty('--chat-font', s.fontFamily);
-      document.documentElement.style.setProperty('--chat-font-size', s.baseFontSize);
+    const r = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
+    const s = await r.json();
+    currentConfig = s;
+    
+    // font-family string ko sahi se format karein agar usme quotes hain
+    let cleanFont = s.fontFamily.replace(/['"]+/g, "'"); 
+    
+    document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
+    document.documentElement.style.setProperty('--chat-font', cleanFont);
+    document.documentElement.style.setProperty('--chat-font-size', s.baseFontSize);
 
       widget.style.border = `1px solid ${s.widgetBorderColor}`;
       widget.style.background = s.chatBoxBgColor;
@@ -384,7 +431,7 @@
     reader.onload = (ev) => {
       selectedImg = ev.target.result;
       document.getElementById("image-preview").src = selectedImg;
-      document.getElementById("image-preview-container").style.display = "block";
+      document.getElementById("image-preview-container").style.display = "";
     };
     reader.readAsDataURL(e.target.files[0]);
   };
