@@ -22,7 +22,7 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   if (!shop) throw new Response("Unauthorized", { status: 401 });
 
-const sessions = await prisma.chatSession.findMany({
+const sessions = await prisma.ChatMessage.findMany({
   where: { shop: shop },
   include: {
     messages: {
