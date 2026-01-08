@@ -120,11 +120,16 @@ export default function NeuralChatAdmin() {
             if (latestServerMsg.sender === "user" && !isFirstLoadRef.current) {
               notifyNewMessage(activeSession, latestServerMsg);
             }
-            setMessages(data);
+ setMessages(data);
+
+// 🔥 Active chat ko sidebar ke top par lao
 setSessions(prev => {
+  if (!activeSession) return prev;
+
   const updated = prev.filter(s => s.sessionId !== activeSession.sessionId);
   return [activeSession, ...updated];
 });
+
 
             lastMessageIdRef.current = latestServerMsg.id;
           }
@@ -144,6 +149,15 @@ setSessions(prev => {
       const data = await res.json();
       if (data.length > 0) lastMessageIdRef.current = data[data.length - 1].id;
       setMessages(data);
+
+// 🔥 Active chat ko sidebar ke top par lao
+setSessions(prev => {
+  if (!activeSession) return prev;
+
+  const updated = prev.filter(s => s.sessionId !== activeSession.sessionId);
+  return [activeSession, ...updated];
+});
+
       setTimeout(() => { isFirstLoadRef.current = false; }, 500);
     } catch (err) {}
   };
