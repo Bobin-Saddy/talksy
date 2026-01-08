@@ -22,12 +22,29 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   if (!shop) throw new Response("Unauthorized", { status: 401 });
 
-  const sessions = await prisma.chatSession.findMany({
-    where: { shop: shop },
-    include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
-    orderBy: { createdAt: "desc" }
-  });
-  return json({ sessions, currentShop: shop });
+const sessions = await prisma.chatSession.findMany({
+  where: { shop: shop },
+  include: {
+    messages: {
+      orderBy: { createdAt: "desc" },
+      take: 1,
+    },
+  },
+});
+
+// 🔥 Sort sessions by last message time (most recent first)
+sessions.sort((a, b) => {
+  const aTime = a.messages[0]?.createdAt
+    ? new Date(a.messages[0].createdAt).getTime()
+    : 0;
+  const bTime = b.messages[0]?.createdAt
+    ? new Date(b.messages[0].createdAt).getTime()
+    : 0;
+  return bTime - aTime;
+});
+
+return json({ sessions, currentShop: shop });
+
 };
 
 export default function NeuralChatAdmin() {
@@ -110,6 +127,10 @@ export default function NeuralChatAdmin() {
               notifyNewMessage(activeSession, latestServerMsg);
             }
             setMessages(data);
+            setSessions(prev => {
+  const updated = prev.filter(s => s.sessionId !== activeSession.sessionId);
+  return [activeSession, ...updated];
+});
             lastMessageIdRef.current = latestServerMsg.id;
           }
         }
@@ -167,6 +188,10 @@ export default function NeuralChatAdmin() {
     };
 
     setMessages(prev => [...prev, newMessage]);
+    setSessions(prev => {
+  const updated = prev.filter(s => s.sessionId !== activeSession.sessionId);
+  return [activeSession, ...updated];
+});
     lastMessageIdRef.current = tempId;
     setReply("");
     setFilePreview(null);
