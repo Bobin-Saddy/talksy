@@ -10,7 +10,7 @@ export const loader = async ({ request }) => {
 
   const messages = await prisma.chatMessage.findMany({
     where: { chatSessionId: sessionId }, // Match with exact ID
-    orderBy: { createdAt: "asc" },
+    orderBy: { updatedAt: "desc" },
   });
 
   return json(messages, { headers });
