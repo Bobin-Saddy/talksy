@@ -22,23 +22,12 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   if (!shop) throw new Response("Unauthorized", { status: 401 });
 
-const sessions = await prisma.chatSession.findMany({
-  where: { shop: shop },
-  include: {
-    messages: {
-      orderBy: { createdAt: "desc" },
-      take: 1,
-    },
-  },
-  orderBy: {
-    updatedAt: "desc",   // 🔥 REAL SORTING
-  },
-});
-
-
-
-return json({ sessions, currentShop: shop });
-
+  const sessions = await prisma.chatSession.findMany({
+    where: { shop: shop },
+    include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
+    orderBy: { createdAt: "desc" }
+  });
+  return json({ sessions, currentShop: shop });
 };
 
 export default function NeuralChatAdmin() {
@@ -108,33 +97,26 @@ export default function NeuralChatAdmin() {
     }
   };
 
-useEffect(() => {
-  if (!activeSession) return;
-
-  const interval = setInterval(async () => {
-    const res = await fetch(`/app/chat/messages?sessionId=${activeSession.sessionId}`);
-    const data = await res.json();
-
-    setMessages(prev => {
-      // Agar new message aaya hai
-      if (data.length > prev.length) {
-
-        // 🔥 Sidebar me is chat ko TOP par le aao
-        setSessions(prevSessions => {
-          const updated = prevSessions.filter(s => s.sessionId !== activeSession.sessionId);
-          return [activeSession, ...updated];
-        });
-
-        return data;
-      }
-
-      return prev;
-    });
-  }, 2000); // ⏱️ every 2 seconds
-
-  return () => clearInterval(interval);
-}, [activeSession]);
-
+  useEffect(() => {
+    if (!activeSession) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/app/chat/messages?sessionId=${activeSession.sessionId}`);
+        const data = await res.json();
+        if (data.length > 0) {
+          const latestServerMsg = data[data.length - 1];
+          if (latestServerMsg.id !== lastMessageIdRef.current) {
+            if (latestServerMsg.sender === "user" && !isFirstLoadRef.current) {
+              notifyNewMessage(activeSession, latestServerMsg);
+            }
+            setMessages(data);
+            lastMessageIdRef.current = latestServerMsg.id;
+          }
+        }
+      } catch (err) {}
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [activeSession]);
 
   const loadChat = async (session) => {
     setActiveSession(session);
@@ -146,15 +128,6 @@ useEffect(() => {
       const data = await res.json();
       if (data.length > 0) lastMessageIdRef.current = data[data.length - 1].id;
       setMessages(data);
-
-// 🔥 Active chat ko sidebar ke top par lao
-setSessions(prev => {
-  if (!activeSession) return prev;
-
-  const updated = prev.filter(s => s.sessionId !== activeSession.sessionId);
-  return [activeSession, ...updated];
-});
-
       setTimeout(() => { isFirstLoadRef.current = false; }, 500);
     } catch (err) {}
   };
@@ -194,11 +167,6 @@ setSessions(prev => {
     };
 
     setMessages(prev => [...prev, newMessage]);
-setSessions(prev => {
-  const updated = prev.filter(s => s.sessionId !== activeSession.sessionId);
-  return [activeSession, ...updated];
-});
-
     lastMessageIdRef.current = tempId;
     setReply("");
     setFilePreview(null);
