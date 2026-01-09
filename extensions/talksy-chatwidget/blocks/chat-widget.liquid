@@ -275,14 +275,26 @@ button#remove-image-btn {
   let currentConfig = {};
  let seenMsgs = new Set();
 
- function getOrCreateSessionId() {
+ try {
+  localStorage.setItem("__test", "1");
+  localStorage.removeItem("__test");
+} catch (e) {
+  console.warn("LocalStorage blocked by browser");
+}
+
+
+
+function getOrCreateSessionId() {
   let sId = localStorage.getItem("chat_session");
-  if (!sId) {
+  if (!sId || sId === "null" || sId === "undefined") {
     sId = "s_" + crypto.randomUUID();
     localStorage.setItem("chat_session", sId);
   }
   return sId;
 }
+
+
+
 
 
   const ICON_SVGS = {
@@ -356,7 +368,10 @@ button#remove-image-btn {
         document.getElementById("launcher-icon").innerHTML = ICON_SVGS[s.launcherIcon] || ICON_SVGS.bubble;
       }
 
-  if(localStorage.getItem("chat_session")) {
+const existingSession = localStorage.getItem("chat_session");
+const existingEmail = localStorage.getItem("chat_user_email");
+
+if(existingSession && existingEmail) {
   document.getElementById("chat-onboarding-step").style.display = "none";
   document.getElementById("chat-chat-step").style.display = "flex";
   startPolling();
@@ -403,6 +418,7 @@ button#remove-image-btn {
       fetchMessages();
     } catch (e) {}
   }
+console.log("Existing chat_session =", localStorage.getItem("chat_session"));
 
   launcher.onclick = () => {
     const open = widget.classList.toggle("chat-visible");
