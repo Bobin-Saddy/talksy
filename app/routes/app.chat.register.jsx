@@ -14,25 +14,47 @@ export const action = async ({ request }) => {
 
   try {
     const { shop, firstName, lastName, email, sessionId } = await request.json();
-    
-    const session = await prisma.chatSession.upsert({
-      where: { sessionId: sessionId },
-      update: { 
-        email, 
-        firstName: firstName || null, 
-        lastName: lastName || null 
-      },
-      create: { 
-        shop, 
-        firstName: firstName || null, 
-        lastName: lastName || null,
-        email, 
-        sessionId 
-      },
+
+    if (!email) {
+      return json({ error: "Email is required" }, { status: 400, headers });
+    }
+
+    // ✅ Check user by email
+    const existing = await prisma.chatSession.findFirst({
+      where: {
+        shop: shop,
+        email: email
+      }
     });
-    
+
+    let session;
+
+    if (existing) {
+      // ✅ User already exists → just update sessionId
+      session = await prisma.chatSession.update({
+        where: { id: existing.id },
+        data: {
+          sessionId: sessionId,
+          firstName: firstName || existing.firstName,
+          lastName: lastName || existing.lastName,
+        }
+      });
+    } else {
+      // 🆕 New user
+      session = await prisma.chatSession.create({
+        data: {
+          shop,
+          firstName: firstName || null,
+          lastName: lastName || null,
+          email,
+          sessionId
+        }
+      });
+    }
+
     return json({ success: true, session }, { headers });
   } catch (e) { 
+    console.error("Register/Login error:", e);
     return json({ error: e.message }, { status: 500, headers }); 
   }
 };
