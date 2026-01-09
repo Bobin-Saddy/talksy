@@ -61,6 +61,22 @@ export default function NeuralChatAdmin() {
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
 
   useEffect(() => {
+  const interval = setInterval(async () => {
+    try {
+      const res = await fetch("/app/chat/sessions");
+      const data = await res.json();
+
+      setSessions(data.sessions);
+    } catch (e) {
+      console.error("Failed to refresh sessions");
+    }
+  }, 4000); // every 4 seconds
+
+  return () => clearInterval(interval);
+}, []);
+
+
+  useEffect(() => {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
