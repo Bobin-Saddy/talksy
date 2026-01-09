@@ -24,8 +24,8 @@ export const loader = async ({ request }) => {
 
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
-    include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
-    orderBy: { createdAt: "desc" }
+    include: { messages: { orderBy: { updatedAt: "desc" }, take: 1 } },
+     orderBy: { updatedAt: "desc" }
   });
   return json({ sessions, currentShop: shop });
 };
@@ -59,6 +59,20 @@ export default function NeuralChatAdmin() {
       Notification.requestPermission();
     }
   }, []);
+  useEffect(() => {
+  const interval = setInterval(async () => {
+    try {
+      const res = await fetch("/app/chat/admin");
+      const data = await res.json();
+      setSessions(data.sessions); // 🔥 auto reorder sidebar
+    } catch (e) {
+      console.error("Session refresh failed");
+    }
+  }, 4000);
+
+  return () => clearInterval(interval);
+}, []);
+
 
   // FIXED: Improved Geolocation fetching
   const fetchUserLocation = async () => {
@@ -97,26 +111,49 @@ export default function NeuralChatAdmin() {
     }
   };
 
-  useEffect(() => {
-    if (!activeSession) return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/app/chat/messages?sessionId=${activeSession.sessionId}`);
-        const data = await res.json();
-        if (data.length > 0) {
-          const latestServerMsg = data[data.length - 1];
-          if (latestServerMsg.id !== lastMessageIdRef.current) {
-            if (latestServerMsg.sender === "user" && !isFirstLoadRef.current) {
-              notifyNewMessage(activeSession, latestServerMsg);
-            }
-            setMessages(data);
-            lastMessageIdRef.current = latestServerMsg.id;
+useEffect(() => {
+  if (!activeSession) return;
+
+  const interval = setInterval(async () => {
+    try {
+      const res = await fetch(`/app/chat/messages?sessionId=${activeSession.sessionId}`);
+      const data = await res.json();
+
+      if (data.length > 0) {
+        const latestServerMsg = data[data.length - 1];
+
+        if (latestServerMsg.id !== lastMessageIdRef.current) {
+          // 🔔 Play sound + notification only for user message
+          if (latestServerMsg.sender === "user" && !isFirstLoadRef.current) {
+            notifyNewMessage(activeSession, latestServerMsg);
           }
+
+          // ✅ Update messages
+          setMessages(data);
+          lastMessageIdRef.current = latestServerMsg.id;
+
+          // 🔥 MOVE THIS CHAT TO TOP IN SIDEBAR
+          setSessions(prev => {
+            const updated = prev.map(s =>
+              s.sessionId === activeSession.sessionId
+                ? { ...s, updatedAt: new Date().toISOString() }
+                : s
+            );
+
+            return [...updated].sort(
+              (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+            );
+          });
         }
-      } catch (err) {}
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [activeSession]);
+      }
+    } catch (err) {
+      console.error("Message polling error", err);
+    }
+  }, 3000);
+
+  return () => clearInterval(interval);
+}, [activeSession]);
+
 
   const loadChat = async (session) => {
     setActiveSession(session);
