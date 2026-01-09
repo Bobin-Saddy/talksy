@@ -268,22 +268,14 @@ button#remove-image-btn {
   const launcher = document.getElementById("chat-launcher");
   const chatInput = document.getElementById("chat-input");
   const msgBox = document.getElementById("chat-messages");
-  let seenMsgs = new Set();
-
-
+  
   
   let selectedImg = null;
   let pollInterval = null; 
   let currentConfig = {};
-  let seenMsgs = new Set();
+ let seenMsgs = new Set();
 
-  const ICON_SVGS = {
-    bubble: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
-    send: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
-    defaultCustom: '<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:30px;height:30px;object-fit:contain;"/>'
-  };
-
-  function getOrCreateSessionId() {
+ function getOrCreateSessionId() {
   let sId = localStorage.getItem("chat_session");
   if (!sId) {
     sId = "s_" + crypto.randomUUID();
@@ -291,6 +283,13 @@ button#remove-image-btn {
   }
   return sId;
 }
+
+
+  const ICON_SVGS = {
+    bubble: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
+    send: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
+    defaultCustom: '<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:30px;height:30px;object-fit:contain;"/>'
+  };
 
   async function loadSettings() {
     try {
@@ -357,11 +356,12 @@ button#remove-image-btn {
         document.getElementById("launcher-icon").innerHTML = ICON_SVGS[s.launcherIcon] || ICON_SVGS.bubble;
       }
 
-   if(localStorage.getItem("chat_session")) {
+  if(localStorage.getItem("chat_session")) {
   document.getElementById("chat-onboarding-step").style.display = "none";
   document.getElementById("chat-chat-step").style.display = "flex";
   startPolling();
 }
+
     } catch (e) { console.error("Setup Error", e); }
   }
 
@@ -444,6 +444,7 @@ document.getElementById("chat-submit-info").onclick = async () => {
     startPolling();
   }
 };
+
 
   const fInput = document.getElementById("chat-file-input");
   document.getElementById("file-btn").onclick = () => fInput.click();
