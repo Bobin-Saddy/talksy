@@ -268,16 +268,8 @@ button#remove-image-btn {
   const launcher = document.getElementById("chat-launcher");
   const chatInput = document.getElementById("chat-input");
   const msgBox = document.getElementById("chat-messages");
-  localStorage.setItem("chat_user_email", email);
-localStorage.setItem("chat_user_name", firstName);
+  let seenMsgs = new Set();
 
-  let sessionId = localStorage.getItem("chat_session");
-
-
-if (!sessionId) {
-  sessionId = crypto.randomUUID();
-  localStorage.setItem("chat_session", sessionId);
-}
 
   
   let selectedImg = null;
@@ -290,6 +282,15 @@ if (!sessionId) {
     send: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
     defaultCustom: '<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:30px;height:30px;object-fit:contain;"/>'
   };
+
+  function getOrCreateSessionId() {
+  let sId = localStorage.getItem("chat_session");
+  if (!sId) {
+    sId = "s_" + crypto.randomUUID();
+    localStorage.setItem("chat_session", sId);
+  }
+  return sId;
+}
 
   async function loadSettings() {
     try {
@@ -356,11 +357,11 @@ if (!sessionId) {
         document.getElementById("launcher-icon").innerHTML = ICON_SVGS[s.launcherIcon] || ICON_SVGS.bubble;
       }
 
-      if(localStorage.getItem("chat_session")) {
-        document.getElementById("chat-onboarding-step").style.display = "none";
-        document.getElementById("chat-chat-step").style.display = "flex";
-        startPolling();
-      }
+   if(localStorage.getItem("chat_session")) {
+  document.getElementById("chat-onboarding-step").style.display = "none";
+  document.getElementById("chat-chat-step").style.display = "flex";
+  startPolling();
+}
     } catch (e) { console.error("Setup Error", e); }
   }
 
@@ -421,24 +422,28 @@ if (!sessionId) {
     };
   });
 
-  document.getElementById("chat-submit-info").onclick = async () => {
-    const f = document.getElementById("chat-fname").value;
-    const e = document.getElementById("chat-email").value;
-    if(!f || !e) return alert("Required fields missing");
-    const sId = "s_" + Date.now();
-    const res = await fetch(`${BASE_URL}/app/chat/register`, {
-      method: "POST", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ shop, fname: f, email: e, sessionId: sId })
-    });
-    if(res.ok) {
-      localStorage.setItem("chat_session", sId);
-      localStorage.setItem("chat_user_fname", f);
-      localStorage.setItem("chat_user_email", e);
-      document.getElementById("chat-onboarding-step").style.display = "none";
-      document.getElementById("chat-chat-step").style.display = "flex";
-      startPolling();
-    }
-  };
+document.getElementById("chat-submit-info").onclick = async () => {
+  const f = document.getElementById("chat-fname").value;
+  const e = document.getElementById("chat-email").value;
+  if(!f || !e) return alert("Required fields missing");
+
+  const sId = getOrCreateSessionId(); // ✅ FIXED
+
+  const res = await fetch(`${BASE_URL}/app/chat/register`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ shop, fname: f, email: e, sessionId: sId })
+  });
+
+  if(res.ok) {
+    localStorage.setItem("chat_user_fname", f);
+    localStorage.setItem("chat_user_email", e);
+
+    document.getElementById("chat-onboarding-step").style.display = "none";
+    document.getElementById("chat-chat-step").style.display = "flex";
+    startPolling();
+  }
+};
 
   const fInput = document.getElementById("chat-file-input");
   document.getElementById("file-btn").onclick = () => fInput.click();
