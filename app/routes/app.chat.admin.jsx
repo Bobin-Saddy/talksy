@@ -24,11 +24,18 @@ export const loader = async ({ request }) => {
 
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
-    include: { messages: { orderBy: { updatedAt: "desc" }, take: 1 } },
-     orderBy: { updatedAt: "desc" }
+    include: {
+      messages: {
+        orderBy: { createdAt: "desc" }, // ✅ ChatMessage uses createdAt
+        take: 1
+      }
+    },
+    orderBy: { updatedAt: "desc" } // ✅ ChatSession uses updatedAt
   });
+
   return json({ sessions, currentShop: shop });
 };
+
 
 export default function NeuralChatAdmin() {
   const { sessions: initialSessions, currentShop } = useLoaderData();
