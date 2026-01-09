@@ -206,7 +206,7 @@ export default function UltimateSettings() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <Card title="Messaging Content">
                <Field label="Header Title" value={formState.headerTitle} onChange={(v) => handleChange('headerTitle', v)} />
-               <Field label="Header Subtitle" value={formState.headerSubtitle} onChange={(v) => handleChange('headerSubtitle', v)} />
+               {/* <Field label="Header Subtitle" value={formState.headerSubtitle} onChange={(v) => handleChange('headerSubtitle', v)} /> */}
                <Field label="Hero Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
                <AreaField label="Hero Description" value={formState.welcomeSubtext} onChange={(v) => handleChange('welcomeSubtext', v)} />
                <hr style={{ margin: '20px 0', border: '0', borderTop: '1px solid #F3F4F6' }} />
