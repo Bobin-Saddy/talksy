@@ -1,446 +1,345 @@
-	// app/routes/app.faq.jsx
-	import { useState, useEffect } from "react";
-	import { useLoaderData, useSubmit, useNavigate } from "react-router";
-	import { json } from "@remix-run/node";
-	import {
-	  Page,
-	  Layout,
-	  Card,
-	  Button,
-	  Text,
-	  BlockStack,
-	  InlineStack,
-	  Badge,
-	  Modal,
-	  TextField,
-	  TextContainer,
-	  Icon,
-	  EmptyState,
-	  Banner,
-	  Divider
-	} from "@shopify/polaris";
-	import {
-	  PlusIcon,
-	  DeleteIcon,
-	  EditIcon,
-	  DragHandleIcon,
-	  QuestionCircleIcon
-	} from "@shopify/polaris-icons";
-	import { authenticate } from "../shopify.server";
-	import prisma from "../db.server";
+// app/routes/app.faq.jsx
+import { useState, useEffect, useCallback } from "react";
+import { useLoaderData } from "react-router";
+import { json } from "@remix-run/node";
+import {
+  Page,
+  Layout,
+  Card,
+  Button,
+  Text,
+  BlockStack,
+  InlineStack,
+  Badge,
+  Modal,
+  TextField,
+  TextContainer,
+  Icon,
+  EmptyState,
+  Banner,
+  Divider,
+  Popover,
+  ActionList,
+} from "@shopify/polaris";
+import {
+  PlusIcon,
+  MenuVerticalIcon,
+  DragHandleIcon,
+  QuestionCircleIcon,
+} from "@shopify/polaris-icons";
+import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
 
-	export async function loader({ request }) {
-	  const { session } = await authenticate.admin(request);
-	  const shop = session.shop;
+/* ---------------- LOADER ---------------- */
 
-	  try {
-	    const categories = await prisma.faqCategory.findMany({
-	      where: { shop },
-	      include: {
-		faqs: {
-		  orderBy: { position: "asc" }
-		}
-	      },
-	      orderBy: { position: "asc" }
-	    });
+export async function loader({ request }) {
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
 
-	    return json({ categories, shop });
-	  } catch (error) {
-	    console.error("Error loading FAQs:", error);
-	    return json({ categories: [], shop });
-	  }
-	}
+  const categories = await prisma.faqCategory.findMany({
+    where: { shop },
+    include: { faqs: { orderBy: { position: "asc" } } },
+    orderBy: { position: "asc" },
+  });
 
-	export default function FaqPage() {
-	  const { categories: initialCategories, shop } = useLoaderData();
-	  const submit = useSubmit();
-	  const navigate = useNavigate();
+  return json({ categories, shop });
+}
 
-	  const [categories, setCategories] = useState(initialCategories);
-	  const [showCategoryModal, setShowCategoryModal] = useState(false);
-	  const [showFaqModal, setShowFaqModal] = useState(false);
-	  const [editingCategory, setEditingCategory] = useState(null);
-	  const [editingFaq, setEditingFaq] = useState(null);
-	  const [selectedCategory, setSelectedCategory] = useState(null);
+/* ---------------- PAGE ---------------- */
 
-	  // Category form state
-	  const [categoryTitle, setCategoryTitle] = useState("");
+export default function FaqPage() {
+  const { categories: initialCategories, shop } = useLoaderData();
 
-	  // FAQ form state
-	  const [faqQuestion, setFaqQuestion] = useState("");
-	  const [faqAnswer, setFaqAnswer] = useState("");
+  const [categories, setCategories] = useState(initialCategories);
 
-	  // Reset form when modal closes
-	  useEffect(() => {
-	    if (!showCategoryModal) {
-	      setCategoryTitle("");
-	      setEditingCategory(null);
-	    }
-	  }, [showCategoryModal]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showFaqModal, setShowFaqModal] = useState(false);
 
-	  useEffect(() => {
-	    if (!showFaqModal) {
-	      setFaqQuestion("");
-	      setFaqAnswer("");
-	      setEditingFaq(null);
-	      setSelectedCategory(null);
-	    }
-	  }, [showFaqModal]);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingFaq, setEditingFaq] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
-	  // Category handlers
-	  const handleAddCategory = () => {
-	    setEditingCategory(null);
-	    setCategoryTitle("");
-	    setShowCategoryModal(true);
-	  };
+  const [categoryTitle, setCategoryTitle] = useState("");
+  const [faqQuestion, setFaqQuestion] = useState("");
+  const [faqAnswer, setFaqAnswer] = useState("");
 
-	  const handleEditCategory = (category) => {
-	    setEditingCategory(category);
-	    setCategoryTitle(category.title);
-	    setShowCategoryModal(true);
-	  };
+  /* ---------------- HELPERS ---------------- */
 
-	  const handleSaveCategory = async () => {
-	    if (!categoryTitle.trim()) return;
+  const refresh = async () => {
+    const res = await fetch(`/api/faq/categories?shop=${shop}`);
+    const data = await res.json();
+    setCategories(data.categories);
+  };
 
-	    const formData = new FormData();
-	    formData.append("shop", shop);
-	    formData.append("title", categoryTitle);
-	    formData.append("position", editingCategory ? editingCategory.position : categories.length);
-	    formData.append("action", editingCategory ? "update" : "create");
-	    
-	    if (editingCategory) {
-	      formData.append("id", editingCategory.id);
-	    }
+  /* ---------------- CATEGORY ACTIONS ---------------- */
 
-	    try {
-	      const response = await fetch(`/api/faq/categories?shop=${shop}`, {
-		method: "POST",
-		body: formData
-	      });
+  const saveCategory = async () => {
+    const fd = new FormData();
+    fd.append("shop", shop);
+    fd.append("title", categoryTitle);
+    fd.append("action", editingCategory ? "update" : "create");
+    if (editingCategory) fd.append("id", editingCategory.id);
 
-	      const result = await response.json();
+    await fetch(`/api/faq/categories`, { method: "POST", body: fd });
+    setShowCategoryModal(false);
+    refresh();
+  };
 
-	      if (result.success) {
-		// Refresh categories
-		const categoriesResponse = await fetch(`/api/faq/categories?shop=${shop}`);
-		const categoriesData = await categoriesResponse.json();
-		setCategories(categoriesData.categories);
-		setShowCategoryModal(false);
-	      }
-	    } catch (error) {
-	      console.error("Error saving category:", error);
-	    }
-	  };
+  const deleteCategory = async (id) => {
+    if (!confirm("Delete category and all FAQs?")) return;
+    const fd = new FormData();
+    fd.append("id", id);
+    fd.append("action", "delete");
+    await fetch(`/api/faq/categories`, { method: "POST", body: fd });
+    refresh();
+  };
 
-	  const handleDeleteCategory = async (categoryId) => {
-	    if (!confirm("Are you sure you want to delete this category and all its FAQs?")) return;
+  const toggleCategory = async (id) => {
+    const fd = new FormData();
+    fd.append("id", id);
+    fd.append("action", "toggle");
+    await fetch(`/api/faq/categories`, { method: "POST", body: fd });
+    refresh();
+  };
 
-	    const formData = new FormData();
-	    formData.append("shop", shop);
-	    formData.append("id", categoryId);
-	    formData.append("action", "delete");
+  const moveCategory = async (id, dir) => {
+    const fd = new FormData();
+    fd.append("id", id);
+    fd.append("direction", dir);
+    fd.append("action", "reorder");
+    await fetch(`/api/faq/categories`, { method: "POST", body: fd });
+    refresh();
+  };
 
-	    try {
-	      const response = await fetch(`/api/faq/categories?shop=${shop}`, {
-		method: "POST",
-		body: formData
-	      });
+  /* ---------------- FAQ ACTIONS ---------------- */
 
-	      const result = await response.json();
+  const saveFaq = async () => {
+    const fd = new FormData();
+    fd.append("shop", shop);
+    fd.append("question", faqQuestion);
+    fd.append("answer", faqAnswer);
+    fd.append("action", editingFaq ? "update" : "create");
 
-	      if (result.success) {
-		setCategories(categories.filter(cat => cat.id !== categoryId));
-	      }
-	    } catch (error) {
-	      console.error("Error deleting category:", error);
-	    }
-	  };
+    if (editingFaq) fd.append("id", editingFaq.id);
+    else fd.append("categoryId", selectedCategory.id);
 
-	  // FAQ handlers
-	  const handleAddFaq = (category) => {
-	    setSelectedCategory(category);
-	    setEditingFaq(null);
-	    setFaqQuestion("");
-	    setFaqAnswer("");
-	    setShowFaqModal(true);
-	  };
+    await fetch(`/api/faq/items`, { method: "POST", body: fd });
+    setShowFaqModal(false);
+    refresh();
+  };
 
-	  const handleEditFaq = (faq, category) => {
-	    setSelectedCategory(category);
-	    setEditingFaq(faq);
-	    setFaqQuestion(faq.question);
-	    setFaqAnswer(faq.answer);
-	    setShowFaqModal(true);
-	  };
+  const deleteFaq = async (id) => {
+    if (!confirm("Delete FAQ?")) return;
+    const fd = new FormData();
+    fd.append("id", id);
+    fd.append("action", "delete");
+    await fetch(`/api/faq/items`, { method: "POST", body: fd });
+    refresh();
+  };
 
-	  const handleSaveFaq = async () => {
-	    if (!faqQuestion.trim() || !faqAnswer.trim()) return;
+  const toggleFaq = async (id) => {
+    const fd = new FormData();
+    fd.append("id", id);
+    fd.append("action", "toggle");
+    await fetch(`/api/faq/items`, { method: "POST", body: fd });
+    refresh();
+  };
 
-	    const formData = new FormData();
-	    formData.append("shop", shop);
-	    formData.append("question", faqQuestion);
-	    formData.append("answer", faqAnswer);
-	    formData.append("action", editingFaq ? "update" : "create");
+  const moveFaq = async (id, dir) => {
+    const fd = new FormData();
+    fd.append("id", id);
+    fd.append("direction", dir);
+    fd.append("action", "reorder");
+    await fetch(`/api/faq/items`, { method: "POST", body: fd });
+    refresh();
+  };
 
-	    if (editingFaq) {
-	      formData.append("id", editingFaq.id);
-	      formData.append("position", editingFaq.position);
-	    } else {
-	      formData.append("categoryId", selectedCategory.id);
-	      formData.append("position", selectedCategory.faqs.length);
-	    }
+  /* ---------------- UI ---------------- */
 
-	    try {
-	      const response = await fetch(`/api/faq/items?shop=${shop}`, {
-		method: "POST",
-		body: formData
-	      });
+  return (
+    <Page
+      title="FAQs"
+      primaryAction={{
+        content: "Add Category",
+        icon: PlusIcon,
+        onAction: () => {
+          setEditingCategory(null);
+          setCategoryTitle("");
+          setShowCategoryModal(true);
+        },
+      }}
+    >
+      <Layout>
+        <Layout.Section>
+          <Banner tone="info">
+            FAQs will appear automatically in your widget.
+          </Banner>
 
-	      const result = await response.json();
+          <BlockStack gap="400">
+            {categories.length === 0 && (
+              <Card>
+                <EmptyState heading="Create your first category">
+                  <Button onClick={() => setShowCategoryModal(true)}>
+                    Add Category
+                  </Button>
+                </EmptyState>
+              </Card>
+            )}
 
-	      if (result.success) {
-		// Refresh categories to get updated FAQs
-		const categoriesResponse = await fetch(`/api/faq/categories?shop=${shop}`);
-		const categoriesData = await categoriesResponse.json();
-		setCategories(categoriesData.categories);
-		setShowFaqModal(false);
-	      }
-	    } catch (error) {
-	      console.error("Error saving FAQ:", error);
-	    }
-	  };
+            {categories.map((category) => (
+              <Card key={category.id}>
+                <BlockStack gap="300">
+                  <InlineStack align="space-between">
+                    <InlineStack gap="200">
+                      <Icon source={DragHandleIcon} />
+                      <Text variant="headingMd">{category.title}</Text>
+                      <Badge tone={category.isActive ? "success" : "critical"}>
+                        {category.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                      <Badge>{category.faqs.length} FAQs</Badge>
+                    </InlineStack>
 
-	  const handleDeleteFaq = async (faqId, categoryId) => {
-	    if (!confirm("Are you sure you want to delete this FAQ?")) return;
+                    <InlineStack gap="200">
+                      <Button onClick={() => {
+                        setSelectedCategory(category);
+                        setEditingFaq(null);
+                        setFaqQuestion("");
+                        setFaqAnswer("");
+                        setShowFaqModal(true);
+                      }}>
+                        Add FAQ
+                      </Button>
 
-	    const formData = new FormData();
-	    formData.append("shop", shop);
-	    formData.append("id", faqId);
-	    formData.append("action", "delete");
+                      <CategoryActions
+                        category={category}
+                        onEdit={() => {
+                          setEditingCategory(category);
+                          setCategoryTitle(category.title);
+                          setShowCategoryModal(true);
+                        }}
+                        onDelete={() => deleteCategory(category.id)}
+                        onToggle={() => toggleCategory(category.id)}
+                        onMoveUp={() => moveCategory(category.id, "up")}
+                        onMoveDown={() => moveCategory(category.id, "down")}
+                      />
+                    </InlineStack>
+                  </InlineStack>
 
-	    try {
-	      const response = await fetch(`/api/faq/items?shop=${shop}`, {
-		method: "POST",
-		body: formData
-	      });
+                  <Divider />
 
-	      const result = await response.json();
+                  <BlockStack gap="200">
+                    {category.faqs.map((faq) => (
+                      <Card key={faq.id} background="bg-surface-secondary">
+                        <InlineStack align="space-between">
+                          <BlockStack>
+                            <InlineStack gap="200">
+                              <Icon source={QuestionCircleIcon} />
+                              <Text fontWeight="semibold">{faq.question}</Text>
+                              <Badge tone={faq.isActive ? "success" : "critical"}>
+                                {faq.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                            </InlineStack>
+                            <Text tone="subdued">{faq.answer}</Text>
+                          </BlockStack>
 
-	      if (result.success) {
-		setCategories(categories.map(cat => {
-		  if (cat.id === categoryId) {
-		    return {
-		      ...cat,
-		      faqs: cat.faqs.filter(faq => faq.id !== faqId)
-		    };
-		  }
-		  return cat;
-		}));
-	      }
-	    } catch (error) {
-	      console.error("Error deleting FAQ:", error);
-	    }
-	  };
+                          <FaqActions
+                            onEdit={() => {
+                              setEditingFaq(faq);
+                              setSelectedCategory(category);
+                              setFaqQuestion(faq.question);
+                              setFaqAnswer(faq.answer);
+                              setShowFaqModal(true);
+                            }}
+                            onDelete={() => deleteFaq(faq.id)}
+                            onToggle={() => toggleFaq(faq.id)}
+                            onMoveUp={() => moveFaq(faq.id, "up")}
+                            onMoveDown={() => moveFaq(faq.id, "down")}
+                          />
+                        </InlineStack>
+                      </Card>
+                    ))}
+                  </BlockStack>
+                </BlockStack>
+              </Card>
+            ))}
+          </BlockStack>
+        </Layout.Section>
+      </Layout>
 
-	  return (
-	    <Page
-	      title="FAQ Management"
-	      subtitle="Create and manage FAQ categories and questions for your chat widget"
-	      primaryAction={{
-		content: "Add Category",
-		icon: PlusIcon,
-		onAction: handleAddCategory
-	      }}
-	    >
-	      <Layout>
-		<Layout.Section>
-		  <BlockStack gap="400">
-		    <Banner tone="info">
-		      <p>
-		        FAQs will automatically appear in your chat widget. Organize them by categories for better user experience.
-		      </p>
-		    </Banner>
+      {/* CATEGORY MODAL */}
+      <Modal
+        open={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+        title="Category"
+        primaryAction={{ content: "Save", onAction: saveCategory }}
+      >
+        <Modal.Section>
+          <TextField
+            label="Title"
+            value={categoryTitle}
+            onChange={setCategoryTitle}
+          />
+        </Modal.Section>
+      </Modal>
 
-		    {categories.length === 0 ? (
-		      <Card>
-		        <EmptyState
-		          heading="Create your first FAQ category"
-		          image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-		        >
-		          <p>Add categories to organize your frequently asked questions</p>
-		          <Button primary onClick={handleAddCategory}>
-		            Add Category
-		          </Button>
-		        </EmptyState>
-		      </Card>
-		    ) : (
-		      categories.map((category) => (
-		        <Card key={category.id}>
-		          <BlockStack gap="400">
-		            {/* Category Header */}
-		            <InlineStack align="space-between" blockAlign="center">
-		              <InlineStack gap="200" blockAlign="center">
-		                <Icon source={DragHandleIcon} tone="base" />
-		                <Text variant="headingMd" as="h2">
-		                  {category.title}
-		                </Text>
-		                <Badge tone={category.isActive ? "success" : "critical"}>
-		                  {category.isActive ? "Active" : "Inactive"}
-		                </Badge>
-		                <Badge>{category.faqs.length} FAQs</Badge>
-		              </InlineStack>
-		              
-		              <InlineStack gap="200">
-		                <Button
-		                  icon={PlusIcon}
-		                  onClick={() => handleAddFaq(category)}
-		                >
-		                  Add FAQ
-		                </Button>
-		                <Button
-		                  icon={EditIcon}
-		                  onClick={() => handleEditCategory(category)}
-		                />
-		                <Button
-		                  icon={DeleteIcon}
-		                  tone="critical"
-		                  onClick={() => handleDeleteCategory(category.id)}
-		                />
-		              </InlineStack>
-		            </InlineStack>
+      {/* FAQ MODAL */}
+      <Modal
+        open={showFaqModal}
+        onClose={() => setShowFaqModal(false)}
+        title="FAQ"
+        primaryAction={{ content: "Save", onAction: saveFaq }}
+      >
+        <Modal.Section>
+          <BlockStack gap="200">
+            <TextField label="Question" value={faqQuestion} onChange={setFaqQuestion} />
+            <TextField multiline={4} label="Answer" value={faqAnswer} onChange={setFaqAnswer} />
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
+    </Page>
+  );
+}
 
-		            <Divider />
+/* ---------------- ACTION COMPONENTS ---------------- */
 
-		            {/* FAQs List */}
-		            {category.faqs.length === 0 ? (
-		              <TextContainer>
-		                <Text tone="subdued">
-		                  No FAQs yet. Click "Add FAQ" to create your first question.
-		                </Text>
-		              </TextContainer>
-		            ) : (
-		              <BlockStack gap="300">
-		                {category.faqs.map((faq) => (
-		                  <Card key={faq.id} background="bg-surface-secondary">
-		                    <BlockStack gap="300">
-		                      <InlineStack align="space-between" blockAlign="start">
-		                        <BlockStack gap="200">
-		                          <InlineStack gap="200" blockAlign="center">
-		                            <Icon source={QuestionCircleIcon} tone="base" />
-		                            <Text variant="headingSm" as="h3" fontWeight="semibold">
-		                              {faq.question}
-		                            </Text>
-		                            <Badge tone={faq.isActive ? "success" : "critical"}>
-		                              {faq.isActive ? "Active" : "Inactive"}
-		                            </Badge>
-		                          </InlineStack>
-		                          <Text tone="subdued">{faq.answer}</Text>
-		                        </BlockStack>
+function CategoryActions({ onEdit, onDelete, onToggle, onMoveUp, onMoveDown }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover
+      active={open}
+      activator={<Button icon={MenuVerticalIcon} onClick={() => setOpen(!open)} />}
+      onClose={() => setOpen(false)}
+    >
+      <ActionList
+        items={[
+          { content: "Edit", onAction: onEdit },
+          { content: "Enable / Disable", onAction: onToggle },
+          { content: "Move Up", onAction: onMoveUp },
+          { content: "Move Down", onAction: onMoveDown },
+          { content: "Delete", destructive: true, onAction: onDelete },
+        ]}
+      />
+    </Popover>
+  );
+}
 
-		                        <InlineStack gap="200">
-		                          <Button
-		                            icon={EditIcon}
-		                            size="slim"
-		                            onClick={() => handleEditFaq(faq, category)}
-		                          />
-		                          <Button
-		                            icon={DeleteIcon}
-		                            tone="critical"
-		                            size="slim"
-		                            onClick={() => handleDeleteFaq(faq.id, category.id)}
-		                          />
-		                        </InlineStack>
-		                      </InlineStack>
-		                    </BlockStack>
-		                  </Card>
-		                ))}
-		              </BlockStack>
-		            )}
-		          </BlockStack>
-		        </Card>
-		      ))
-		    )}
-		  </BlockStack>
-		</Layout.Section>
-	      </Layout>
-
-	      {/* Category Modal */}
-	      <Modal
-		open={showCategoryModal}
-		onClose={() => setShowCategoryModal(false)}
-		title={editingCategory ? "Edit Category" : "Add Category"}
-		primaryAction={{
-		  content: "Save",
-		  onAction: handleSaveCategory,
-		  disabled: !categoryTitle.trim()
-		}}
-		secondaryActions={[
-		  {
-		    content: "Cancel",
-		    onAction: () => setShowCategoryModal(false)
-		  }
-		]}
-	      >
-		<Modal.Section>
-		  <BlockStack gap="400">
-		    <TextField
-		      label="Category Title"
-		      value={categoryTitle}
-		      onChange={setCategoryTitle}
-		      placeholder="e.g., Shipping, Returns, Payment"
-		      autoComplete="off"
-		    />
-		  </BlockStack>
-		</Modal.Section>
-	      </Modal>
-
-	      {/* FAQ Modal */}
-	      <Modal
-		open={showFaqModal}
-		onClose={() => setShowFaqModal(false)}
-		title={editingFaq ? "Edit FAQ" : "Add FAQ"}
-		primaryAction={{
-		  content: "Save",
-		  onAction: handleSaveFaq,
-		  disabled: !faqQuestion.trim() || !faqAnswer.trim()
-		}}
-		secondaryActions={[
-		  {
-		    content: "Cancel",
-		    onAction: () => setShowFaqModal(false)
-		  }
-		]}
-	      >
-		<Modal.Section>
-		  <BlockStack gap="400">
-		    {selectedCategory && (
-		      <TextContainer>
-		        <Text tone="subdued">
-		          Category: <strong>{selectedCategory.title}</strong>
-		        </Text>
-		      </TextContainer>
-		    )}
-
-		    <TextField
-		      label="Question"
-		      value={faqQuestion}
-		      onChange={setFaqQuestion}
-		      placeholder="What is your question?"
-		      autoComplete="off"
-		    />
-
-		    <TextField
-		      label="Answer"
-		      value={faqAnswer}
-		      onChange={setFaqAnswer}
-		      placeholder="Provide a detailed answer"
-		      multiline={4}
-		      autoComplete="off"
-		    />
-		  </BlockStack>
-		</Modal.Section>
-	      </Modal>
-	    </Page>
-	  );
-	}
+function FaqActions({ onEdit, onDelete, onToggle, onMoveUp, onMoveDown }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover
+      active={open}
+      activator={<Button size="slim" icon={MenuVerticalIcon} onClick={() => setOpen(!open)} />}
+      onClose={() => setOpen(false)}
+    >
+      <ActionList
+        items={[
+          { content: "Edit", onAction: onEdit },
+          { content: "Enable / Disable", onAction: onToggle },
+          { content: "Move Up", onAction: onMoveUp },
+          { content: "Move Down", onAction: onMoveDown },
+          { content: "Delete", destructive: true, onAction: onDelete },
+        ]}
+      />
+    </Popover>
+  );
+}
