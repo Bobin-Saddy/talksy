@@ -1,8 +1,8 @@
 // app/routes/app.faq.jsx
-
 import { useState, useEffect } from "react";
 import { useLoaderData } from "react-router";
 import { json } from "@remix-run/node";
+
 import {
   Page,
   Layout,
@@ -14,283 +14,242 @@ import {
   Badge,
   Modal,
   TextField,
+  TextContainer,
+  Icon,
   EmptyState,
   Banner,
   Divider,
-  Tabs,
-  Select,
-  Checkbox
+  Tabs
 } from "@shopify/polaris";
+
 import {
   PlusIcon,
   DeleteIcon,
   EditIcon,
+  DragHandleIcon,
   QuestionCircleIcon
 } from "@shopify/polaris-icons";
 
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
-/* ---------------- LOADER ---------------- */
 export async function loader({ request }) {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
   const categories = await prisma.faqCategory.findMany({
     where: { shop },
-    include: {
-      faqs: {
-        where: { isActive: true },
-        orderBy: { position: "asc" }
-      }
-    },
+    include: { faqs: { orderBy: { position: "asc" } } },
     orderBy: { position: "asc" }
   });
 
-  const settings =
-    (await prisma.faqPageSettings.findUnique({ where: { shop } })) || {
-      layout: "list",
-      appearanceTheme: "light",
-      headerTitle: "Frequently Asked Questions",
-      headerDescription: "",
-      backgroundColor: "#ffffff",
-      textColor: "#000000",
-      accentColor: "#5C6AC4",
-      borderRadius: 8,
-      showIcons: true,
-      showSearch: true,
-      enableAccordion: true,
-      customCSS: ""
-    };
-
-  return json({ categories, settings, shop });
+  return json({ categories, shop });
 }
 
-/* ---------------- ACTION ---------------- */
-export async function action({ request }) {
-  const { session } = await authenticate.admin(request);
-  const shop = session.shop;
-  const formData = await request.formData();
-
-  const settings = {
-    shop,
-    layout: formData.get("layout"),
-    appearanceTheme: formData.get("appearanceTheme"),
-    headerTitle: formData.get("headerTitle"),
-    headerDescription: formData.get("headerDescription"),
-    backgroundColor: formData.get("backgroundColor"),
-    textColor: formData.get("textColor"),
-    accentColor: formData.get("accentColor"),
-    borderRadius: parseInt(formData.get("borderRadius")),
-    showIcons: formData.get("showIcons") === "true",
-    showSearch: formData.get("showSearch") === "true",
-    enableAccordion: formData.get("enableAccordion") === "true",
-    customCSS: formData.get("customCSS") || ""
-  };
-
-  await prisma.faqPageSettings.upsert({
-    where: { shop },
-    update: settings,
-    create: settings
-  });
-
-  return json({ success: true });
-}
-
-/* ---------------- PAGE ---------------- */
-export default function FaqUnifiedPage() {
-  const { categories: initialCategories, settings: initialSettings, shop } =
-    useLoaderData();
+export default function FaqPage() {
+  const { categories: initialCategories, shop } = useLoaderData();
 
   const [selectedTab, setSelectedTab] = useState(0);
+
   const [categories, setCategories] = useState(initialCategories);
-
-  /* ---------------- Settings State ---------------- */
-  const [layout, setLayout] = useState(initialSettings.layout);
-  const [appearanceTheme, setAppearanceTheme] = useState(initialSettings.appearanceTheme);
-  const [headerTitle, setHeaderTitle] = useState(initialSettings.headerTitle);
-  const [headerDescription, setHeaderDescription] = useState(initialSettings.headerDescription);
-  const [backgroundColor, setBackgroundColor] = useState(initialSettings.backgroundColor);
-  const [textColor, setTextColor] = useState(initialSettings.textColor);
-  const [accentColor, setAccentColor] = useState(initialSettings.accentColor);
-  const [borderRadius, setBorderRadius] = useState(initialSettings.borderRadius);
-  const [showIcons, setShowIcons] = useState(initialSettings.showIcons);
-  const [showSearch, setShowSearch] = useState(initialSettings.showSearch);
-  const [enableAccordion, setEnableAccordion] = useState(initialSettings.enableAccordion);
-  const [customCSS, setCustomCSS] = useState(initialSettings.customCSS);
-
-  /* ---------------- Preview State ---------------- */
-  const [searchQuery, setSearchQuery] = useState("");
-  const [expandedFaq, setExpandedFaq] = useState(null);
-
-  /* ---------------- Modals ---------------- */
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showFaqModal, setShowFaqModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingFaq, setEditingFaq] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+
   const [categoryTitle, setCategoryTitle] = useState("");
   const [faqQuestion, setFaqQuestion] = useState("");
   const [faqAnswer, setFaqAnswer] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState(null);
-
-  /* ---------------- Save Settings ---------------- */
-  const saveSettings = async () => {
-    const fd = new FormData();
-    fd.append("layout", layout);
-    fd.append("appearanceTheme", appearanceTheme);
-    fd.append("headerTitle", headerTitle);
-    fd.append("headerDescription", headerDescription);
-    fd.append("backgroundColor", backgroundColor);
-    fd.append("textColor", textColor);
-    fd.append("accentColor", accentColor);
-    fd.append("borderRadius", borderRadius);
-    fd.append("showIcons", showIcons);
-    fd.append("showSearch", showSearch);
-    fd.append("enableAccordion", enableAccordion);
-    fd.append("customCSS", customCSS);
-
-    await fetch("/app/faq", { method: "POST", body: fd });
-
-    shopify.toast.show("Settings saved");
-  };
 
   const tabs = [
-    { id: "manage", content: "Manage FAQs" },
-    { id: "design", content: "Design & Page Settings" }
+    { id: "faq", content: "FAQ Management" },
+    { id: "widget", content: "Widget Questions" }
   ];
 
+  const handleAddCategory = () => {
+    setEditingCategory(null);
+    setCategoryTitle("");
+    setShowCategoryModal(true);
+  };
+
+  const handleAddFaq = (category) => {
+    setSelectedCategory(category);
+    setEditingFaq(null);
+    setFaqQuestion("");
+    setFaqAnswer("");
+    setShowFaqModal(true);
+  };
+
   return (
-    <Page title="FAQ System">
-      <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
-        <Layout>
-          <Layout.Section>
-            {selectedTab === 0 && renderManage()}
-            {selectedTab === 1 && renderDesign()}
-          </Layout.Section>
-        </Layout>
-      </Tabs>
-    </Page>
-  );
-
-  /* ---------------- TAB 1: MANAGE ---------------- */
-  function renderManage() {
-    return (
-      <BlockStack gap="400">
-        <Banner tone="info">
-          <p>Manage FAQ categories and questions.</p>
-        </Banner>
-
-        {categories.map((category) => (
-          <Card key={category.id}>
-            <BlockStack gap="300">
-              <InlineStack align="space-between">
-                <Text variant="headingMd">{category.title}</Text>
-                <Button
-                  icon={PlusIcon}
-                  onClick={() => {
-                    setSelectedCategory(category);
-                    setShowFaqModal(true);
-                  }}
-                >
-                  Add FAQ
-                </Button>
-              </InlineStack>
-
-              {category.faqs.map((faq) => (
-                <Card key={faq.id} background="bg-surface-secondary">
-                  <InlineStack align="space-between">
-                    <Text>{faq.question}</Text>
-                    <Button icon={DeleteIcon} tone="critical" />
-                  </InlineStack>
-                </Card>
-              ))}
-            </BlockStack>
-          </Card>
-        ))}
-      </BlockStack>
-    );
-  }
-
-  /* ---------------- TAB 2: DESIGN + FULL PREVIEW ---------------- */
-  function renderDesign() {
-    const filteredCategories = categories.map(cat => ({
-      ...cat,
-      faqs: cat.faqs.filter(f =>
-        searchQuery === "" ||
-        f.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.answer.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    })).filter(cat => cat.faqs.length > 0);
-
-    return (
+    <Page
+      title="FAQ System"
+      subtitle="Manage all questions for your AI Chat Widget"
+      primaryAction={{
+        content: "Add Category",
+        icon: PlusIcon,
+        onAction: handleAddCategory
+      }}
+    >
       <Layout>
-        {/* SETTINGS */}
-        <Layout.Section variant="oneThird">
-          <Card>
-            <BlockStack gap="300">
-              <Text variant="headingMd">Design Settings</Text>
-
-              <Select
-                label="Layout"
-                options={[
-                  { label: "List", value: "list" },
-                  { label: "Grid", value: "grid" },
-                  { label: "Accordion", value: "accordion" }
-                ]}
-                value={layout}
-                onChange={setLayout}
-              />
-
-              <TextField label="Title" value={headerTitle} onChange={setHeaderTitle} />
-              <TextField
-                label="Description"
-                value={headerDescription}
-                onChange={setHeaderDescription}
-                multiline={3}
-              />
-
-              <Checkbox label="Show Search" checked={showSearch} onChange={setShowSearch} />
-              <Checkbox label="Enable Accordion" checked={enableAccordion} onChange={setEnableAccordion} />
-
-              <Button primary onClick={saveSettings}>
-                Save Settings
-              </Button>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-
-        {/* PREVIEW */}
         <Layout.Section>
-          <Card>
-            <BlockStack gap="300">
-              <Text variant="headingMd">Live Preview</Text>
+          <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab} />
 
-              <div style={{ padding: 24 }}>
-                <h1>{headerTitle}</h1>
-                <p>{headerDescription}</p>
+          <BlockStack gap="400">
 
-                {showSearch && (
-                  <input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search..."
-                  />
+            {/* ================= TAB 1 ================= */}
+            {selectedTab === 0 && (
+              <>
+                <Banner tone="info">
+                  FAQs will appear in your AI widget automatically.
+                </Banner>
+
+                {categories.length === 0 ? (
+                  <Card>
+                    <EmptyState
+                      heading="Create your first FAQ category"
+                      image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                    >
+                      <Button primary onClick={handleAddCategory}>
+                        Add Category
+                      </Button>
+                    </EmptyState>
+                  </Card>
+                ) : (
+                  categories.map((category) => (
+                    <Card key={category.id}>
+                      <BlockStack gap="400">
+                        <InlineStack align="space-between">
+                          <InlineStack gap="200">
+                            <Icon source={DragHandleIcon} />
+                            <Text variant="headingMd">{category.title}</Text>
+                            <Badge>{category.faqs.length} FAQs</Badge>
+                          </InlineStack>
+
+                          <Button icon={PlusIcon} onClick={() => handleAddFaq(category)}>
+                            Add FAQ
+                          </Button>
+                        </InlineStack>
+
+                        <Divider />
+
+                        {category.faqs.length === 0 ? (
+                          <Text tone="subdued">No questions yet.</Text>
+                        ) : (
+                          category.faqs.map((faq) => (
+                            <Card key={faq.id} background="bg-surface-secondary">
+                              <InlineStack align="space-between">
+                                <BlockStack>
+                                  <InlineStack gap="200">
+                                    <Icon source={QuestionCircleIcon} />
+                                    <Text variant="headingSm">{faq.question}</Text>
+                                  </InlineStack>
+                                  <Text tone="subdued">{faq.answer}</Text>
+                                </BlockStack>
+
+                                <InlineStack gap="200">
+                                  <Button icon={EditIcon} size="slim" />
+                                  <Button icon={DeleteIcon} size="slim" tone="critical" />
+                                </InlineStack>
+                              </InlineStack>
+                            </Card>
+                          ))
+                        )}
+                      </BlockStack>
+                    </Card>
+                  ))
                 )}
+              </>
+            )}
 
-                {filteredCategories.map(cat => (
-                  <div key={cat.id}>
-                    <h3 style={{ color: accentColor }}>{cat.title}</h3>
-                    {cat.faqs.map(faq => (
-                      <div key={faq.id}>
-                        <strong>{faq.question}</strong>
-                        <p>{faq.answer}</p>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </BlockStack>
-          </Card>
+            {/* ================= TAB 2 ================= */}
+            {selectedTab === 1 && (
+              <>
+                <Banner tone="warning">
+                  These questions are used directly by AI auto-reply engine.
+                </Banner>
+
+                <Card>
+                  <BlockStack gap="400">
+                    <InlineStack align="space-between">
+                      <Text variant="headingMd">AI Training Questions</Text>
+                      <Button icon={PlusIcon}>Add Question</Button>
+                    </InlineStack>
+
+                    <Divider />
+
+                    <Card background="bg-surface-secondary">
+                      <InlineStack align="space-between">
+                        <BlockStack>
+                          <Text variant="headingSm">How does your chatbot work?</Text>
+                          <Text tone="subdued">
+                            Our chatbot answers automatically using your FAQ database.
+                          </Text>
+                        </BlockStack>
+
+                        <InlineStack gap="200">
+                          <Button icon={EditIcon} size="slim" />
+                          <Button icon={DeleteIcon} size="slim" tone="critical" />
+                        </InlineStack>
+                      </InlineStack>
+                    </Card>
+
+                    <Card background="bg-surface-secondary">
+                      <InlineStack align="space-between">
+                        <BlockStack>
+                          <Text variant="headingSm">How to contact support?</Text>
+                          <Text tone="subdued">
+                            You can contact us using live chat or email support.
+                          </Text>
+                        </BlockStack>
+
+                        <InlineStack gap="200">
+                          <Button icon={EditIcon} size="slim" />
+                          <Button icon={DeleteIcon} size="slim" tone="critical" />
+                        </InlineStack>
+                      </InlineStack>
+                    </Card>
+
+                  </BlockStack>
+                </Card>
+              </>
+            )}
+
+          </BlockStack>
         </Layout.Section>
       </Layout>
-    );
-  }
+
+      {/* ================= CATEGORY MODAL ================= */}
+      <Modal
+        open={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+        title="Add Category"
+        primaryAction={{ content: "Save" }}
+      >
+        <Modal.Section>
+          <TextField
+            label="Category Title"
+            value={categoryTitle}
+            onChange={setCategoryTitle}
+          />
+        </Modal.Section>
+      </Modal>
+
+      {/* ================= FAQ MODAL ================= */}
+      <Modal
+        open={showFaqModal}
+        onClose={() => setShowFaqModal(false)}
+        title="Add FAQ"
+        primaryAction={{ content: "Save" }}
+      >
+        <Modal.Section>
+          <BlockStack gap="300">
+            <TextField label="Question" value={faqQuestion} onChange={setFaqQuestion} />
+            <TextField label="Answer" value={faqAnswer} onChange={setFaqAnswer} multiline={4} />
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
+
+    </Page>
+  );
 }
