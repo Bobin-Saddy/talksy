@@ -92,82 +92,97 @@ fontFamily    String   @default("'Euclid Circular A Medium', 'Euclid Circular A'
   updatedAt             DateTime @updatedAt
 }
 
+model FaqPage {
+  id            String   @id @default(cuid())
+  shop          String
+  handle        String
+  title         String
+  shopifyPageId String?
+  pageUrl       String?
+  isPublished   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([shop, handle])
+  @@index([shop])
+}
+
+model FaqPageSettings {
+  id                          String   @id @default(cuid())
+  shop                        String   @unique
+  
+  // Layout
+  layout                      String   @default("list") // "list" or "grid"
+  
+  // Appearance
+  appearanceTheme             String   @default("light") // "light", "dark", "preset", "custom"
+  customBackgroundColor       String   @default("#FFFFFF")
+  customTextColor             String   @default("#000000")
+  customAccentColor           String   @default("#5C6AC4")
+  customBorderRadius          Int      @default(8)
+  
+  // Header
+  headerEnabled               Boolean  @default(true)
+  headerTitle                 String   @default("Frequently Asked Questions")
+  headerDescription           String   @default("Got a question? We are here to answer!")
+  headerAlignment             String   @default("center") // "left", "center", "right"
+  
+  // Search
+  searchEnabled               Boolean  @default(true)
+  searchPlaceholder           String   @default("Search FAQs...")
+  
+  // Display Options
+  showIcons                   Boolean  @default(true)
+  showCategories              Boolean  @default(true)
+  enableAccordion             Boolean  @default(true)
+  faqSpacing                  String   @default("comfortable") // "compact", "comfortable", "spacious"
+  
+  // Contact Form
+  contactFormEnabled          Boolean  @default(false)
+  contactFormTitle            String   @default("Can't find what you're looking for?")
+  contactFormDescription      String   @default("Send us a message and we'll get back to you soon")
+  contactFormEmailLabel       String   @default("Your Email")
+  contactFormEmailPlaceholder String   @default("you@example.com")
+  contactFormMessageLabel     String   @default("Message")
+  contactFormMessagePlaceholder String @default("How can we help?")
+  contactFormButtonText       String   @default("Send Message")
+  
+  // Advanced
+  customCSS                   String   @default("")
+  
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@index([shop])
+}
+
 model FaqCategory {
   id        String   @id @default(cuid())
   shop      String
   title     String
   position  Int      @default(0)
   isActive  Boolean  @default(true)
+  faqs      Faq[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  faqs      Faq[]
-  
+
   @@index([shop])
+  @@index([shop, position])
 }
 
 model Faq {
   id         String      @id @default(cuid())
   shop       String
   categoryId String
+  category   FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   question   String
-  answer     String      // ✅ FIXED: removed @db.Text
+  answer     String      
+  icon       String      @default("QuestionCircleIcon")
   position   Int         @default(0)
   isActive   Boolean     @default(true)
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
-  icon       String      @default("QuestionCircleIcon")  // ✅ NEW FIELD
-  category   FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  
-  @@index([shop])
-  @@index([categoryId])
-}
 
-model FaqPageSettings {
-  id                            String   @id @default(cuid())
-  shop                          String   @unique
-  
-  // Layout
-  layout                        String   @default("list")
-  
-  // Appearance
-  appearanceTheme               String   @default("light")
-  customBackgroundColor         String   @default("#FFFFFF")
-  customTextColor               String   @default("#000000")
-  customAccentColor             String   @default("#5C6AC4")
-  customBorderRadius            Int      @default(8)
-  
-  // Header
-  headerEnabled                 Boolean  @default(true)
-  headerTitle                   String   @default("Frequently Asked Questions")
-  headerDescription             String   @default("")
-  headerAlignment               String   @default("center")
-  
-  // Search
-  searchEnabled                 Boolean  @default(true)
-  searchPlaceholder             String   @default("Search FAQs...")
-  
-  // FAQ Items
-  showIcons                     Boolean  @default(true)
-  showCategories                Boolean  @default(true)
-  enableAccordion               Boolean  @default(true)
-  faqSpacing                    String   @default("comfortable")
-  
-  // Contact Form
-  contactFormEnabled            Boolean  @default(false)
-  contactFormTitle              String   @default("Can't find what you're looking for?")
-  contactFormDescription        String   @default("")
-  contactFormEmailLabel         String   @default("Your Email")
-  contactFormEmailPlaceholder   String   @default("")
-  contactFormMessageLabel       String   @default("Message")
-  contactFormMessagePlaceholder String   @default("")
-  contactFormButtonText         String   @default("Send Message")
-  
-  // Advanced
-  customCSS                     String   @default("")
-  
-  createdAt                     DateTime @default(now())
-  updatedAt                     DateTime @updatedAt
-  
   @@index([shop])
+  @@index([categoryId, position])
 }
