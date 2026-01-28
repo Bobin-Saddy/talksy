@@ -1,4 +1,4 @@
-// app/routes/app.faq.jsx - Enhanced with Tabs and Settings
+// app/routes/app.faq.jsx - Complete with 3 Tabs
 import { useState, useEffect } from "react";
 import { useLoaderData } from "react-router";
 import { json } from "@remix-run/node";
@@ -19,10 +19,14 @@ import {
   Divider,
   Tabs,
   Select,
-  ColorPicker,
+  ChoiceList,
+  RangeSlider,
   Popover,
   ActionList,
-  Box
+  Box,
+  ButtonGroup,
+  Checkbox,
+  Thumbnail
 } from "@shopify/polaris";
 import {
   PlusIcon,
@@ -33,7 +37,7 @@ import {
   MenuVerticalIcon,
   ArrowUpIcon,
   ArrowDownIcon,
-  ImageIcon
+  ViewIcon
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
@@ -43,48 +47,69 @@ export async function loader({ request }) {
   const shop = session.shop;
 
   try {
-    const categories = await prisma.faqCategory.findMany({
-      where: { shop },
-      include: {
-        faqs: {
-          orderBy: { position: "asc" }
-        }
-      },
-      orderBy: { position: "asc" }
-    });
+    const [categories, settings] = await Promise.all([
+      prisma.faqCategory.findMany({
+        where: { shop },
+        include: {
+          faqs: {
+            orderBy: { position: "asc" }
+          }
+        },
+        orderBy: { position: "asc" }
+      }),
+      prisma.faqPageSettings.findFirst({
+        where: { shop }
+      })
+    ]);
 
-    // Get FAQ settings (you'll need to create this table)
-    const settings = await prisma.faqSettings.findFirst({
-      where: { shop }
-    }) || {
+    // Default settings if not found
+    const defaultSettings = settings || {
+      layout: "list",
+      appearanceTheme: "light",
+      customBackgroundColor: "#FFFFFF",
+      customTextColor: "#000000",
+      customAccentColor: "#5C6AC4",
+      customBorderRadius: 8,
+      headerEnabled: true,
       headerTitle: "Frequently Asked Questions",
-      headerSubtitle: "Find quick answers to common questions",
-      headerBgColor: "#6366f1",
-      headerTextColor: "#ffffff",
-      searchPlaceholder: "🔍 Search FAQs...",
-      enableSearch: true,
-      showCategoryBadges: true,
-      iconStyle: "default" // default, circle, square
+      headerDescription: "Got a question? We are here to answer!",
+      headerAlignment: "center",
+      searchEnabled: true,
+      searchPlaceholder: "Search FAQs...",
+      showIcons: true,
+      showCategories: true,
+      enableAccordion: true,
+      faqSpacing: "comfortable",
+      contactFormEnabled: false,
+      contactFormTitle: "Can't find what you're looking for?",
+      contactFormDescription: "Send us a message and we'll get back to you soon",
+      contactFormEmailLabel: "Your Email",
+      contactFormEmailPlaceholder: "you@example.com",
+      contactFormMessageLabel: "Message",
+      contactFormMessagePlaceholder: "How can we help?",
+      contactFormButtonText: "Send Message",
+      customCSS: ""
     };
 
-    return json({ categories, shop, settings });
+    return json({ categories, settings: defaultSettings, shop });
   } catch (error) {
     console.error("Error loading FAQs:", error);
-    return json({ categories: [], shop, settings: {} });
+    return json({ categories: [], settings: {}, shop });
   }
 }
 
 export default function FaqPage() {
-  const { categories: initialCategories, shop, settings: initialSettings } = useLoaderData();
+  const { categories: initialCategories, settings: initialSettings, shop } = useLoaderData();
 
   const [selectedTab, setSelectedTab] = useState(0);
   const [categories, setCategories] = useState(initialCategories);
   const [settings, setSettings] = useState(initialSettings);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Modals
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showFaqModal, setShowFaqModal] = useState(false);
-  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   
   // Editing states
   const [editingCategory, setEditingCategory] = useState(null);
@@ -93,10 +118,9 @@ export default function FaqPage() {
 
   // Form states
   const [categoryTitle, setCategoryTitle] = useState("");
-  const [categoryIcon, setCategoryIcon] = useState("");
   const [faqQuestion, setFaqQuestion] = useState("");
   const [faqAnswer, setFaqAnswer] = useState("");
-  const [faqIcon, setFaqIcon] = useState("❓");
+  const [faqIcon, setFaqIcon] = useState("QuestionCircleIcon");
 
   // Popover states
   const [activeCategoryPopover, setActiveCategoryPopover] = useState(null);
@@ -104,14 +128,23 @@ export default function FaqPage() {
 
   const tabs = [
     { id: 'manage', content: 'Manage FAQs', panelID: 'manage-panel' },
-    { id: 'settings', content: 'FAQ Page Settings', panelID: 'settings-panel' }
+    { id: 'page', content: 'FAQ Page', panelID: 'page-panel' },
+    { id: 'block', content: 'FAQ Block', panelID: 'block-panel' }
+  ];
+
+  const iconOptions = [
+    "QuestionCircleIcon",
+    "ChatIcon",
+    "InfoIcon",
+    "LightbulbIcon",
+    "StarIcon",
+    "CheckCircleIcon"
   ];
 
   // Reset forms
   useEffect(() => {
     if (!showCategoryModal) {
       setCategoryTitle("");
-      setCategoryIcon("");
       setEditingCategory(null);
     }
   }, [showCategoryModal]);
@@ -120,7 +153,7 @@ export default function FaqPage() {
     if (!showFaqModal) {
       setFaqQuestion("");
       setFaqAnswer("");
-      setFaqIcon("❓");
+      setFaqIcon("QuestionCircleIcon");
       setEditingFaq(null);
       setSelectedCategory(null);
     }
@@ -141,14 +174,12 @@ export default function FaqPage() {
   const handleAddCategory = () => {
     setEditingCategory(null);
     setCategoryTitle("");
-    setCategoryIcon("📁");
     setShowCategoryModal(true);
   };
 
   const handleEditCategory = (category) => {
     setEditingCategory(category);
     setCategoryTitle(category.title);
-    setCategoryIcon(category.icon || "📁");
     setShowCategoryModal(true);
   };
 
@@ -158,7 +189,6 @@ export default function FaqPage() {
     const formData = new FormData();
     formData.append("shop", shop);
     formData.append("title", categoryTitle);
-    formData.append("icon", categoryIcon);
     formData.append("position", editingCategory ? editingCategory.position : categories.length);
     formData.append("action", editingCategory ? "update" : "create");
     
@@ -265,7 +295,7 @@ export default function FaqPage() {
     setEditingFaq(null);
     setFaqQuestion("");
     setFaqAnswer("");
-    setFaqIcon("❓");
+    setFaqIcon("QuestionCircleIcon");
     setShowFaqModal(true);
   };
 
@@ -274,7 +304,7 @@ export default function FaqPage() {
     setEditingFaq(faq);
     setFaqQuestion(faq.question);
     setFaqAnswer(faq.answer);
-    setFaqIcon(faq.icon || "❓");
+    setFaqIcon(faq.icon || "QuestionCircleIcon");
     setShowFaqModal(true);
   };
 
@@ -397,30 +427,41 @@ export default function FaqPage() {
     }
   };
 
-  // Save settings
+  // Save FAQ Page Settings
   const handleSaveSettings = async () => {
+    setIsSaving(true);
     try {
       const response = await fetch(`/api/faq/settings?shop=${shop}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings)
+        body: JSON.stringify({ shop, ...settings })
       });
 
       const result = await response.json();
       if (result.success) {
-        alert("Settings saved successfully!");
+        shopify.toast.show("Settings saved successfully!");
       }
     } catch (error) {
       console.error("Error saving settings:", error);
+      shopify.toast.show("Failed to save settings", { isError: true });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const iconOptions = ["❓", "📌", "💡", "⭐", "🔥", "✅", "📝", "🎯", "💬", "🚀", "📦", "💳", "🏷️", "🎁"];
+  const faqPageUrl = `https://${shop}/pages/faqs`;
 
   return (
     <Page
       title="FAQ Management"
-      subtitle="Create and manage FAQ categories and questions for your chat widget"
+      subtitle="Create and manage FAQ categories and questions"
+      secondaryActions={[
+        {
+          content: "Preview",
+          icon: ViewIcon,
+          onAction: () => window.open(faqPageUrl, '_blank')
+        }
+      ]}
     >
       <Layout>
         <Layout.Section>
@@ -442,7 +483,7 @@ export default function FaqPage() {
                     </InlineStack>
 
                     <Banner tone="info">
-                      <p>FAQs will automatically appear in your chat widget. Organize them by categories.</p>
+                      <p>FAQs will automatically appear in your FAQ page. Organize them by categories.</p>
                     </Banner>
 
                     {categories.length === 0 ? (
@@ -463,7 +504,7 @@ export default function FaqPage() {
                               {/* Category Header */}
                               <InlineStack align="space-between" blockAlign="center">
                                 <InlineStack gap="200" blockAlign="center">
-                                  <span style={{ fontSize: "24px" }}>{category.icon || "📁"}</span>
+                                  <Icon source={DragHandleIcon} tone="base" />
                                   <Text variant="headingMd" as="h3">
                                     {category.title}
                                   </Text>
@@ -548,9 +589,7 @@ export default function FaqPage() {
                                     <Card key={faq.id} background="bg-surface-secondary">
                                       <InlineStack align="space-between" blockAlign="start">
                                         <InlineStack gap="200" blockAlign="start">
-                                          <span style={{ fontSize: "20px", marginTop: "2px" }}>
-                                            {faq.icon || "❓"}
-                                          </span>
+                                          <Icon source={QuestionCircleIcon} tone="base" />
                                           <BlockStack gap="100">
                                             <InlineStack gap="200" blockAlign="center">
                                               <Text variant="headingSm" as="h4" fontWeight="semibold">
@@ -631,15 +670,150 @@ export default function FaqPage() {
               {/* TAB 2: FAQ PAGE SETTINGS */}
               {selectedTab === 1 && (
                 <Box padding="400">
-                  <BlockStack gap="400">
-                    <Text variant="headingMd" as="h2">FAQ Page Appearance</Text>
-                    
+                  <BlockStack gap="500">
+                    {/* Embed app to theme */}
+                    <Card>
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <Text variant="headingSm" as="h3">Embed app to your theme</Text>
+                          <Button onClick={() => window.open(`https://${shop}/admin/themes/current/editor`, '_blank')}>
+                            Open theme editor
+                          </Button>
+                        </InlineStack>
+                        <Text tone="subdued">
+                          Add the FAQ app block to your theme to display FAQs on your store
+                        </Text>
+                      </BlockStack>
+                    </Card>
+
+                    {/* Display FAQ page */}
+                    <Card>
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <Text variant="headingSm" as="h3">Display FAQ page</Text>
+                          <Checkbox
+                            checked={settings.headerEnabled}
+                            onChange={(value) => setSettings({...settings, headerEnabled: value})}
+                          />
+                        </InlineStack>
+                      </BlockStack>
+                    </Card>
+
+                    {/* FAQ page URL */}
+                    <Card>
+                      <BlockStack gap="300">
+                        <Text variant="headingSm" as="h3">FAQ page URL</Text>
+                        <TextField
+                          value={faqPageUrl}
+                          readOnly
+                          autoComplete="off"
+                          connectedRight={
+                            <Button onClick={() => {
+                              navigator.clipboard.writeText(faqPageUrl);
+                              shopify.toast.show("URL copied!");
+                            }}>
+                              Copy
+                            </Button>
+                          }
+                        />
+                      </BlockStack>
+                    </Card>
+
+                    {/* Appearance */}
                     <Card>
                       <BlockStack gap="400">
-                        <Text variant="headingSm" as="h3">Header Settings</Text>
-                        
+                        <Text variant="headingMd" as="h3">Appearance</Text>
+
+                        {/* Layout */}
+                        <BlockStack gap="200">
+                          <Text variant="headingSm" as="h4">Layout</Text>
+                          <ButtonGroup segmented>
+                            <Button
+                              pressed={settings.layout === "list"}
+                              onClick={() => setSettings({...settings, layout: "list"})}
+                            >
+                              1-page layout
+                            </Button>
+                            <Button
+                              pressed={settings.layout === "grid"}
+                              onClick={() => setSettings({...settings, layout: "grid"})}
+                            >
+                              Card layout
+                            </Button>
+                          </ButtonGroup>
+                          <Text tone="subdued" variant="bodySm">
+                            {settings.layout === "list" 
+                              ? "Best for simple FAQs, showing all questions in one list" 
+                              : "Best for detailed help center, grouping questions into categories"}
+                          </Text>
+                        </BlockStack>
+
+                        {/* Color */}
+                        <BlockStack gap="200">
+                          <Text variant="headingSm" as="h4">Color</Text>
+                          <InlineStack gap="200">
+                            <ButtonGroup segmented>
+                              <Button
+                                pressed={settings.appearanceTheme === "preset"}
+                                onClick={() => setSettings({...settings, appearanceTheme: "preset"})}
+                              >
+                                Preset
+                              </Button>
+                              <Button
+                                pressed={settings.appearanceTheme === "custom"}
+                                onClick={() => setSettings({...settings, appearanceTheme: "custom"})}
+                              >
+                                Custom
+                              </Button>
+                            </ButtonGroup>
+                          </InlineStack>
+
+                          {settings.appearanceTheme === "custom" && (
+                            <BlockStack gap="300">
+                              <TextField
+                                label="Page background"
+                                value={settings.customBackgroundColor}
+                                onChange={(value) => setSettings({...settings, customBackgroundColor: value})}
+                                type="color"
+                                autoComplete="off"
+                              />
+                              <TextField
+                                label="Question text"
+                                value={settings.customTextColor}
+                                onChange={(value) => setSettings({...settings, customTextColor: value})}
+                                type="color"
+                                autoComplete="off"
+                              />
+                              <TextField
+                                label="Answer text"
+                                value={settings.customAccentColor}
+                                onChange={(value) => setSettings({...settings, customAccentColor: value})}
+                                type="color"
+                                autoComplete="off"
+                              />
+                              <TextField
+                                label="Button label"
+                                value={settings.customAccentColor}
+                                onChange={(value) => setSettings({...settings, customAccentColor: value})}
+                                type="color"
+                                autoComplete="off"
+                              />
+                            </BlockStack>
+                          )}
+                        </BlockStack>
+                      </BlockStack>
+                    </Card>
+
+                    {/* Header */}
+                    <Card>
+                      <BlockStack gap="400">
+                        <InlineStack align="space-between">
+                          <Text variant="headingMd" as="h3">Header</Text>
+                          <Button onClick={() => {}}>^</Button>
+                        </InlineStack>
+
                         <TextField
-                          label="Header Title"
+                          label="Heading"
                           value={settings.headerTitle}
                           onChange={(value) => setSettings({...settings, headerTitle: value})}
                           placeholder="Frequently Asked Questions"
@@ -647,72 +821,103 @@ export default function FaqPage() {
                         />
 
                         <TextField
-                          label="Header Subtitle"
-                          value={settings.headerSubtitle}
-                          onChange={(value) => setSettings({...settings, headerSubtitle: value})}
-                          placeholder="Find quick answers to common questions"
+                          label="Description"
+                          value={settings.headerDescription}
+                          onChange={(value) => setSettings({...settings, headerDescription: value})}
+                          placeholder="Got a question? We are here to answer!"
+                          multiline={2}
                           autoComplete="off"
                         />
 
-                        <TextField
-                          label="Header Background Color"
-                          value={settings.headerBgColor}
-                          onChange={(value) => setSettings({...settings, headerBgColor: value})}
-                          placeholder="#6366f1"
-                          type="color"
-                          autoComplete="off"
-                        />
-
-                        <TextField
-                          label="Header Text Color"
-                          value={settings.headerTextColor}
-                          onChange={(value) => setSettings({...settings, headerTextColor: value})}
-                          placeholder="#ffffff"
-                          type="color"
-                          autoComplete="off"
+                        <Checkbox
+                          label="Banner"
+                          checked={settings.headerEnabled}
+                          onChange={(value) => setSettings({...settings, headerEnabled: value})}
                         />
                       </BlockStack>
                     </Card>
 
+                    {/* Contact us */}
                     <Card>
                       <BlockStack gap="400">
-                        <Text variant="headingSm" as="h3">Search Settings</Text>
-                        
+                        <InlineStack align="space-between">
+                          <Text variant="headingMd" as="h3">Contact us</Text>
+                          <Checkbox
+                            checked={settings.contactFormEnabled}
+                            onChange={(value) => setSettings({...settings, contactFormEnabled: value})}
+                          />
+                        </InlineStack>
+
+                        {settings.contactFormEnabled && (
+                          <Text tone="subdued">
+                            Allow customers to contact you via chatbox or email.
+                          </Text>
+                        )}
+                      </BlockStack>
+                    </Card>
+
+                    {/* Advanced settings */}
+                    <Card>
+                      <BlockStack gap="400">
+                        <InlineStack align="space-between">
+                          <Text variant="headingMd" as="h3">Advanced settings</Text>
+                          <Button onClick={() => {}}>^</Button>
+                        </InlineStack>
+
                         <TextField
-                          label="Search Placeholder Text"
-                          value={settings.searchPlaceholder}
-                          onChange={(value) => setSettings({...settings, searchPlaceholder: value})}
-                          placeholder="🔍 Search FAQs..."
+                          label="Customize CSS"
+                          value={settings.customCSS}
+                          onChange={(value) => setSettings({...settings, customCSS: value})}
+                          placeholder=".faq-item { margin-bottom: 10px; }"
+                          multiline={4}
                           autoComplete="off"
                         />
 
-                        <Select
-                          label="Enable Search"
-                          options={[
-                            { label: 'Yes', value: 'true' },
-                            { label: 'No', value: 'false' }
-                          ]}
-                          value={settings.enableSearch?.toString()}
-                          onChange={(value) => setSettings({...settings, enableSearch: value === 'true'})}
-                        />
-
-                        <Select
-                          label="Show Category Badges"
-                          options={[
-                            { label: 'Yes', value: 'true' },
-                            { label: 'No', value: 'false' }
-                          ]}
-                          value={settings.showCategoryBadges?.toString()}
-                          onChange={(value) => setSettings({...settings, showCategoryBadges: value === 'true'})}
-                        />
+                        <Text tone="subdued" variant="bodySm">
+                          Chat with us to style FAQs page fit with your theme. Chat now.
+                        </Text>
                       </BlockStack>
                     </Card>
 
                     <InlineStack align="end">
-                      <Button variant="primary" onClick={handleSaveSettings}>
+                      <Button 
+                        variant="primary" 
+                        onClick={handleSaveSettings}
+                        loading={isSaving}
+                      >
                         Save Settings
                       </Button>
                     </InlineStack>
+                  </BlockStack>
+                </Box>
+              )}
+
+              {/* TAB 3: FAQ BLOCK */}
+              {selectedTab === 2 && (
+                <Box padding="400">
+                  <BlockStack gap="400">
+                    <Banner tone="info">
+                      <p>Add the FAQ block to your pages using the theme customizer.</p>
+                    </Banner>
+
+                    <Card>
+                      <BlockStack gap="300">
+                        <Text variant="headingMd" as="h3">How to add FAQ block</Text>
+                        <BlockStack gap="200">
+                          <Text>1. Go to Online Store → Themes</Text>
+                          <Text>2. Click "Customize" on your active theme</Text>
+                          <Text>3. Navigate to the page where you want to add FAQs</Text>
+                          <Text>4. Click "Add section" and search for "FAQ"</Text>
+                          <Text>5. Select your FAQ category to display</Text>
+                        </BlockStack>
+                        <Button 
+                          variant="primary"
+                          onClick={() => window.open(`https://${shop}/admin/themes/current/editor`, '_blank')}
+                        >
+                          Open Theme Editor
+                        </Button>
+                      </BlockStack>
+                    </Card>
                   </BlockStack>
                 </Box>
               )}
@@ -747,28 +952,6 @@ export default function FaqPage() {
               placeholder="e.g., Shipping, Returns, Payment"
               autoComplete="off"
             />
-
-            <div>
-              <Text as="p" variant="bodyMd" fontWeight="medium">Category Icon</Text>
-              <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
-                {iconOptions.map(icon => (
-                  <button
-                    key={icon}
-                    onClick={() => setCategoryIcon(icon)}
-                    style={{
-                      fontSize: "24px",
-                      padding: "8px",
-                      border: categoryIcon === icon ? "2px solid #6366f1" : "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      background: categoryIcon === icon ? "#f0f0ff" : "white",
-                      cursor: "pointer"
-                    }}
-                  >
-                    {icon}
-                  </button>
-                ))}
-              </div>
-            </div>
           </BlockStack>
         </Modal.Section>
       </Modal>
@@ -800,27 +983,12 @@ export default function FaqPage() {
               </Box>
             )}
 
-            <div>
-              <Text as="p" variant="bodyMd" fontWeight="medium">Question Icon</Text>
-              <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
-                {iconOptions.map(icon => (
-                  <button
-                    key={icon}
-                    onClick={() => setFaqIcon(icon)}
-                    style={{
-                      fontSize: "20px",
-                      padding: "6px",
-                      border: faqIcon === icon ? "2px solid #6366f1" : "1px solid #e2e8f0",
-                      borderRadius: "6px",
-                      background: faqIcon === icon ? "#f0f0ff" : "white",
-                      cursor: "pointer"
-                    }}
-                  >
-                    {icon}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <Select
+              label="Question Icon"
+              options={iconOptions.map(icon => ({ label: icon, value: icon }))}
+              value={faqIcon}
+              onChange={setFaqIcon}
+            />
 
             <TextField
               label="Question"

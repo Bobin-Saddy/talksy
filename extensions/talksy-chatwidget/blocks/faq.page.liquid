@@ -1,61 +1,622 @@
 {% comment %}
-  FAQ Page Snippet
-  
-  Usage in your theme:
-  1. Create a new page template called 'page.faq.liquid'
-  2. Add this code: {% section 'faq-page' %}
-  3. Or include directly: {% render 'faq-page' %}
-  
-  Or use this snippet directly in any page/template:
-  {% render 'faq-page' %}
+  FAQ Page Template - faq-page.liquid
+  This file should be added as a new page template in your Shopify theme
+  Location: sections/faq-page.liquid
 {% endcomment %}
 
-<div id="faq-app-container" data-shop="{{ shop.permanent_domain }}">
-  <div style="text-align: center; padding: 40px;">
+<div id="faq-page-container" class="faq-page-wrapper">
+  <div class="faq-page-loading">
+    <div class="faq-page-spinner"></div>
     <p>Loading FAQs...</p>
   </div>
 </div>
 
-<script>
-  (function() {
-    const shop = document.querySelector('#faq-app-container').dataset.shop;
-    const faqUrl = `https://YOUR_APP_URL/apps/faq-page?shop=${shop}`;
-    
-    // Fetch and inject FAQ content
-    fetch(faqUrl)
-      .then(response => response.text())
-      .then(html => {
-        document.getElementById('faq-app-container').innerHTML = html;
-      })
-      .catch(error => {
-        console.error('Error loading FAQs:', error);
-        document.getElementById('faq-app-container').innerHTML = `
-          <div style="text-align: center; padding: 40px; color: #d82c0d;">
-            <p>Failed to load FAQs. Please try again later.</p>
-          </div>
-        `;
-      });
-  })();
-</script>
-
 <style>
-  #faq-app-container {
-    width: 100%;
-    margin: 0 auto;
+/* FAQ Page Styles */
+.faq-page-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.faq-page-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: #64748b;
+}
+
+.faq-page-spinner {
+  width: 50px;
+  height: 50px;
+  margin: 0 auto 20px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #5C6AC4;
+  border-radius: 50%;
+  animation: faq-spin 0.8s linear infinite;
+}
+
+@keyframes faq-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Header */
+.faq-page-header {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+.faq-page-header h1 {
+  font-size: 42px;
+  font-weight: 700;
+  margin-bottom: 15px;
+  color: #1e293b;
+}
+
+.faq-page-header p {
+  font-size: 18px;
+  color: #64748b;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Search */
+.faq-page-search {
+  max-width: 600px;
+  margin: 0 auto 40px;
+}
+
+.faq-page-search input {
+  width: 100%;
+  padding: 16px 20px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.faq-page-search input:focus {
+  border-color: #5C6AC4;
+}
+
+/* List Layout */
+.faq-page-list .faq-category-section {
+  margin-bottom: 40px;
+}
+
+.faq-category-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 25px;
+  color: #1e293b;
+  padding-bottom: 15px;
+  border-bottom: 3px solid #e2e8f0;
+}
+
+.faq-item-list {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  margin-bottom: 15px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.faq-item-list:hover {
+  border-color: #5C6AC4;
+  box-shadow: 0 4px 12px rgba(92, 106, 196, 0.1);
+}
+
+.faq-question-list {
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.faq-question-content {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+}
+
+.faq-question-icon {
+  font-size: 24px;
+  color: #5C6AC4;
+}
+
+.faq-question-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.faq-toggle-icon {
+  width: 24px;
+  height: 24px;
+  transition: transform 0.3s;
+  color: #5C6AC4;
+}
+
+.faq-toggle-icon.open {
+  transform: rotate(180deg);
+}
+
+.faq-answer-list {
+  padding: 0 24px;
+  max-height: 0;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.faq-answer-list.open {
+  padding: 0 24px 24px 24px;
+  max-height: 1000px;
+}
+
+.faq-answer-text {
+  font-size: 16px;
+  line-height: 1.7;
+  color: #64748b;
+  padding-left: 39px;
+}
+
+/* Grid Layout */
+.faq-page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 25px;
+}
+
+.faq-category-card {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 30px;
+  transition: all 0.2s;
+}
+
+.faq-category-card:hover {
+  border-color: #5C6AC4;
+  box-shadow: 0 8px 20px rgba(92, 106, 196, 0.15);
+  transform: translateY(-2px);
+}
+
+.faq-category-card h3 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: #1e293b;
+}
+
+.faq-item-grid {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.faq-item-grid:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.faq-question-grid {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.faq-answer-grid {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #64748b;
+  display: none;
+  padding-left: 30px;
+  margin-top: 8px;
+}
+
+.faq-answer-grid.open {
+  display: block;
+}
+
+/* Contact Form */
+.faq-contact-section {
+  max-width: 600px;
+  margin: 60px auto 0;
+  padding: 40px;
+  background: #f8fafc;
+  border-radius: 20px;
+  text-align: center;
+}
+
+.faq-contact-section h3 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #1e293b;
+}
+
+.faq-contact-section p {
+  font-size: 16px;
+  color: #64748b;
+  margin-bottom: 25px;
+}
+
+.faq-contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.faq-contact-form input,
+.faq-contact-form textarea {
+  padding: 14px 18px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.faq-contact-form input:focus,
+.faq-contact-form textarea:focus {
+  border-color: #5C6AC4;
+}
+
+.faq-contact-form button {
+  padding: 16px;
+  background: #5C6AC4;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.faq-contact-form button:hover {
+  background: #4c5ab7;
+}
+
+/* Empty State */
+.faq-page-empty {
+  text-align: center;
+  padding: 80px 20px;
+}
+
+.faq-page-empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.faq-page-empty h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #1e293b;
+}
+
+.faq-page-empty p {
+  font-size: 16px;
+  color: #64748b;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .faq-page-wrapper {
+    padding: 30px 15px;
   }
-  
-  /* Responsive adjustments */
-  @media (max-width: 768px) {
-    #faq-app-container {
-      padding: 20px 10px;
-    }
+
+  .faq-page-header h1 {
+    font-size: 32px;
   }
+
+  .faq-category-title {
+    font-size: 24px;
+  }
+
+  .faq-question-text {
+    font-size: 16px;
+  }
+
+  .faq-page-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
 
+<script>
+(() => {
+  const shop = "{{ shop.permanent_domain }}";
+  const BASE_URL = "https://talksy-production-2e93.up.railway.app";
+  
+  let faqData = [];
+  let faqSettings = {};
+
+  // Load FAQ data and settings
+  async function loadFAQPage() {
+    try {
+      const [categoriesRes, settingsRes] = await Promise.all([
+        fetch(`${BASE_URL}/api/faq/categories?shop=${shop}`),
+        fetch(`${BASE_URL}/api/faq/settings?shop=${shop}`)
+      ]);
+
+      const categoriesData = await categoriesRes.json();
+      const settingsData = await settingsRes.json();
+
+      faqData = categoriesData.categories || [];
+      faqSettings = settingsData.settings || {};
+
+      renderFAQPage();
+    } catch (error) {
+      console.error("Error loading FAQ page:", error);
+      document.getElementById("faq-page-container").innerHTML = `
+        <div class="faq-page-empty">
+          <div class="faq-page-empty-icon">❌</div>
+          <h2>Failed to load FAQs</h2>
+          <p>Please try again later</p>
+        </div>
+      `;
+    }
+  }
+
+  // Render FAQ page
+  function renderFAQPage() {
+    const container = document.getElementById("faq-page-container");
+
+    if (!faqData.length || !faqData.some(cat => cat.isActive && cat.faqs.length > 0)) {
+      container.innerHTML = `
+        <div class="faq-page-empty">
+          <div class="faq-page-empty-icon">❓</div>
+          <h2>No FAQs Available</h2>
+          <p>Check back later for helpful information</p>
+        </div>
+      `;
+      return;
+    }
+
+    let html = '';
+
+    // Header
+    if (faqSettings.headerEnabled !== false) {
+      html += `
+        <div class="faq-page-header">
+          <h1>${faqSettings.headerTitle || 'Frequently Asked Questions'}</h1>
+          ${faqSettings.headerDescription ? `<p>${faqSettings.headerDescription}</p>` : ''}
+        </div>
+      `;
+    }
+
+    // Search
+    if (faqSettings.searchEnabled !== false) {
+      html += `
+        <div class="faq-page-search">
+          <input 
+            type="text" 
+            id="faq-page-search-input" 
+            placeholder="${faqSettings.searchPlaceholder || 'Search FAQs...'}"
+          />
+        </div>
+      `;
+    }
+
+    // Layout: List or Grid
+    if (faqSettings.layout === 'grid') {
+      html += '<div class="faq-page-grid">';
+      faqData.forEach(category => {
+        if (!category.isActive || !category.faqs.length) return;
+
+        html += `
+          <div class="faq-category-card">
+            <h3>${category.title}</h3>
+        `;
+
+        category.faqs.forEach(faq => {
+          if (!faq.isActive) return;
+
+          html += `
+            <div class="faq-item-grid">
+              <div class="faq-question-grid" onclick="toggleFaqGrid('faq-grid-${faq.id}')">
+                <span>▶</span>
+                <span>${faq.question}</span>
+              </div>
+              <div class="faq-answer-grid" id="faq-grid-${faq.id}">
+                ${faq.answer}
+              </div>
+            </div>
+          `;
+        });
+
+        html += '</div>';
+      });
+      html += '</div>';
+    } else {
+      // List layout (default)
+      html += '<div class="faq-page-list">';
+      faqData.forEach(category => {
+        if (!category.isActive || !category.faqs.length) return;
+
+        html += `
+          <div class="faq-category-section">
+            <h2 class="faq-category-title">${category.title}</h2>
+        `;
+
+        category.faqs.forEach(faq => {
+          if (!faq.isActive) return;
+
+          html += `
+            <div class="faq-item-list">
+              <div class="faq-question-list" onclick="toggleFaqList('faq-list-${faq.id}')">
+                <div class="faq-question-content">
+                  ${faqSettings.showIcons !== false ? `<span class="faq-question-icon">❓</span>` : ''}
+                  <span class="faq-question-text">${faq.question}</span>
+                </div>
+                <svg class="faq-toggle-icon" id="faq-list-${faq.id}-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </div>
+              <div class="faq-answer-list" id="faq-list-${faq.id}-answer">
+                <div class="faq-answer-text">${faq.answer}</div>
+              </div>
+            </div>
+          `;
+        });
+
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Contact Form
+    if (faqSettings.contactFormEnabled) {
+      html += `
+        <div class="faq-contact-section">
+          <h3>${faqSettings.contactFormTitle || "Can't find what you're looking for?"}</h3>
+          <p>${faqSettings.contactFormDescription || 'Send us a message and we\'ll get back to you soon'}</p>
+          <form class="faq-contact-form" onsubmit="handleContactSubmit(event)">
+            <input 
+              type="email" 
+              name="email" 
+              placeholder="${faqSettings.contactFormEmailPlaceholder || 'Your email'}" 
+              required
+            />
+            <textarea 
+              name="message" 
+              rows="4" 
+              placeholder="${faqSettings.contactFormMessagePlaceholder || 'Your message'}" 
+              required
+            ></textarea>
+            <button type="submit">${faqSettings.contactFormButtonText || 'Send Message'}</button>
+          </form>
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
+
+    // Apply custom CSS
+    if (faqSettings.customCSS) {
+      const style = document.createElement('style');
+      style.textContent = faqSettings.customCSS;
+      document.head.appendChild(style);
+    }
+
+    // Apply custom colors
+    if (faqSettings.appearanceTheme === 'custom') {
+      const style = document.createElement('style');
+      style.textContent = `
+        .faq-page-wrapper {
+          background-color: ${faqSettings.customBackgroundColor || '#FFFFFF'};
+        }
+        .faq-question-text, .faq-category-title {
+          color: ${faqSettings.customTextColor || '#000000'} !important;
+        }
+        .faq-answer-text {
+          color: ${faqSettings.customAccentColor || '#5C6AC4'} !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Initialize search
+    initializeSearch();
+  }
+
+  // Toggle FAQ (List layout)
+  window.toggleFaqList = function(faqId) {
+    const answer = document.getElementById(`${faqId}-answer`);
+    const icon = document.getElementById(`${faqId}-icon`);
+    
+    answer.classList.toggle('open');
+    icon.classList.toggle('open');
+  };
+
+  // Toggle FAQ (Grid layout)
+  window.toggleFaqGrid = function(faqId) {
+    const answer = document.getElementById(faqId);
+    answer.classList.toggle('open');
+  };
+
+  // Search functionality
+  function initializeSearch() {
+    const searchInput = document.getElementById("faq-page-search-input");
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      
+      if (faqSettings.layout === 'grid') {
+        // Grid search
+        const cards = document.querySelectorAll('.faq-category-card');
+        cards.forEach(card => {
+          const items = card.querySelectorAll('.faq-item-grid');
+          let hasVisibleItems = false;
+
+          items.forEach(item => {
+            const question = item.querySelector('.faq-question-grid').textContent.toLowerCase();
+            const answer = item.querySelector('.faq-answer-grid').textContent.toLowerCase();
+            
+            if (question.includes(searchTerm) || answer.includes(searchTerm)) {
+              item.style.display = '';
+              hasVisibleItems = true;
+            } else {
+              item.style.display = 'none';
+            }
+          });
+
+          card.style.display = hasVisibleItems ? '' : 'none';
+        });
+      } else {
+        // List search
+        const items = document.querySelectorAll('.faq-item-list');
+        items.forEach(item => {
+          const question = item.querySelector('.faq-question-text').textContent.toLowerCase();
+          const answer = item.querySelector('.faq-answer-text').textContent.toLowerCase();
+          
+          if (question.includes(searchTerm) || answer.includes(searchTerm)) {
+            item.style.display = '';
+          } else {
+            item.style.display = 'none';
+          }
+        });
+
+        // Hide empty categories
+        document.querySelectorAll('.faq-category-section').forEach(section => {
+          const visibleItems = section.querySelectorAll('.faq-item-list:not([style*="display: none"])');
+          section.style.display = visibleItems.length > 0 ? '' : 'none';
+        });
+      }
+    });
+  }
+
+  // Contact form submission
+  window.handleContactSubmit = function(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    
+    // You can integrate with your contact form API here
+    alert('Message sent! We will get back to you soon.');
+    event.target.reset();
+  };
+
+  // Initialize
+  loadFAQPage();
+})();
+</script>
 
 {% schema %}
 {
-  "name": "FAQs",
+  "name": "FAQ Page",
   "target": "section",
   "settings": []
 }
