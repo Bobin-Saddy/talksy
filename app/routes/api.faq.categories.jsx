@@ -1,136 +1,93 @@
+// app/routes/api.faq.categories.jsx
 import { json } from "@remix-run/node";
+import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
-/**
- * CORS helper
- */
-function cors(data, status = 200, request) {
-  const origin = request?.headers.get("Origin") || "*";
-
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    },
-  });
-}
-
-/**
- * Preflight request handler
- */
-export function options({ request }) {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": request.headers.get("Origin") || "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    },
-  });
-}
-
-/**
- * GET: Fetch FAQ Categories
- */
 export async function loader({ request }) {
-  const url = new URL(request.url);
-  const shop = url.searchParams.get("shop");
-
-  if (!shop) {
-    return cors({ error: "Shop parameter required" }, 400, request);
-  }
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
 
   try {
     const categories = await prisma.faqCategory.findMany({
       where: { shop },
       include: {
         faqs: {
-          where: { isActive: true },
-          orderBy: { position: "asc" },
-        },
+          orderBy: { position: "asc" }
+        }
       },
-      orderBy: { position: "asc" },
+      orderBy: { position: "asc" }
     });
 
-    return cors({ categories }, 200, request);
+    return json({ categories, success: true });
   } catch (error) {
-    console.error("Error fetching FAQ categories:", error);
-    return cors({ error: "Failed to fetch categories" }, 500, request);
+    console.error("Error loading categories:", error);
+    return json({ categories: [], success: false, error: error.message });
   }
 }
 
-/**
- * POST: Admin actions (create, update, delete, reorder)
- */
 export async function action({ request }) {
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
+  const formData = await request.formData();
+  const actionType = formData.get("action");
+
   try {
-    const formData = await request.formData();
-    const actionType = formData.get("action");
-    const shop = formData.get("shop");
-
-    if (!shop) {
-      return cors({ error: "Shop parameter required" }, 400, request);
-    }
-
     switch (actionType) {
       case "create": {
         const title = formData.get("title");
         const position = parseInt(formData.get("position") || "0");
 
         const category = await prisma.faqCategory.create({
-          data: { shop, title, position },
+          data: {
+            shop,
+            title,
+            position,
+            isActive: true
+          }
         });
 
-        return cors({ success: true, category }, 200, request);
+        return json({ success: true, category });
       }
 
       case "update": {
         const id = formData.get("id");
         const title = formData.get("title");
-        const position = parseInt(formData.get("position") || "0");
-        const isActive = formData.get("isActive") === "true";
 
         const category = await prisma.faqCategory.update({
           where: { id },
-          data: { title, position, isActive },
+          data: { title }
         });
 
-        return cors({ success: true, category }, 200, request);
+        return json({ success: true, category });
       }
 
       case "delete": {
         const id = formData.get("id");
 
         await prisma.faqCategory.delete({
-          where: { id },
+          where: { id }
         });
 
-        return cors({ success: true }, 200, request);
+        return json({ success: true });
       }
 
-      case "reorder": {
-        const updates = JSON.parse(formData.get("updates"));
+      case "toggleStatus": {
+        const id = formData.get("id");
+        const isActive = formData.get("isActive") === "true";
 
-        await Promise.all(
-          updates.map((update) =>
-            prisma.faqCategory.update({
-              where: { id: update.id },
-              data: { position: update.position },
-            })
-          )
-        );
+        const category = await prisma.faqCategory.update({
+          where: { id },
+          data: { isActive }
+        });
 
-        return cors({ success: true }, 200, request);
+        return json({ success: true, category });
       }
 
       default:
-        return cors({ error: "Invalid action" }, 400, request);
+        return json({ success: false, error: "Invalid action" });
     }
   } catch (error) {
-    console.error("FAQ category action error:", error);
-    return cors({ error: "Operation failed" }, 500, request);
+    console.error("Error in FAQ categories action:", error);
+    return json({ success: false, error: error.message });
   }
 }

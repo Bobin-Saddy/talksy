@@ -1,54 +1,23 @@
 // app/routes/api.faq.items.jsx
 import { json } from "@remix-run/node";
+import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
-export async function loader({ request }) {
-  const url = new URL(request.url);
-  const shop = url.searchParams.get("shop");
-  const categoryId = url.searchParams.get("categoryId");
-
-  if (!shop) {
-    return json({ error: "Shop parameter required" }, { status: 400 });
-  }
-
-  try {
-    const query = { where: { shop } };
-    
-    if (categoryId) {
-      query.where.categoryId = categoryId;
-    }
-
-    const faqs = await prisma.faq.findMany({
-      ...query,
-      include: {
-        category: true
-      },
-      orderBy: { position: "asc" }
-    });
-
-    return json({ faqs });
-  } catch (error) {
-    console.error("Error fetching FAQs:", error);
-    return json({ error: "Failed to fetch FAQs" }, { status: 500 });
-  }
-}
-
 export async function action({ request }) {
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
   const formData = await request.formData();
-  const action = formData.get("action");
-  const shop = formData.get("shop");
-
-  if (!shop) {
-    return json({ error: "Shop parameter required" }, { status: 400 });
-  }
+  const actionType = formData.get("action");
 
   try {
-    switch (action) {
+    switch (actionType) {
       case "create": {
         const categoryId = formData.get("categoryId");
         const question = formData.get("question");
         const answer = formData.get("answer");
+        const icon = formData.get("icon") || "QuestionCircleIcon";
         const position = parseInt(formData.get("position") || "0");
+        const isActive = formData.get("isActive") === "true";
 
         const faq = await prisma.faq.create({
           data: {
@@ -56,10 +25,9 @@ export async function action({ request }) {
             categoryId,
             question,
             answer,
-            position
-          },
-          include: {
-            category: true
+            icon,
+            position,
+            isActive
           }
         });
 
@@ -70,14 +38,16 @@ export async function action({ request }) {
         const id = formData.get("id");
         const question = formData.get("question");
         const answer = formData.get("answer");
-        const position = parseInt(formData.get("position") || "0");
+        const icon = formData.get("icon") || "QuestionCircleIcon";
         const isActive = formData.get("isActive") === "true";
 
         const faq = await prisma.faq.update({
           where: { id },
-          data: { question, answer, position, isActive },
-          include: {
-            category: true
+          data: { 
+            question, 
+            answer,
+            icon,
+            isActive
           }
         });
 
@@ -94,26 +64,23 @@ export async function action({ request }) {
         return json({ success: true });
       }
 
-      case "reorder": {
-        const updates = JSON.parse(formData.get("updates"));
+      case "toggleStatus": {
+        const id = formData.get("id");
+        const isActive = formData.get("isActive") === "true";
 
-        await Promise.all(
-          updates.map((update) =>
-            prisma.faq.update({
-              where: { id: update.id },
-              data: { position: update.position }
-            })
-          )
-        );
+        const faq = await prisma.faq.update({
+          where: { id },
+          data: { isActive }
+        });
 
-        return json({ success: true });
+        return json({ success: true, faq });
       }
 
       default:
-        return json({ error: "Invalid action" }, { status: 400 });
+        return json({ success: false, error: "Invalid action" });
     }
   } catch (error) {
-    console.error("Error in FAQ action:", error);
-    return json({ error: "Operation failed" }, { status: 500 });
+    console.error("Error in FAQ items action:", error);
+    return json({ success: false, error: error.message });
   }
 }
