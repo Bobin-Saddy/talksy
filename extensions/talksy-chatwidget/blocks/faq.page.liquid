@@ -1,0 +1,62 @@
+{% comment %}
+  FAQ Page Snippet
+  
+  Usage in your theme:
+  1. Create a new page template called 'page.faq.liquid'
+  2. Add this code: {% section 'faq-page' %}
+  3. Or include directly: {% render 'faq-page' %}
+  
+  Or use this snippet directly in any page/template:
+  {% render 'faq-page' %}
+{% endcomment %}
+
+<div id="faq-app-container" data-shop="{{ shop.permanent_domain }}">
+  <div style="text-align: center; padding: 40px;">
+    <p>Loading FAQs...</p>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const shop = document.querySelector('#faq-app-container').dataset.shop;
+    const faqUrl = `https://YOUR_APP_URL/apps/faq-page?shop=${shop}`;
+    
+    // Fetch and inject FAQ content
+    fetch(faqUrl)
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('faq-app-container').innerHTML = html;
+      })
+      .catch(error => {
+        console.error('Error loading FAQs:', error);
+        document.getElementById('faq-app-container').innerHTML = `
+          <div style="text-align: center; padding: 40px; color: #d82c0d;">
+            <p>Failed to load FAQs. Please try again later.</p>
+          </div>
+        `;
+      });
+  })();
+</script>
+
+<style>
+  #faq-app-container {
+    width: 100%;
+    margin: 0 auto;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    #faq-app-container {
+      padding: 20px 10px;
+    }
+  }
+</style>
+
+
+{% schema %}
+{
+  "name": "FAQs",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}

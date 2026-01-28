@@ -116,7 +116,7 @@ model Faq {
   isActive   Boolean     @default(true)
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
-  
+  icon       String      @default("QuestionCircleIcon")  // ✅ NEW FIELD
   category   FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   
   @@index([shop])
@@ -124,22 +124,50 @@ model Faq {
 }
 
 model FaqPageSettings {
-  id                 String   @id @default(cuid())
-  shop               String   @unique
-  layout             String   @default("list")           // list, grid, accordion
-  appearanceTheme    String   @default("light")          // light, dark, custom
-  headerTitle        String   @default("Frequently Asked Questions")
-  headerDescription  String   @default("")
-  backgroundColor    String   @default("#FFFFFF")
-  textColor          String   @default("#000000")
-  accentColor        String   @default("#5C6AC4")
-  borderRadius       Int      @default(8)
-  showIcons          Boolean  @default(true)
-  showSearch         Boolean  @default(true)
-  enableAccordion    Boolean  @default(true)
-  customCSS          String   @default("")
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                            String   @id @default(cuid())
+  shop                          String   @unique
+  
+  // Layout
+  layout                        String   @default("list")
+  
+  // Appearance
+  appearanceTheme               String   @default("light")
+  customBackgroundColor         String   @default("#FFFFFF")
+  customTextColor               String   @default("#000000")
+  customAccentColor             String   @default("#5C6AC4")
+  customBorderRadius            Int      @default(8)
+  
+  // Header
+  headerEnabled                 Boolean  @default(true)
+  headerTitle                   String   @default("Frequently Asked Questions")
+  headerDescription             String   @default("")
+  headerAlignment               String   @default("center")
+  
+  // Search
+  searchEnabled                 Boolean  @default(true)
+  searchPlaceholder             String   @default("Search FAQs...")
+  
+  // FAQ Items
+  showIcons                     Boolean  @default(true)
+  showCategories                Boolean  @default(true)
+  enableAccordion               Boolean  @default(true)
+  faqSpacing                    String   @default("comfortable")
+  
+  // Contact Form
+  contactFormEnabled            Boolean  @default(false)
+  contactFormTitle              String   @default("Can't find what you're looking for?")
+  contactFormDescription        String   @default("")
+  contactFormEmailLabel         String   @default("Your Email")
+  contactFormEmailPlaceholder   String   @default("")
+  contactFormMessageLabel       String   @default("Message")
+  contactFormMessagePlaceholder String   @default("")
+  contactFormButtonText         String   @default("Send Message")
+  
+  // Advanced
+  customCSS                     String   @default("")
+  
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
   
   @@index([shop])
 }
