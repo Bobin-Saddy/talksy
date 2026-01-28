@@ -1,13 +1,46 @@
-// app/routes/api.faq.categories.jsx
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 
+/**
+ * CORS helper
+ */
+function cors(data, status = 200, request) {
+  const origin = request?.headers.get("Origin") || "*";
+
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
+}
+
+/**
+ * Preflight request handler
+ */
+export function options({ request }) {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": request.headers.get("Origin") || "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
+}
+
+/**
+ * GET: Fetch FAQ Categories
+ */
 export async function loader({ request }) {
   const url = new URL(request.url);
   const shop = url.searchParams.get("shop");
 
   if (!shop) {
-    return json({ error: "Shop parameter required" }, { status: 400 });
+    return cors({ error: "Shop parameter required" }, 400, request);
   }
 
   try {
@@ -16,43 +49,42 @@ export async function loader({ request }) {
       include: {
         faqs: {
           where: { isActive: true },
-          orderBy: { position: "asc" }
-        }
+          orderBy: { position: "asc" },
+        },
       },
-      orderBy: { position: "asc" }
+      orderBy: { position: "asc" },
     });
 
-    return json({ categories });
+    return cors({ categories }, 200, request);
   } catch (error) {
     console.error("Error fetching FAQ categories:", error);
-    return json({ error: "Failed to fetch categories" }, { status: 500 });
+    return cors({ error: "Failed to fetch categories" }, 500, request);
   }
 }
 
+/**
+ * POST: Admin actions (create, update, delete, reorder)
+ */
 export async function action({ request }) {
-  const formData = await request.formData();
-  const action = formData.get("action");
-  const shop = formData.get("shop");
-
-  if (!shop) {
-    return json({ error: "Shop parameter required" }, { status: 400 });
-  }
-
   try {
-    switch (action) {
+    const formData = await request.formData();
+    const actionType = formData.get("action");
+    const shop = formData.get("shop");
+
+    if (!shop) {
+      return cors({ error: "Shop parameter required" }, 400, request);
+    }
+
+    switch (actionType) {
       case "create": {
         const title = formData.get("title");
         const position = parseInt(formData.get("position") || "0");
 
         const category = await prisma.faqCategory.create({
-          data: {
-            shop,
-            title,
-            position
-          }
+          data: { shop, title, position },
         });
 
-        return json({ success: true, category });
+        return cors({ success: true, category }, 200, request);
       }
 
       case "update": {
@@ -63,20 +95,20 @@ export async function action({ request }) {
 
         const category = await prisma.faqCategory.update({
           where: { id },
-          data: { title, position, isActive }
+          data: { title, position, isActive },
         });
 
-        return json({ success: true, category });
+        return cors({ success: true, category }, 200, request);
       }
 
       case "delete": {
         const id = formData.get("id");
 
         await prisma.faqCategory.delete({
-          where: { id }
+          where: { id },
         });
 
-        return json({ success: true });
+        return cors({ success: true }, 200, request);
       }
 
       case "reorder": {
@@ -86,19 +118,19 @@ export async function action({ request }) {
           updates.map((update) =>
             prisma.faqCategory.update({
               where: { id: update.id },
-              data: { position: update.position }
+              data: { position: update.position },
             })
           )
         );
 
-        return json({ success: true });
+        return cors({ success: true }, 200, request);
       }
 
       default:
-        return json({ error: "Invalid action" }, { status: 400 });
+        return cors({ error: "Invalid action" }, 400, request);
     }
   } catch (error) {
-    console.error("Error in FAQ category action:", error);
-    return json({ error: "Operation failed" }, { status: 500 });
+    console.error("FAQ category action error:", error);
+    return cors({ error: "Operation failed" }, 500, request);
   }
 }
