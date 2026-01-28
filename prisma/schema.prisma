@@ -91,3 +91,34 @@ fontFamily    String   @default("'Euclid Circular A Medium', 'Euclid Circular A'
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
+
+model FaqCategory {
+  id        String   @id @default(cuid())
+  shop      String
+  title     String
+  position  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  faqs      Faq[]
+  
+  @@index([shop])
+}
+
+model Faq {
+  id         String      @id @default(cuid())
+  shop       String
+  categoryId String
+  question   String
+  answer     String      // ✅ FIXED: removed @db.Text
+  position   Int         @default(0)
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  
+  category   FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  @@index([shop])
+  @@index([categoryId])
+}

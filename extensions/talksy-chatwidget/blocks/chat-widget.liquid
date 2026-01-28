@@ -34,6 +34,7 @@
 
   <div id="widget-main-container" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
     
+    <!-- HOME TAB -->
     <div id="tab-home" class="tab-content">
       <div class="home-hero" id="home-hero-bg"> 
         <h1 id="welcome-h1">Hi there 👋</h1>
@@ -52,12 +53,13 @@
         </div>
 
         <div class="promo-section">
-          <h3 id="onboarding-title-text" >Start a conversation</h3>
-          <p id="onboarding-subtitle-text" >Please provide your details to begin.</p>
+          <h3 id="onboarding-title-text">Start a conversation</h3>
+          <p id="onboarding-subtitle-text">Please provide your details to begin.</p>
         </div>
       </div>
     </div>
 
+    <!-- CHAT TAB -->
     <div id="tab-chat" class="tab-content" style="display:none;">
       
       <div id="chat-onboarding-step" class="step-container">
@@ -100,28 +102,59 @@
         </div>
       </div>
     </div>
+
+    <!-- FAQ TAB -->
+    <div id="tab-faq" class="tab-content" style="display:none;">
+      <div class="faq-container">
+        <div class="faq-header">
+          <h2 id="faq-main-title">Frequently Asked Questions</h2>
+          <p id="faq-subtitle">Find quick answers to common questions</p>
+        </div>
+        
+        <div class="faq-search">
+          <input type="text" id="faq-search-input" placeholder="🔍 Search FAQs..." />
+        </div>
+        
+        <div id="faq-categories-list" class="faq-scroll-area">
+          <!-- FAQs will be loaded here dynamically -->
+          <div class="faq-loading">
+            <div class="loading-spinner"></div>
+            <p>Loading FAQs...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
+  <!-- BOTTOM NAVIGATION -->
   <div id="chat-nav">
     <div class="nav-item active" data-tab="home">
       <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22" fill="none">
-<path d="M5.50065 17.4167H8.88498V12.7628C8.88498 12.5532 8.95618 12.3775 9.09857 12.2357C9.24035 12.0933 9.41604 12.0221 9.62565 12.0221H12.3757C12.5853 12.0221 12.7613 12.0933 12.9037 12.2357C13.0454 12.3775 13.1163 12.5532 13.1163 12.7628V17.4167H16.5007V9.44905C16.5007 9.35494 16.4802 9.26939 16.4392 9.19239C16.3983 9.11539 16.3424 9.04816 16.2715 8.99072L11.3362 5.27089C11.242 5.189 11.1302 5.14805 11.0007 5.14805C10.8711 5.14805 10.7596 5.189 10.6661 5.27089L5.72982 8.99072C5.65954 9.04939 5.60362 9.11661 5.56207 9.19239C5.52051 9.26816 5.50004 9.35372 5.50065 9.44905V17.4167ZM4.58398 17.4167V9.44905C4.58398 9.21439 4.63654 8.99225 4.74165 8.78264C4.84676 8.57302 4.9916 8.40039 5.17615 8.26472L10.1124 4.52655C10.3709 4.32916 10.6661 4.23047 10.9979 4.23047C11.3297 4.23047 11.6267 4.32916 11.8889 4.52655L16.8252 8.2638C17.0103 8.39947 17.1551 8.57241 17.2596 8.78264C17.3648 8.99225 17.4173 9.21439 17.4173 9.44905V17.4167C17.4173 17.6624 17.326 17.8766 17.1432 18.0593C16.9605 18.242 16.7463 18.3334 16.5007 18.3334H12.9403C12.7301 18.3334 12.5541 18.2625 12.4123 18.1207C12.2705 17.9783 12.1997 17.8023 12.1997 17.5927V12.9397H9.80165V17.5927C9.80165 17.8029 9.73076 17.9789 9.58898 18.1207C9.44721 18.2625 9.27151 18.3334 9.0619 18.3334H5.50065C5.25498 18.3334 5.04079 18.242 4.85807 18.0593C4.67535 17.8766 4.58398 17.6624 4.58398 17.4167Z" fill="black"/>
-</svg>
+        <path d="M5.50065 17.4167H8.88498V12.7628C8.88498 12.5532 8.95618 12.3775 9.09857 12.2357C9.24035 12.0933 9.41604 12.0221 9.62565 12.0221H12.3757C12.5853 12.0221 12.7613 12.0933 12.9037 12.2357C13.0454 12.3775 13.1163 12.5532 13.1163 12.7628V17.4167H16.5007V9.44905C16.5007 9.35494 16.4802 9.26939 16.4392 9.19239C16.3983 9.11539 16.3424 9.04816 16.2715 8.99072L11.3362 5.27089C11.242 5.189 11.1302 5.14805 11.0007 5.14805C10.8711 5.14805 10.7596 5.189 10.6661 5.27089L5.72982 8.99072C5.65954 9.04939 5.60362 9.11661 5.56207 9.19239C5.52051 9.26816 5.50004 9.35372 5.50065 9.44905V17.4167ZM4.58398 17.4167V9.44905C4.58398 9.21439 4.63654 8.99225 4.74165 8.78264C4.84676 8.57302 4.9916 8.40039 5.17615 8.26472L10.1124 4.52655C10.3709 4.32916 10.6661 4.23047 10.9979 4.23047C11.3297 4.23047 11.6267 4.32916 11.8889 4.52655L16.8252 8.2638C17.0103 8.39947 17.1551 8.57241 17.2596 8.78264C17.3648 8.99225 17.4173 9.21439 17.4173 9.44905V17.4167C17.4173 17.6624 17.326 17.8766 17.1432 18.0593C16.9605 18.242 16.7463 18.3334 16.5007 18.3334H12.9403C12.7301 18.3334 12.5541 18.2625 12.4123 18.1207C12.2705 17.9783 12.1997 17.8023 12.1997 17.5927V12.9397H9.80165V17.5927C9.80165 17.8029 9.73076 17.9789 9.58898 18.1207C9.44721 18.2625 9.27151 18.3334 9.0619 18.3334H5.50065C5.25498 18.3334 5.04079 18.242 4.85807 18.0593C4.67535 17.8766 4.58398 17.6624 4.58398 17.4167Z" fill="black"/>
+      </svg>
       <span>Home</span>
     </div>
     <div class="nav-item" data-tab="chat">
       <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22" fill="none">
-<path d="M16.2382 8.90509H9.95247M17.2858 3.66699C17.8415 3.66699 18.3744 3.88774 18.7674 4.28067C19.1603 4.67361 19.381 5.20654 19.381 5.76223V16.2384C19.381 16.7941 19.1603 17.327 18.7674 17.72C18.3744 18.1129 17.8415 18.3337 17.2858 18.3337L14.144 18.3326L11.7408 20.7358C11.5604 20.9162 11.3204 21.0246 11.0658 21.0406C10.8112 21.0566 10.5595 20.9792 10.3579 20.8228L10.2594 20.7358L7.85619 18.3326L4.71438 18.3337C4.15869 18.3337 3.62575 18.1129 3.23282 17.72C2.83989 17.327 2.61914 16.7941 2.61914 16.2384V5.76223C2.61914 5.20654 2.83989 4.67361 3.23282 4.28067C3.62575 3.88774 4.15869 3.66699 4.71438 3.66699H17.2858Z" stroke="black" stroke-linecap="round" stroke-linejoin="round"/>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M6.80829 9.95266C7.3321 9.95266 7.85591 9.42885 7.85591 8.90504C7.85591 8.38123 7.3321 7.85742 6.80829 7.85742C6.28448 7.85742 5.76172 8.38123 5.76172 8.90504C5.76172 9.42885 6.28448 9.95266 6.80829 9.95266ZM6.80829 14.1431C7.3321 14.1431 7.85591 13.6193 7.85591 13.0955C7.85591 12.5717 7.3321 12.0479 6.80829 12.0479C6.28448 12.0479 5.76172 12.5717 5.76172 13.0955C5.76172 13.6193 6.28448 14.1431 6.80829 14.1431Z" fill="black"/>
-<path d="M16.2388 13.0957H9.95312" stroke="black" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
+        <path d="M16.2382 8.90509H9.95247M17.2858 3.66699C17.8415 3.66699 18.3744 3.88774 18.7674 4.28067C19.1603 4.67361 19.381 5.20654 19.381 5.76223V16.2384C19.381 16.7941 19.1603 17.327 18.7674 17.72C18.3744 18.1129 17.8415 18.3337 17.2858 18.3337L14.144 18.3326L11.7408 20.7358C11.5604 20.9162 11.3204 21.0246 11.0658 21.0406C10.8112 21.0566 10.5595 20.9792 10.3579 20.8228L10.2594 20.7358L7.85619 18.3326L4.71438 18.3337C4.15869 18.3337 3.62575 18.1129 3.23282 17.72C2.83989 17.327 2.61914 16.7941 2.61914 16.2384V5.76223C2.61914 5.20654 2.83989 4.67361 3.23282 4.28067C3.62575 3.88774 4.15869 3.66699 4.71438 3.66699H17.2858Z" stroke="black" stroke-linecap="round" stroke-linejoin="round"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M6.80829 9.95266C7.3321 9.95266 7.85591 9.42885 7.85591 8.90504C7.85591 8.38123 7.3321 7.85742 6.80829 7.85742C6.28448 7.85742 5.76172 8.38123 5.76172 8.90504C5.76172 9.42885 6.28448 9.95266 6.80829 9.95266ZM6.80829 14.1431C7.3321 14.1431 7.85591 13.6193 7.85591 13.0955C7.85591 12.5717 7.3321 12.0479 6.80829 12.0479C6.28448 12.0479 5.76172 12.5717 5.76172 13.0955C5.76172 13.6193 6.28448 14.1431 6.80829 14.1431Z" fill="black"/>
+        <path d="M16.2388 13.0957H9.95312" stroke="black" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <span>Messages</span>
     </div>
+    <div class="nav-item" data-tab="faq">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M11 16.5V16.5083M11 14.2083V7.79167M19.25 11C19.25 15.5563 15.5563 19.25 11 19.25C6.44365 19.25 2.75 15.5563 2.75 11C2.75 6.44365 6.44365 2.75 11 2.75C15.5563 2.75 19.25 6.44365 19.25 11Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>FAQs</span>
+    </div>
   </div>
-</div> {{ 'font-styles.css' | asset_url | stylesheet_tag }}
+</div>
+
+{{ 'font-styles.css' | asset_url | stylesheet_tag }}
 
 <style>
- 
 div#image-preview-wrapper {
     position: relative;
 }
@@ -149,36 +182,30 @@ button#remove-image-btn {
     top: 8px;
 }
 
-
 @font-face {
     font-family: 'Euclid Circular A Medium';
-    /* Replace this URL with your actual font link (e.g. from Edgeone or Google Drive direct link) */
     src: url('https://your-cdn-link.com/euclid-medium.woff2') format('woff2');
     font-weight: 500;
     font-style: normal;
     font-display: swap;
-  }
+}
 
-  :root { 
+:root { 
     --chat-primary: {{ primary_color }}; 
     --chat-bg: #ffffff;
-    /* Default fallback stack */
     --chat-font: 'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, sans-serif; 
     --chat-font-size: 15px;
-  }
+}
 
-  /* Force font on all widget elements */
-  #chat-widget, #chat-widget *, #chat-launcher, #chat-launcher * { 
+#chat-widget, #chat-widget *, #chat-launcher, #chat-launcher * { 
     box-sizing: border-box; 
     font-family: var(--chat-font) !important; 
     margin: 0;  
-  }
+}
 
-  /* Specific fix for Medium Weight on Titles */
-  .header-title, #welcome-h1, #card-msg-text, #onboarding-title-text {
-    font-weight: 500 !important; /* Euclid Medium 500 hota hai */
-  }
-#chat-widget * { box-sizing: border-box; font-family: var(--chat-font) !important; margin: 0;  }
+.header-title, #welcome-h1, #card-msg-text, #onboarding-title-text {
+    font-weight: 500 !important;
+}
 
 #chat-launcher { 
   position: fixed; bottom: 25px; right: 25px; width: 62px; height: 62px; border-radius: 50%; 
@@ -197,7 +224,6 @@ button#remove-image-btn {
 .chat-hidden { opacity: 0; transform: translateY(30px) scale(0.9); pointer-events: none; }
 .chat-visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: all; }
 
-/* HEADER */
 #chat-header { padding: 22px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 .header-content { display: flex; align-items: center; gap: 12px; }
 .avatar-stack { position: relative; width: 44px; height: 44px; }
@@ -205,11 +231,10 @@ button#remove-image-btn {
 .avatar-status { position: absolute; bottom: -2px; right: -2px; width: 12px; height: 12px; background: #22c55e; border: 2px solid #fff; border-radius: 50%; }
 .header-title { display: block; font-weight: 700; font-size: 18px; }
 .header-subtitle { font-size: 13px; opacity: 0.8; display: flex; align-items: center; gap: 5px; }
-.pulse { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse-anim 2s infinite; position: absolute; right: -13px; top: 15px ; }
+.pulse { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse-anim 2s infinite; position: absolute; right: -13px; top: 15px; }
 @keyframes pulse-anim { 0%, 100% { transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
 #chat-close { background: none; border: none; cursor: pointer; opacity: 0.5; transition: 0.2s; }
 
-/* HOME TAB */
 .tab-content { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; position: relative; }
 .home-hero { padding: 35px 25px !important; text-align: center; flex-shrink: 0; }
 .home-hero h1 { font-size: 28px; margin-bottom: 8px; font-weight: 800; }
@@ -230,7 +255,6 @@ button#remove-image-btn {
 .promo-section h3 { font-size: 19px; color: #1e293b; margin-bottom: 6px; }
 .promo-section p { font-size: 14px; color: #64748b; }
 
-/* CHAT MESSAGES */
 .step-container { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 #chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 .msg { max-width: 82%; display: flex; flex-direction: column; }
@@ -238,7 +262,6 @@ button#remove-image-btn {
 .msg.bot { align-self: flex-start; }
 .msg-content { padding: 12px 16px; border-radius: 18px; font-size: var(--chat-font-size); line-height: 1.5; word-wrap: break-word; }
 
-/* FORM & FOOTER */
 .registration-form { padding: 30px !important; }
 .input-group { display: flex; flex-direction: column; gap: 12px; }
 .input-group input { padding: 14px !important; border: 1px solid #e2e8f0; border-radius: 12px; outline: none; font-size: 15px; width: 100%; }
@@ -250,14 +273,194 @@ button#remove-image-btn {
 .tool-btn { background: none; border: none; cursor: pointer; font-size: 1.3em; color: #94a3b8; }
 #chat-send { color: #fff; border: none; border-radius: 10px; padding: 9px; cursor: pointer; display: flex; align-items: center; background: var(--chat-primary); }
 
-/* NAV */
 #chat-nav { display: flex; border-top: 1px solid #f1f5f9; background: #fff; padding: 10px 0; flex-shrink: 0; }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 5px; cursor: pointer; font-size: 11px; color: #94a3b8; gap: 4px; }
 .nav-item.active { color: var(--chat-primary); font-weight: 700; }
 
-/* EMOJI */
 .hidden-picker { display: none !important; }
 #emoji-picker { position: absolute; bottom: 85px; left: 15px; right: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+
+/* FAQ STYLES */
+.faq-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.faq-header {
+  padding: 25px 20px;
+  background: var(--chat-primary);
+  color: white;
+  flex-shrink: 0;
+}
+
+.faq-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.faq-header p {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.faq-search {
+  padding: 15px 20px;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.faq-search input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.faq-search input:focus {
+  border-color: var(--chat-primary);
+}
+
+.faq-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.faq-loading {
+  text-align: center;
+  padding: 40px 20px;
+  color: #64748b;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 15px;
+  border: 3px solid #e2e8f0;
+  border-top-color: var(--chat-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.faq-category {
+  margin-bottom: 25px;
+}
+
+.faq-category-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.faq-category-badge {
+  display: inline-block;
+  background: var(--chat-primary);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.faq-item {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.faq-item:hover {
+  border-color: var(--chat-primary);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.faq-question {
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.faq-question-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  flex: 1;
+}
+
+.faq-toggle-icon {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.3s;
+  color: var(--chat-primary);
+  flex-shrink: 0;
+}
+
+.faq-toggle-icon.open {
+  transform: rotate(180deg);
+}
+
+.faq-answer {
+  padding: 0 16px;
+  max-height: 0;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.faq-answer.open {
+  padding: 0 16px 16px 16px;
+  max-height: 500px;
+}
+
+.faq-answer-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+.faq-empty {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.faq-empty-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+.faq-empty-text {
+  font-size: 16px;
+  color: #1e293b;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.faq-empty-subtext {
+  color: #94a3b8;
+  font-size: 14px;
+}
 </style>
 
 <script>
@@ -269,33 +472,27 @@ button#remove-image-btn {
   const chatInput = document.getElementById("chat-input");
   const msgBox = document.getElementById("chat-messages");
   
-  
   let selectedImg = null;
   let pollInterval = null; 
   let currentConfig = {};
   let seenMsgs = new Set();
+  let faqData = [];
 
- try {
-  localStorage.setItem("__test", "1");
-  localStorage.removeItem("__test");
-} catch (e) {
-  console.warn("LocalStorage blocked by browser");
-}
-
-
-
-function getOrCreateSessionId() {
-  let sId = localStorage.getItem("chat_session");
-  if (!sId || sId === "null" || sId === "undefined") {
-    sId = "s_" + crypto.randomUUID();
-    localStorage.setItem("chat_session", sId);
+  try {
+    localStorage.setItem("__test", "1");
+    localStorage.removeItem("__test");
+  } catch (e) {
+    console.warn("LocalStorage blocked by browser");
   }
-  return sId;
-}
 
-
-
-
+  function getOrCreateSessionId() {
+    let sId = localStorage.getItem("chat_session");
+    if (!sId || sId === "null" || sId === "undefined") {
+      sId = "s_" + crypto.randomUUID();
+      localStorage.setItem("chat_session", sId);
+    }
+    return sId;
+  }
 
   const ICON_SVGS = {
     bubble: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
@@ -305,39 +502,34 @@ function getOrCreateSessionId() {
 
   async function loadSettings() {
     try {
-    const r = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
-    const s = await r.json();
-    currentConfig = s;
-    
-    // font-family string ko sahi se format karein agar usme quotes hain
-    let cleanFont = s.fontFamily.replace(/['"]+/g, "'"); 
-    
-    document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
-    document.documentElement.style.setProperty('--chat-font', cleanFont);
-    document.documentElement.style.setProperty('--chat-font-size', s.baseFontSize);
+      const r = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
+      const s = await r.json();
+      currentConfig = s;
+      
+      let cleanFont = s.fontFamily.replace(/['"]+/g, "'"); 
+      
+      document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
+      document.documentElement.style.setProperty('--chat-font', cleanFont);
+      document.documentElement.style.setProperty('--chat-font-size', s.baseFontSize);
 
       widget.style.border = `1px solid ${s.widgetBorderColor}`;
       widget.style.background = s.chatBoxBgColor;
       launcher.style.color = s.primaryColor;
 
-      // Header Sync
       const header = document.getElementById("chat-header");
       header.style.background = s.headerBgColor;
       header.style.color = s.headerTextColor;
       header.style.borderBottom = `1px solid ${s.widgetBorderColor}`;
       document.getElementById("header-title-text").innerText = s.headerTitle;
 
-      // Hero Sync
       const hero = document.getElementById("home-hero-bg");
       hero.style.background = s.heroBgColor;
       hero.style.color = s.heroTextColor;
       document.getElementById("welcome-h1").innerText = s.welcomeText;
       document.getElementById("welcome-p").innerText = s.welcomeSubtext;
 
-      // Body BG Sync
       document.getElementById("home-scroll-area-bg").style.background = s.chatBoxBgColor;
 
-      // Card Sync
       const card = document.getElementById("start-chat-trigger");
       card.style.background = s.messageBgColor;
       card.style.border = `1px solid ${s.widgetBorderColor}`;
@@ -347,38 +539,143 @@ function getOrCreateSessionId() {
       document.getElementById("card-reply-time").style.color = s.cardSubtitleColor;
       document.getElementById("card-arrow-bg").style.background = s.primaryColor;
 
-      // Onboarding & Promo Sync
       document.getElementById("onboarding-title-text").innerText = s.onboardingTitle;
       document.getElementById("onboarding-subtitle-text").innerText = s.onboardingSubtitle;
       document.getElementById("onboarding-title-text").style.color = s.onboardingTextColor;
       document.getElementById("onboarding-subtitle-text").style.color = s.onboardingTextColor;
 
-      // Support Avatar Sync
       document.getElementById("main-support-avatar").src = s.welcomeImg;
 
-      // Form Text Sync
       document.getElementById("onboarding-form-title").innerText = s.onboardingTitle;
       document.getElementById("onboarding-form-subtitle").innerText = s.onboardingSubtitle;
       document.getElementById("chat-submit-info").style.background = s.primaryColor;
 
-      // 2. ICON LOGIC
       if (s.launcherIcon === 'custom' && s.customLauncherImg) {
         document.getElementById("launcher-icon").innerHTML = `<img src="${s.customLauncherImg}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>`;
       } else {
         document.getElementById("launcher-icon").innerHTML = ICON_SVGS[s.launcherIcon] || ICON_SVGS.bubble;
       }
 
-const existingSession = localStorage.getItem("chat_session");
-const existingEmail = localStorage.getItem("chat_user_email");
+      const existingSession = localStorage.getItem("chat_session");
+      const existingEmail = localStorage.getItem("chat_user_email");
 
-if(existingSession && existingEmail) {
-  document.getElementById("chat-onboarding-step").style.display = "none";
-  document.getElementById("chat-chat-step").style.display = "flex";
-  startPolling();
-}
+      if(existingSession && existingEmail) {
+        document.getElementById("chat-onboarding-step").style.display = "none";
+        document.getElementById("chat-chat-step").style.display = "flex";
+        startPolling();
+      }
 
-    } catch (e) { console.error("Setup Error", e); }
+    } catch (e) { 
+      console.error("Setup Error", e); 
+    }
   }
+
+  // ✅ FAQ FUNCTIONS
+  async function loadFAQs() {
+    try {
+      const response = await fetch(`${BASE_URL}/api/faq/categories?shop=${shop}`);
+      const data = await response.json();
+      faqData = data.categories || [];
+      renderFAQs();
+    } catch (error) {
+      console.error("Error loading FAQs:", error);
+      document.getElementById("faq-categories-list").innerHTML = `
+        <div class="faq-empty">
+          <div class="faq-empty-icon">❌</div>
+          <div class="faq-empty-text">Failed to load FAQs</div>
+          <p class="faq-empty-subtext">Please try again later</p>
+        </div>
+      `;
+    }
+  }
+
+  function renderFAQs() {
+    const container = document.getElementById("faq-categories-list");
+    
+    if (!faqData.length || !faqData.some(cat => cat.isActive && cat.faqs.length > 0)) {
+      container.innerHTML = `
+        <div class="faq-empty">
+          <div class="faq-empty-icon">❓</div>
+          <div class="faq-empty-text">No FAQs Available</div>
+          <p class="faq-empty-subtext">Check back later for helpful information</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+
+    faqData.forEach(category => {
+      if (!category.isActive || !category.faqs.length) return;
+
+      const categoryDiv = document.createElement('div');
+      categoryDiv.className = 'faq-category';
+      
+      let categoryHTML = `
+        <div class="faq-category-title">
+          <span>${category.title}</span>
+          <span class="faq-category-badge">${category.faqs.filter(f => f.isActive).length}</span>
+        </div>
+      `;
+
+      category.faqs.forEach(faq => {
+        if (!faq.isActive) return;
+
+        const faqId = `faq-${faq.id}`;
+        categoryHTML += `
+          <div class="faq-item" data-faq-id="${faqId}">
+            <div class="faq-question" onclick="toggleFaq('${faqId}')">
+              <span class="faq-question-text">${faq.question}</span>
+              <svg class="faq-toggle-icon" id="${faqId}-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </div>
+            <div class="faq-answer" id="${faqId}-answer">
+              <div class="faq-answer-text">${faq.answer}</div>
+            </div>
+          </div>
+        `;
+      });
+
+      categoryDiv.innerHTML = categoryHTML;
+      container.appendChild(categoryDiv);
+    });
+  }
+
+  window.toggleFaq = function(faqId) {
+    const answer = document.getElementById(`${faqId}-answer`);
+    const icon = document.getElementById(`${faqId}-icon`);
+    
+    answer.classList.toggle('open');
+    icon.classList.toggle('open');
+  };
+
+  // FAQ Search
+  document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById("faq-search-input");
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const faqItems = document.querySelectorAll('.faq-item');
+
+        faqItems.forEach(item => {
+          const question = item.querySelector('.faq-question-text').textContent.toLowerCase();
+          const answer = item.querySelector('.faq-answer-text').textContent.toLowerCase();
+          
+          if (question.includes(searchTerm) || answer.includes(searchTerm)) {
+            item.style.display = '';
+          } else {
+            item.style.display = 'none';
+          }
+        });
+
+        document.querySelectorAll('.faq-category').forEach(category => {
+          const visibleItems = category.querySelectorAll('.faq-item:not([style*="display: none"])');
+          category.style.display = visibleItems.length > 0 ? '' : 'none';
+        });
+      });
+    }
+  });
 
   async function fetchMessages() {
     const sId = localStorage.getItem("chat_session");
@@ -413,12 +710,18 @@ if(existingSession && existingEmail) {
       await fetch(`${BASE_URL}/app/chat/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sId, shop, message, fileUrl: file, email: localStorage.getItem("chat_user_email"), fname: localStorage.getItem("chat_user_fname") })
+        body: JSON.stringify({ 
+          sessionId: sId, 
+          shop, 
+          message, 
+          fileUrl: file, 
+          email: localStorage.getItem("chat_user_email"), 
+          fname: localStorage.getItem("chat_user_fname") 
+        })
       });
       fetchMessages();
     } catch (e) {}
   }
-console.log("Existing chat_session =", localStorage.getItem("chat_session"));
 
   launcher.onclick = () => {
     const open = widget.classList.toggle("chat-visible");
@@ -434,33 +737,40 @@ console.log("Existing chat_session =", localStorage.getItem("chat_session"));
       document.getElementById(`tab-${tab}`).style.display = 'flex';
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
       nav.classList.add('active');
-      if(tab === 'chat') { fetchMessages(); setTimeout(() => msgBox.scrollTop = msgBox.scrollHeight, 100); }
+      
+      if(tab === 'chat') { 
+        fetchMessages(); 
+        setTimeout(() => msgBox.scrollTop = msgBox.scrollHeight, 100); 
+      }
+      
+      if(tab === 'faq' && faqData.length === 0) {
+        loadFAQs();
+      }
     };
   });
 
-document.getElementById("chat-submit-info").onclick = async () => {
-  const f = document.getElementById("chat-fname").value;
-  const e = document.getElementById("chat-email").value;
-  if(!f || !e) return alert("Required fields missing");
+  document.getElementById("chat-submit-info").onclick = async () => {
+    const f = document.getElementById("chat-fname").value;
+    const e = document.getElementById("chat-email").value;
+    if(!f || !e) return alert("Required fields missing");
 
-  const sId = getOrCreateSessionId(); // ✅ FIXED
+    const sId = getOrCreateSessionId();
 
-  const res = await fetch(`${BASE_URL}/app/chat/register`, {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ shop, fname: f, email: e, sessionId: sId })
-  });
+    const res = await fetch(`${BASE_URL}/app/chat/register`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ shop, fname: f, email: e, sessionId: sId })
+    });
 
-  if(res.ok) {
-    localStorage.setItem("chat_user_fname", f);
-    localStorage.setItem("chat_user_email", e);
+    if(res.ok) {
+      localStorage.setItem("chat_user_fname", f);
+      localStorage.setItem("chat_user_email", e);
 
-    document.getElementById("chat-onboarding-step").style.display = "none";
-    document.getElementById("chat-chat-step").style.display = "flex";
-    startPolling();
-  }
-};
-
+      document.getElementById("chat-onboarding-step").style.display = "none";
+      document.getElementById("chat-chat-step").style.display = "flex";
+      startPolling();
+    }
+  };
 
   const fInput = document.getElementById("chat-file-input");
   document.getElementById("file-btn").onclick = () => fInput.click();
@@ -488,7 +798,10 @@ document.getElementById("chat-submit-info").onclick = async () => {
   const picker = document.getElementById("emoji-picker");
   const ems = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏"];
   picker.innerHTML = ems.map(em => `<span class="e-item" style="cursor:pointer; font-size:22px;">${em}</span>`).join("");
-  document.getElementById("emoji-btn").onclick = (e) => { e.stopPropagation(); picker.classList.toggle("hidden-picker"); };
+  document.getElementById("emoji-btn").onclick = (e) => { 
+    e.stopPropagation(); 
+    picker.classList.toggle("hidden-picker"); 
+  };
   picker.onclick = (e) => {
     if(e.target.classList.contains('e-item')) {
       chatInput.value += e.target.innerText;
@@ -509,6 +822,7 @@ document.getElementById("chat-submit-info").onclick = async () => {
   document.getElementById("start-chat-trigger").onclick = () => document.querySelector('[data-tab="chat"]').click();
 
   loadSettings();
+  loadFAQs(); // Load FAQs on init
 })();
 </script>
 
@@ -516,8 +830,6 @@ document.getElementById("chat-submit-info").onclick = async () => {
 {
   "name": "Talksy Chat",
   "target": "section",
-  "settings": [
-   
-  ]
+  "settings": []
 }
 {% endschema %}
