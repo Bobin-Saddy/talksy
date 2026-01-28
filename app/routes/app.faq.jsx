@@ -1,345 +1,231 @@
 // app/routes/app.faq.jsx
-import { useState, useEffect, useCallback } from "react";
-import { useLoaderData } from "react-router";
-import { json } from "@remix-run/node";
+import { useState, useCallback, useEffect } from "react";
+import { useLoaderData, useSubmit, useNavigate } from "react-router";
 import {
-  Page,
-  Layout,
-  Card,
-  Button,
-  Text,
-  BlockStack,
-  InlineStack,
-  Badge,
-  Modal,
-  TextField,
-  TextContainer,
-  Icon,
-  EmptyState,
-  Banner,
-  Divider,
-  Popover,
-  ActionList,
+  Page, Layout, Card, Button, Text, BlockStack, InlineStack, Badge, Modal,
+  TextField, Icon, EmptyState, Banner, Divider, Tabs, Box, Grid, Select, RangeSlider,
+  TextContainer, Link, Bleed
 } from "@shopify/polaris";
 import {
-  PlusIcon,
-  MenuVerticalIcon,
-  DragHandleIcon,
-  QuestionCircleIcon,
+  PlusIcon, DeleteIcon, EditIcon, DragHandleIcon, QuestionCircleIcon,
+  ViewIcon, LayoutIcon, DesktopIcon, SearchIcon, ChevronDownIcon
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
-/* ---------------- LOADER ---------------- */
-
 export async function loader({ request }) {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
-
-  const categories = await prisma.faqCategory.findMany({
-    where: { shop },
-    include: { faqs: { orderBy: { position: "asc" } } },
-    orderBy: { position: "asc" },
-  });
-
-  return json({ categories, shop });
+  try {
+    const categories = await prisma.faqCategory.findMany({
+      where: { shop },
+      include: { faqs: { orderBy: { position: "asc" } } },
+      orderBy: { position: "asc" }
+    });
+    return { categories, shop };
+  } catch (error) {
+    return { categories: [], shop };
+  }
 }
-
-/* ---------------- PAGE ---------------- */
 
 export default function FaqPage() {
   const { categories: initialCategories, shop } = useLoaderData();
-
   const [categories, setCategories] = useState(initialCategories);
+  const [selectedTab, setSelectedTab] = useState(0);
 
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [showFaqModal, setShowFaqModal] = useState(false);
+  // Tab Definitions
+  const tabs = [
+    { id: 'manage-faqs', content: 'Manage FAQs' },
+    { id: 'faq-page', content: 'FAQs page' },
+    { id: 'faq-block', content: 'FAQs block' },
+  ];
 
-  const [editingCategory, setEditingCategory] = useState(null);
-  const [editingFaq, setEditingFaq] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  // Appearance State (For Tab 2)
+  const [layout, setLayout] = useState('one-page'); // 'one-page' or 'card'
+  const [faqTitleColor, setFaqTitleColor] = useState('#3B3B3B');
 
-  const [categoryTitle, setCategoryTitle] = useState("");
-  const [faqQuestion, setFaqQuestion] = useState("");
-  const [faqAnswer, setFaqAnswer] = useState("");
+  // --- HANDLERS ---
 
-  /* ---------------- HELPERS ---------------- */
-
-  const refresh = async () => {
-    const res = await fetch(`/api/faq/categories?shop=${shop}`);
-    const data = await res.json();
-    setCategories(data.categories);
+  const handleToggleStatus = (id, type) => {
+    // Logic to toggle Active/Draft
+    setCategories(prev => prev.map(cat => {
+      if (type === 'category' && cat.id === id) return { ...cat, isActive: !cat.isActive };
+      if (type === 'faq') {
+        return {
+          ...cat,
+          faqs: cat.faqs.map(f => f.id === id ? { ...f, isActive: !f.isActive } : f)
+        };
+      }
+      return cat;
+    }));
   };
 
-  /* ---------------- CATEGORY ACTIONS ---------------- */
+  // --- RENDER FUNCTIONS ---
 
-  const saveCategory = async () => {
-    const fd = new FormData();
-    fd.append("shop", shop);
-    fd.append("title", categoryTitle);
-    fd.append("action", editingCategory ? "update" : "create");
-    if (editingCategory) fd.append("id", editingCategory.id);
-
-    await fetch(`/api/faq/categories`, { method: "POST", body: fd });
-    setShowCategoryModal(false);
-    refresh();
-  };
-
-  const deleteCategory = async (id) => {
-    if (!confirm("Delete category and all FAQs?")) return;
-    const fd = new FormData();
-    fd.append("id", id);
-    fd.append("action", "delete");
-    await fetch(`/api/faq/categories`, { method: "POST", body: fd });
-    refresh();
-  };
-
-  const toggleCategory = async (id) => {
-    const fd = new FormData();
-    fd.append("id", id);
-    fd.append("action", "toggle");
-    await fetch(`/api/faq/categories`, { method: "POST", body: fd });
-    refresh();
-  };
-
-  const moveCategory = async (id, dir) => {
-    const fd = new FormData();
-    fd.append("id", id);
-    fd.append("direction", dir);
-    fd.append("action", "reorder");
-    await fetch(`/api/faq/categories`, { method: "POST", body: fd });
-    refresh();
-  };
-
-  /* ---------------- FAQ ACTIONS ---------------- */
-
-  const saveFaq = async () => {
-    const fd = new FormData();
-    fd.append("shop", shop);
-    fd.append("question", faqQuestion);
-    fd.append("answer", faqAnswer);
-    fd.append("action", editingFaq ? "update" : "create");
-
-    if (editingFaq) fd.append("id", editingFaq.id);
-    else fd.append("categoryId", selectedCategory.id);
-
-    await fetch(`/api/faq/items`, { method: "POST", body: fd });
-    setShowFaqModal(false);
-    refresh();
-  };
-
-  const deleteFaq = async (id) => {
-    if (!confirm("Delete FAQ?")) return;
-    const fd = new FormData();
-    fd.append("id", id);
-    fd.append("action", "delete");
-    await fetch(`/api/faq/items`, { method: "POST", body: fd });
-    refresh();
-  };
-
-  const toggleFaq = async (id) => {
-    const fd = new FormData();
-    fd.append("id", id);
-    fd.append("action", "toggle");
-    await fetch(`/api/faq/items`, { method: "POST", body: fd });
-    refresh();
-  };
-
-  const moveFaq = async (id, dir) => {
-    const fd = new FormData();
-    fd.append("id", id);
-    fd.append("direction", dir);
-    fd.append("action", "reorder");
-    await fetch(`/api/faq/items`, { method: "POST", body: fd });
-    refresh();
-  };
-
-  /* ---------------- UI ---------------- */
-
-  return (
-    <Page
-      title="FAQs"
-      primaryAction={{
-        content: "Add Category",
-        icon: PlusIcon,
-        onAction: () => {
-          setEditingCategory(null);
-          setCategoryTitle("");
-          setShowCategoryModal(true);
-        },
-      }}
-    >
-      <Layout>
-        <Layout.Section>
-          <Banner tone="info">
-            FAQs will appear automatically in your widget.
-          </Banner>
-
-          <BlockStack gap="400">
-            {categories.length === 0 && (
-              <Card>
-                <EmptyState heading="Create your first category">
-                  <Button onClick={() => setShowCategoryModal(true)}>
-                    Add Category
+  // TAB 1: MANAGE FAQS
+  const renderManageFaqs = () => (
+    <BlockStack gap="400">
+      <Banner tone="info">
+        FAQs will automatically appear in your chat widget. Organize them by categories for better user experience.
+      </Banner>
+      {categories.length === 0 ? (
+        <Card><EmptyState heading="No FAQs yet" action={{ content: 'Add Category' }} image="" /></Card>
+      ) : (
+        categories.map((category) => (
+          <Card key={category.id}>
+            <BlockStack gap="400">
+              <InlineStack align="space-between">
+                <InlineStack gap="200">
+                  <Icon source={DragHandleIcon} tone="base" />
+                  <Text variant="headingMd">{category.title}</Text>
+                  <Button size="micro" onClick={() => handleToggleStatus(category.id, 'category')}>
+                    {category.isActive ? "Active" : "Draft"}
                   </Button>
-                </EmptyState>
-              </Card>
-            )}
-
-            {categories.map((category) => (
-              <Card key={category.id}>
-                <BlockStack gap="300">
+                </InlineStack>
+                <InlineStack gap="200">
+                  <Button icon={PlusIcon}>Add FAQ</Button>
+                  <Button icon={EditIcon} />
+                  <Button icon={DeleteIcon} tone="critical" />
+                </InlineStack>
+              </InlineStack>
+              <Divider />
+              {category.faqs.map((faq) => (
+                <Box key={faq.id} padding="300" background="bg-surface-secondary" borderRadius="200">
                   <InlineStack align="space-between">
-                    <InlineStack gap="200">
-                      <Icon source={DragHandleIcon} />
-                      <Text variant="headingMd">{category.title}</Text>
-                      <Badge tone={category.isActive ? "success" : "critical"}>
-                        {category.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                      <Badge>{category.faqs.length} FAQs</Badge>
+                    <InlineStack gap="300">
+                       <Icon source={QuestionCircleIcon} />
+                       <BlockStack>
+                          <Text variant="bodyMd" fontWeight="bold">{faq.question}</Text>
+                          <Text tone="subdued">{faq.answer}</Text>
+                       </BlockStack>
                     </InlineStack>
-
-                    <InlineStack gap="200">
-                      <Button onClick={() => {
-                        setSelectedCategory(category);
-                        setEditingFaq(null);
-                        setFaqQuestion("");
-                        setFaqAnswer("");
-                        setShowFaqModal(true);
-                      }}>
-                        Add FAQ
-                      </Button>
-
-                      <CategoryActions
-                        category={category}
-                        onEdit={() => {
-                          setEditingCategory(category);
-                          setCategoryTitle(category.title);
-                          setShowCategoryModal(true);
-                        }}
-                        onDelete={() => deleteCategory(category.id)}
-                        onToggle={() => toggleCategory(category.id)}
-                        onMoveUp={() => moveCategory(category.id, "up")}
-                        onMoveDown={() => moveCategory(category.id, "down")}
-                      />
+                    <InlineStack gap="100">
+                       <Button size="slim" onClick={() => handleToggleStatus(faq.id, 'faq')}>
+                         {faq.isActive ? "Active" : "Draft"}
+                       </Button>
+                       <Button icon={EditIcon} size="slim" />
+                       <Button icon={DeleteIcon} tone="critical" size="slim" />
                     </InlineStack>
                   </InlineStack>
+                </Box>
+              ))}
+            </BlockStack>
+          </Card>
+        ))
+      )}
+    </BlockStack>
+  );
 
-                  <Divider />
+  // TAB 2: FAQ PAGE SETTINGS
+  const renderFaqPageSettings = () => (
+    <Grid>
+      <Grid.Cell columnSpan={{ xs: 6, md: 7 }}>
+        <BlockStack gap="400">
+          <Card>
+            <BlockStack gap="300">
+              <InlineStack align="space-between">
+                <Text variant="headingSm">Embed app to your theme</Text>
+                <Button variant="primary">Turn on</Button>
+              </InlineStack>
+              <Divider />
+              <InlineStack align="space-between">
+                <Text>Display FAQs page</Text>
+                <Button variant="tertiary" icon={ViewIcon} />
+              </InlineStack>
+            </BlockStack>
+          </Card>
 
-                  <BlockStack gap="200">
-                    {category.faqs.map((faq) => (
-                      <Card key={faq.id} background="bg-surface-secondary">
-                        <InlineStack align="space-between">
-                          <BlockStack>
-                            <InlineStack gap="200">
-                              <Icon source={QuestionCircleIcon} />
-                              <Text fontWeight="semibold">{faq.question}</Text>
-                              <Badge tone={faq.isActive ? "success" : "critical"}>
-                                {faq.isActive ? "Active" : "Inactive"}
-                              </Badge>
-                            </InlineStack>
-                            <Text tone="subdued">{faq.answer}</Text>
-                          </BlockStack>
+          <Card>
+            <BlockStack gap="400">
+              <Text variant="headingMd">Appearance</Text>
+              <Text variant="headingSm">Layout</Text>
+              <InlineStack gap="400">
+                <div 
+                  onClick={() => setLayout('one-page')}
+                  style={{ 
+                    cursor: 'pointer', border: layout === 'one-page' ? '2px solid #008060' : '1px solid #ddd',
+                    padding: '12px', borderRadius: '8px', flex: 1 
+                  }}
+                >
+                  <Box background="bg-surface-secondary" height="60px" marginBottom="200" />
+                  <Text fontWeight="bold">1 page layout</Text>
+                  <Text variant="bodyXs" tone="subdued">Simple list for all FAQs</Text>
+                </div>
+                <div 
+                  onClick={() => setLayout('card')}
+                  style={{ 
+                    cursor: 'pointer', border: layout === 'card' ? '2px solid #008060' : '1px solid #ddd',
+                    padding: '12px', borderRadius: '8px', flex: 1 
+                  }}
+                >
+                  <Box background="bg-surface-secondary" height="60px" marginBottom="200" />
+                  <Text fontWeight="bold">Card layout</Text>
+                  <Text variant="bodyXs" tone="subdued">Detailed help center style</Text>
+                </div>
+              </InlineStack>
+            </BlockStack>
+          </Card>
+        </BlockStack>
+      </Grid.Cell>
 
-                          <FaqActions
-                            onEdit={() => {
-                              setEditingFaq(faq);
-                              setSelectedCategory(category);
-                              setFaqQuestion(faq.question);
-                              setFaqAnswer(faq.answer);
-                              setShowFaqModal(true);
-                            }}
-                            onDelete={() => deleteFaq(faq.id)}
-                            onToggle={() => toggleFaq(faq.id)}
-                            onMoveUp={() => moveFaq(faq.id, "up")}
-                            onMoveDown={() => moveFaq(faq.id, "down")}
-                          />
-                        </InlineStack>
-                      </Card>
-                    ))}
-                  </BlockStack>
-                </BlockStack>
-              </Card>
-            ))}
-          </BlockStack>
-        </Layout.Section>
-      </Layout>
+      <Grid.Cell columnSpan={{ xs: 6, md: 5 }}>
+        <Card padding="0">
+          <Box padding="400" borderBottomWidth="1px" borderColor="border">
+            <InlineStack align="space-between">
+               <Text variant="headingSm">Preview</Text>
+               <Button size="slim" icon={DesktopIcon}>Desktop</Button>
+            </InlineStack>
+          </Box>
+          <Box padding="600" background="bg-surface-secondary">
+             <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                <Text variant="headingLg" alignment="center">Frequently Asked Questions</Text>
+                <div style={{ marginTop: '15px', padding: '8px', border: '1px solid #eee', borderRadius: '4px' }}>
+                   <InlineStack align="space-between"><Text tone="subdued">Search...</Text><Icon source={SearchIcon} /></InlineStack>
+                </div>
+                <div style={{ marginTop: '20px' }}>
+                   <Text fontWeight="bold">Order & Shipping</Text>
+                   <Box paddingBlock="200" borderBottomWidth="1px" borderColor="border">
+                      <InlineStack align="space-between"><Text variant="bodySm">How to track my order?</Text><Icon source={ChevronDownIcon} /></InlineStack>
+                   </Box>
+                </div>
+             </div>
+          </Box>
+        </Card>
+      </Grid.Cell>
+    </Grid>
+  );
 
-      {/* CATEGORY MODAL */}
-      <Modal
-        open={showCategoryModal}
-        onClose={() => setShowCategoryModal(false)}
-        title="Category"
-        primaryAction={{ content: "Save", onAction: saveCategory }}
-      >
-        <Modal.Section>
-          <TextField
-            label="Title"
-            value={categoryTitle}
-            onChange={setCategoryTitle}
-          />
-        </Modal.Section>
-      </Modal>
+  // TAB 3: FAQ BLOCKS
+  const renderFaqBlocks = () => (
+    <Card>
+      <Box padding="1000">
+        <EmptyState
+          heading="Add FAQs block"
+          action={{ content: 'Add block' }}
+          image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+        >
+          <p>Add an FAQs block to display specific FAQs on any pages of your store.</p>
+        </EmptyState>
+      </Box>
+    </Card>
+  );
 
-      {/* FAQ MODAL */}
-      <Modal
-        open={showFaqModal}
-        onClose={() => setShowFaqModal(false)}
-        title="FAQ"
-        primaryAction={{ content: "Save", onAction: saveFaq }}
-      >
-        <Modal.Section>
-          <BlockStack gap="200">
-            <TextField label="Question" value={faqQuestion} onChange={setFaqQuestion} />
-            <TextField multiline={4} label="Answer" value={faqAnswer} onChange={setFaqAnswer} />
-          </BlockStack>
-        </Modal.Section>
-      </Modal>
+  return (
+    <Page 
+      title="FAQs" 
+      primaryAction={selectedTab === 0 ? { content: 'Add Category', icon: PlusIcon } : null}
+    >
+      <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
+        <Box paddingBlockStart="400">
+          {selectedTab === 0 && renderManageFaqs()}
+          {selectedTab === 1 && renderFaqPageSettings()}
+          {selectedTab === 2 && renderFaqBlocks()}
+        </Box>
+      </Tabs>
+      
+      <Box paddingBlock="600" textAlign="center">
+        <Text tone="subdued">Created by <Link url="#">Chatty</Link> with love</Text>
+      </Box>
     </Page>
-  );
-}
-
-/* ---------------- ACTION COMPONENTS ---------------- */
-
-function CategoryActions({ onEdit, onDelete, onToggle, onMoveUp, onMoveDown }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover
-      active={open}
-      activator={<Button icon={MenuVerticalIcon} onClick={() => setOpen(!open)} />}
-      onClose={() => setOpen(false)}
-    >
-      <ActionList
-        items={[
-          { content: "Edit", onAction: onEdit },
-          { content: "Enable / Disable", onAction: onToggle },
-          { content: "Move Up", onAction: onMoveUp },
-          { content: "Move Down", onAction: onMoveDown },
-          { content: "Delete", destructive: true, onAction: onDelete },
-        ]}
-      />
-    </Popover>
-  );
-}
-
-function FaqActions({ onEdit, onDelete, onToggle, onMoveUp, onMoveDown }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover
-      active={open}
-      activator={<Button size="slim" icon={MenuVerticalIcon} onClick={() => setOpen(!open)} />}
-      onClose={() => setOpen(false)}
-    >
-      <ActionList
-        items={[
-          { content: "Edit", onAction: onEdit },
-          { content: "Enable / Disable", onAction: onToggle },
-          { content: "Move Up", onAction: onMoveUp },
-          { content: "Move Down", onAction: onMoveDown },
-          { content: "Delete", destructive: true, onAction: onDelete },
-        ]}
-      />
-    </Popover>
   );
 }
