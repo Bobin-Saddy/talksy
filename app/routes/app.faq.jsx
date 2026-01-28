@@ -1,5 +1,5 @@
-// app/routes/app.faq.jsx - Complete with 3 Tabs
-import { useState, useEffect } from "react";
+// app/routes/app.faq.jsx - Enhanced with Live Preview & Dynamic Page Creation
+import { useState, useEffect, useCallback } from "react";
 import { useLoaderData } from "react-router";
 import { json } from "@remix-run/node";
 import {
@@ -26,7 +26,8 @@ import {
   Box,
   ButtonGroup,
   Checkbox,
-  Thumbnail
+  Thumbnail,
+  Spinner
 } from "@shopify/polaris";
 import {
   PlusIcon,
@@ -37,7 +38,8 @@ import {
   MenuVerticalIcon,
   ArrowUpIcon,
   ArrowDownIcon,
-  ViewIcon
+  ViewIcon,
+  MobileIcon
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
@@ -47,7 +49,7 @@ export async function loader({ request }) {
   const shop = session.shop;
 
   try {
-    const [categories, settings] = await Promise.all([
+    const [categories, settings, faqPage] = await Promise.all([
       prisma.faqCategory.findMany({
         where: { shop },
         include: {
@@ -58,6 +60,9 @@ export async function loader({ request }) {
         orderBy: { position: "asc" }
       }),
       prisma.faqPageSettings.findFirst({
+        where: { shop }
+      }),
+      prisma.faqPage.findFirst({
         where: { shop }
       })
     ]);
@@ -91,25 +96,34 @@ export async function loader({ request }) {
       customCSS: ""
     };
 
-    return json({ categories, settings: defaultSettings, shop });
+    const defaultPage = faqPage || {
+      handle: "faqs",
+      title: "FAQs",
+      isPublished: true
+    };
+
+    return json({ categories, settings: defaultSettings, faqPage: defaultPage, shop });
   } catch (error) {
     console.error("Error loading FAQs:", error);
-    return json({ categories: [], settings: {}, shop });
+    return json({ categories: [], settings: {}, faqPage: {}, shop });
   }
 }
 
 export default function FaqPage() {
-  const { categories: initialCategories, settings: initialSettings, shop } = useLoaderData();
+  const { categories: initialCategories, settings: initialSettings, faqPage: initialFaqPage, shop } = useLoaderData();
 
   const [selectedTab, setSelectedTab] = useState(0);
   const [categories, setCategories] = useState(initialCategories);
   const [settings, setSettings] = useState(initialSettings);
+  const [faqPage, setFaqPage] = useState(initialFaqPage);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingPage, setIsCreatingPage] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
   
   // Modals
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showFaqModal, setShowFaqModal] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
   
   // Editing states
   const [editingCategory, setEditingCategory] = useState(null);
@@ -121,6 +135,8 @@ export default function FaqPage() {
   const [faqQuestion, setFaqQuestion] = useState("");
   const [faqAnswer, setFaqAnswer] = useState("");
   const [faqIcon, setFaqIcon] = useState("QuestionCircleIcon");
+  const [pageHandle, setPageHandle] = useState(faqPage?.handle || "faqs");
+  const [pageTitle, setPageTitle] = useState(faqPage?.title || "FAQs");
 
   // Popover states
   const [activeCategoryPopover, setActiveCategoryPopover] = useState(null);
@@ -159,6 +175,11 @@ export default function FaqPage() {
     }
   }, [showFaqModal]);
 
+  // Trigger preview update when settings or categories change
+  useEffect(() => {
+    setPreviewKey(prev => prev + 1);
+  }, [settings, categories]);
+
   // Refresh data
   async function refreshCategories() {
     try {
@@ -169,6 +190,38 @@ export default function FaqPage() {
       console.error("Error refreshing:", error);
     }
   }
+
+  // Create or update Shopify page
+  const handleCreateOrUpdatePage = async () => {
+    setIsCreatingPage(true);
+    try {
+      const response = await fetch(`/api/faq/page`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shop,
+          handle: pageHandle,
+          title: pageTitle,
+          settings,
+          categories
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setFaqPage(result.page);
+        shopify.toast.show("FAQ page created/updated successfully!");
+      } else {
+        shopify.toast.show(result.error || "Failed to create page", { isError: true });
+      }
+    } catch (error) {
+      console.error("Error creating page:", error);
+      shopify.toast.show("Failed to create page", { isError: true });
+    } finally {
+      setIsCreatingPage(false);
+    }
+  };
 
   // Category handlers
   const handleAddCategory = () => {
@@ -207,6 +260,8 @@ export default function FaqPage() {
       if (result.success) {
         await refreshCategories();
         setShowCategoryModal(false);
+        // Auto-update page
+        await handleCreateOrUpdatePage();
       }
     } catch (error) {
       console.error("Error saving category:", error);
@@ -231,6 +286,7 @@ export default function FaqPage() {
 
       if (result.success) {
         setCategories(categories.filter(cat => cat.id !== categoryId));
+        await handleCreateOrUpdatePage();
       }
     } catch (error) {
       console.error("Error deleting category:", error);
@@ -257,7 +313,10 @@ export default function FaqPage() {
       });
 
       const result = await response.json();
-      if (result.success) await refreshCategories();
+      if (result.success) {
+        await refreshCategories();
+        await handleCreateOrUpdatePage();
+      }
     } catch (error) {
       console.error("Error moving category:", error);
     }
@@ -283,7 +342,10 @@ export default function FaqPage() {
       });
 
       const result = await response.json();
-      if (result.success) await refreshCategories();
+      if (result.success) {
+        await refreshCategories();
+        await handleCreateOrUpdatePage();
+      }
     } catch (error) {
       console.error("Error moving category:", error);
     }
@@ -337,6 +399,7 @@ export default function FaqPage() {
       if (result.success) {
         await refreshCategories();
         setShowFaqModal(false);
+        await handleCreateOrUpdatePage();
       }
     } catch (error) {
       console.error("Error saving FAQ:", error);
@@ -369,6 +432,7 @@ export default function FaqPage() {
           }
           return cat;
         }));
+        await handleCreateOrUpdatePage();
       }
     } catch (error) {
       console.error("Error deleting FAQ:", error);
@@ -395,7 +459,10 @@ export default function FaqPage() {
       });
 
       const result = await response.json();
-      if (result.success) await refreshCategories();
+      if (result.success) {
+        await refreshCategories();
+        await handleCreateOrUpdatePage();
+      }
     } catch (error) {
       console.error("Error moving FAQ:", error);
     }
@@ -421,7 +488,10 @@ export default function FaqPage() {
       });
 
       const result = await response.json();
-      if (result.success) await refreshCategories();
+      if (result.success) {
+        await refreshCategories();
+        await handleCreateOrUpdatePage();
+      }
     } catch (error) {
       console.error("Error moving FAQ:", error);
     }
@@ -439,6 +509,7 @@ export default function FaqPage() {
 
       const result = await response.json();
       if (result.success) {
+        await handleCreateOrUpdatePage();
         shopify.toast.show("Settings saved successfully!");
       }
     } catch (error) {
@@ -449,7 +520,7 @@ export default function FaqPage() {
     }
   };
 
-  const faqPageUrl = `https://${shop}/pages/faqs`;
+  const faqPageUrl = `https://${shop.replace('.myshopify.com', '')}/pages/${pageHandle}`;
 
   return (
     <Page
@@ -457,14 +528,19 @@ export default function FaqPage() {
       subtitle="Create and manage FAQ categories and questions"
       secondaryActions={[
         {
-          content: "Preview",
+          content: showPreview ? "Hide Preview" : "Show Preview",
+          icon: MobileIcon,
+          onAction: () => setShowPreview(!showPreview)
+        },
+        {
+          content: "View Live Page",
           icon: ViewIcon,
           onAction: () => window.open(faqPageUrl, '_blank')
         }
       ]}
     >
       <Layout>
-        <Layout.Section>
+        <Layout.Section variant={showPreview ? "oneThird" : "fullWidth"}>
           <Card>
             <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
               {/* TAB 1: MANAGE FAQs */}
@@ -671,6 +747,47 @@ export default function FaqPage() {
               {selectedTab === 1 && (
                 <Box padding="400">
                   <BlockStack gap="500">
+                    {/* Page URL Configuration */}
+                    <Card>
+                      <BlockStack gap="400">
+                        <Text variant="headingMd" as="h3">Page Configuration</Text>
+                        
+                        <TextField
+                          label="Page Title"
+                          value={pageTitle}
+                          onChange={setPageTitle}
+                          placeholder="FAQs"
+                          autoComplete="off"
+                          helpText="This will be the page title in your store"
+                        />
+
+                        <TextField
+                          label="Page Handle (URL)"
+                          value={pageHandle}
+                          onChange={(value) => setPageHandle(value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                          placeholder="faqs"
+                          autoComplete="off"
+                          prefix={`https://${shop.replace('.myshopify.com', '')}/pages/`}
+                          helpText="This creates the URL for your FAQ page"
+                        />
+
+                        <InlineStack gap="200">
+                          <Button 
+                            variant="primary" 
+                            onClick={handleCreateOrUpdatePage}
+                            loading={isCreatingPage}
+                          >
+                            {faqPage?.id ? 'Update Page' : 'Create Page'}
+                          </Button>
+                          {faqPage?.id && (
+                            <Button onClick={() => window.open(faqPageUrl, '_blank')}>
+                              View Page
+                            </Button>
+                          )}
+                        </InlineStack>
+                      </BlockStack>
+                    </Card>
+
                     {/* Embed app to theme */}
                     <Card>
                       <BlockStack gap="300">
@@ -696,26 +813,6 @@ export default function FaqPage() {
                             onChange={(value) => setSettings({...settings, headerEnabled: value})}
                           />
                         </InlineStack>
-                      </BlockStack>
-                    </Card>
-
-                    {/* FAQ page URL */}
-                    <Card>
-                      <BlockStack gap="300">
-                        <Text variant="headingSm" as="h3">FAQ page URL</Text>
-                        <TextField
-                          value={faqPageUrl}
-                          readOnly
-                          autoComplete="off"
-                          connectedRight={
-                            <Button onClick={() => {
-                              navigator.clipboard.writeText(faqPageUrl);
-                              shopify.toast.show("URL copied!");
-                            }}>
-                              Copy
-                            </Button>
-                          }
-                        />
                       </BlockStack>
                     </Card>
 
@@ -791,13 +888,6 @@ export default function FaqPage() {
                                 type="color"
                                 autoComplete="off"
                               />
-                              <TextField
-                                label="Button label"
-                                value={settings.customAccentColor}
-                                onChange={(value) => setSettings({...settings, customAccentColor: value})}
-                                type="color"
-                                autoComplete="off"
-                              />
                             </BlockStack>
                           )}
                         </BlockStack>
@@ -809,7 +899,6 @@ export default function FaqPage() {
                       <BlockStack gap="400">
                         <InlineStack align="space-between">
                           <Text variant="headingMd" as="h3">Header</Text>
-                          <Button onClick={() => {}}>^</Button>
                         </InlineStack>
 
                         <TextField
@@ -830,7 +919,7 @@ export default function FaqPage() {
                         />
 
                         <Checkbox
-                          label="Banner"
+                          label="Show Banner"
                           checked={settings.headerEnabled}
                           onChange={(value) => setSettings({...settings, headerEnabled: value})}
                         />
@@ -859,10 +948,7 @@ export default function FaqPage() {
                     {/* Advanced settings */}
                     <Card>
                       <BlockStack gap="400">
-                        <InlineStack align="space-between">
-                          <Text variant="headingMd" as="h3">Advanced settings</Text>
-                          <Button onClick={() => {}}>^</Button>
-                        </InlineStack>
+                        <Text variant="headingMd" as="h3">Advanced settings</Text>
 
                         <TextField
                           label="Customize CSS"
@@ -874,7 +960,7 @@ export default function FaqPage() {
                         />
 
                         <Text tone="subdued" variant="bodySm">
-                          Chat with us to style FAQs page fit with your theme. Chat now.
+                          Add custom CSS to style your FAQ page to match your theme.
                         </Text>
                       </BlockStack>
                     </Card>
@@ -924,6 +1010,54 @@ export default function FaqPage() {
             </Tabs>
           </Card>
         </Layout.Section>
+
+        {/* Live Preview Panel */}
+        {showPreview && (
+          <Layout.Section variant="oneThird">
+            <div style={{ position: 'sticky', top: '20px' }}>
+              <Card>
+                <BlockStack gap="400">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Icon source={MobileIcon} />
+                      <Text variant="headingMd" as="h3">Live Preview</Text>
+                    </InlineStack>
+                    <Button size="slim" onClick={() => setShowPreview(false)}>
+                      Hide
+                    </Button>
+                  </InlineStack>
+                  
+                  <div style={{
+                    border: '2px solid #E1E3E5',
+                    borderRadius: '24px',
+                    padding: '12px',
+                    backgroundColor: '#000',
+                    maxWidth: '375px',
+                    margin: '0 auto'
+                  }}>
+                    <div style={{
+                      backgroundColor: '#fff',
+                      borderRadius: '16px',
+                      height: '667px',
+                      overflow: 'auto',
+                      position: 'relative'
+                    }}>
+                      <FAQPreview 
+                        settings={settings} 
+                        categories={categories}
+                        key={previewKey}
+                      />
+                    </div>
+                  </div>
+                  
+                  <Text tone="subdued" alignment="center" variant="bodySm">
+                    Changes update automatically
+                  </Text>
+                </BlockStack>
+              </Card>
+            </div>
+          </Layout.Section>
+        )}
       </Layout>
 
       {/* Category Modal */}
@@ -1010,5 +1144,188 @@ export default function FaqPage() {
         </Modal.Section>
       </Modal>
     </Page>
+  );
+}
+
+// Live Preview Component
+function FAQPreview({ settings, categories }) {
+  const [openFaq, setOpenFaq] = useState(null);
+
+  return (
+    <div style={{
+      backgroundColor: settings.customBackgroundColor || '#FFFFFF',
+      minHeight: '100%',
+      padding: '20px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    }}>
+      {/* Header */}
+      {settings.headerEnabled && (
+        <div style={{
+          textAlign: settings.headerAlignment || 'center',
+          marginBottom: '30px'
+        }}>
+          <h1 style={{
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: settings.customTextColor || '#000000',
+            marginBottom: '8px'
+          }}>
+            {settings.headerTitle || 'Frequently Asked Questions'}
+          </h1>
+          <p style={{
+            fontSize: '14px',
+            color: settings.customAccentColor || '#666666'
+          }}>
+            {settings.headerDescription || 'Got a question? We are here to answer!'}
+          </p>
+        </div>
+      )}
+
+      {/* Categories and FAQs */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {categories.filter(cat => cat.isActive).map((category) => (
+          <div key={category.id}>
+            {settings.showCategories && (
+              <h2 style={{
+                fontSize: '18px',
+                fontWeight: '600',
+                color: settings.customTextColor || '#000000',
+                marginBottom: '12px'
+              }}>
+                {category.title}
+              </h2>
+            )}
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {category.faqs.filter(faq => faq.isActive).map((faq) => (
+                <div 
+                  key={faq.id}
+                  style={{
+                    border: '1px solid #E1E3E5',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    backgroundColor: '#fff'
+                  }}
+                >
+                  <button
+                    onClick={() => setOpenFaq(openFaq === faq.id ? null : faq.id)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      textAlign: 'left',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <span style={{
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      color: settings.customTextColor || '#000000'
+                    }}>
+                      {faq.question}
+                    </span>
+                    <span style={{ fontSize: '12px' }}>
+                      {openFaq === faq.id ? '−' : '+'}
+                    </span>
+                  </button>
+                  
+                  {openFaq === faq.id && (
+                    <div style={{
+                      padding: '0 16px 12px',
+                      fontSize: '13px',
+                      color: settings.customAccentColor || '#666666',
+                      lineHeight: '1.5'
+                    }}>
+                      {faq.answer}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Contact Form */}
+      {settings.contactFormEnabled && (
+        <div style={{
+          marginTop: '30px',
+          padding: '16px',
+          border: '1px solid #E1E3E5',
+          borderRadius: '8px',
+          backgroundColor: '#F9FAFB'
+        }}>
+          <h3 style={{
+            fontSize: '16px',
+            fontWeight: '600',
+            marginBottom: '8px',
+            color: settings.customTextColor || '#000000'
+          }}>
+            {settings.contactFormTitle}
+          </h3>
+          <p style={{
+            fontSize: '13px',
+            color: settings.customAccentColor || '#666666',
+            marginBottom: '12px'
+          }}>
+            {settings.contactFormDescription}
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <input 
+              type="email" 
+              placeholder={settings.contactFormEmailPlaceholder}
+              style={{
+                padding: '8px 12px',
+                fontSize: '13px',
+                border: '1px solid #E1E3E5',
+                borderRadius: '4px'
+              }}
+            />
+            <textarea 
+              placeholder={settings.contactFormMessagePlaceholder}
+              style={{
+                padding: '8px 12px',
+                fontSize: '13px',
+                border: '1px solid #E1E3E5',
+                borderRadius: '4px',
+                minHeight: '60px',
+                resize: 'vertical'
+              }}
+            />
+            <button style={{
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: '500',
+              color: '#fff',
+              backgroundColor: settings.customAccentColor || '#5C6AC4',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}>
+              {settings.contactFormButtonText}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Custom CSS Preview Note */}
+      {settings.customCSS && (
+        <div style={{
+          marginTop: '20px',
+          padding: '12px',
+          backgroundColor: '#FFF4E5',
+          border: '1px solid #FFD580',
+          borderRadius: '4px',
+          fontSize: '12px',
+          color: '#663C00'
+        }}>
+          ⚠️ Custom CSS is applied on the live page
+        </div>
+      )}
+    </div>
   );
 }
