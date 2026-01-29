@@ -74,7 +74,6 @@ export async function action({ request }) {
                   id
                   handle
                   title
-                  onlineStoreUrl
                 }
                 userErrors {
                   field
@@ -118,7 +117,6 @@ export async function action({ request }) {
                   id
                   handle
                   title
-                  onlineStoreUrl
                 }
                 userErrors {
                   field
@@ -154,11 +152,15 @@ export async function action({ request }) {
         // Update our database record with the Shopify page ID
         if (shopifyPage) {
           console.log("Updating database with Shopify page ID:", shopifyPage.id);
+          
+          // Construct the page URL manually
+          const pageUrl = `https://${shop.replace('.myshopify.com', '')}.myshopify.com/pages/${shopifyPage.handle}`;
+          
           await prisma.faqPage.update({
             where: { id: faqPage.id },
             data: {
               shopifyPageId: shopifyPage.id,
-              pageUrl: shopifyPage.onlineStoreUrl
+              pageUrl: pageUrl
             }
           });
         }
@@ -172,12 +174,15 @@ export async function action({ request }) {
       }, { status: 500 });
     }
 
+    // Construct final page URL
+    const finalPageUrl = `https://${shop.replace('.myshopify.com', '')}.myshopify.com/pages/${handle}`;
+
     return json({
       success: true,
       page: {
         ...faqPage,
-        shopifyPageId: shopifyPage.id,
-        pageUrl: shopifyPage.onlineStoreUrl
+        shopifyPageId: shopifyPage?.id || faqPage.shopifyPageId,
+        pageUrl: finalPageUrl
       }
     });
 
