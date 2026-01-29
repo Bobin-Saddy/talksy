@@ -1,109 +1,213 @@
-import { useEffect } from "react";
-import { useFetcher } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
-import { boundary } from "@shopify/shopify-app-react-router/server";
-import { authenticate } from "../shopify.server";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Page,
+  Layout,
+  Card,
+  Text,
+  Button,
+  Badge,
+  ProgressBar,
+  TextField,
+  Collapsible,
+  BlockStack,
+  InlineStack,
+  Box,
+  Divider,
+} from "@shopify/polaris";
+import { RefreshIcon, CalendarIcon } from "@shopify/polaris-icons";
 
-export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-  return null;
-};
+export default function ChatAnalytics() {
+  const [analytics, setAnalytics] = useState({
+    totalConversations: 0,
+    resolutionRate: 0,
+    assistedRevenue: 0,
+    chatToSalesRate: 0,
+    totalSalesShare: 0,
+    loading: false,
+  });
 
-export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
-  return { success: true, timestamp: new Date().toISOString() };
-};
+  const [dateRange] = useState("Last 3 days");
+  const [setupProgress] = useState({ completed: 3, total: 11 });
+  const [liveChatOpen, setLiveChatOpen] = useState(false);
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [featureTitle, setFeatureTitle] = useState("");
+  const [featureDescription, setFeatureDescription] = useState("");
 
-export default function Index() {
-  const fetcher = useFetcher();
-  const shopify = useAppBridge();
-  const isLoading = ["loading", "submitting"].includes(fetcher.state);
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      setAnalytics((prev) => ({ ...prev, loading: true }));
+
+      // fake API delay
+      setTimeout(() => {
+        setAnalytics({
+          totalConversations: 12,
+          resolutionRate: 85,
+          assistedRevenue: 1240,
+          chatToSalesRate: 22,
+          totalSalesShare: 18,
+          loading: false,
+        });
+      }, 800);
+    } catch (e) {
+      setAnalytics((prev) => ({ ...prev, loading: false }));
+    }
+  }, []);
 
   useEffect(() => {
-    if (fetcher.data?.success) {
-      shopify.toast.show("Chat widget settings saved!");
-    }
-  }, [fetcher.data?.success, shopify]);
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
-  const saveSettings = () => fetcher.submit({}, { method: "POST" });
+  const handleSubmitFeature = () => {
+    if (!featureTitle || !featureDescription) return;
 
-  const openThemeEditor = () => {
-    window.open("shopify://admin/themes/current/editor?context=apps", "_top");
+    console.log("Feature submitted:", featureTitle, featureDescription);
+
+    setFeatureTitle("");
+    setFeatureDescription("");
   };
 
+  const progressPercent = (setupProgress.completed / setupProgress.total) * 100;
+
   return (
-    <s-page heading="Talksy Chat – Setup & Dashboard">
+    <Page
+      title="Overview"
+      secondaryActions={[
+        {
+          content: "Reload",
+          icon: RefreshIcon,
+          onAction: fetchAnalytics,
+          loading: analytics.loading,
+        },
+      ]}
+    >
+      <Layout>
+        {/* Header Row */}
+        <Layout.Section>
+          <InlineStack gap="400" align="start">
+            <Badge icon={CalendarIcon}>{dateRange}</Badge>
+            <Text tone="subdued">Compare to: 24 Jan - 26 Jan 2026</Text>
+            <Box paddingInlineStart="auto">
+              <Text tone="subdued">Updated 33m ago</Text>
+            </Box>
+          </InlineStack>
+        </Layout.Section>
 
-      <s-button slot="primary-action" onClick={saveSettings} {...(isLoading ? { loading: true } : {})}>
-        Save & Publish Chat
-      </s-button>
+        {/* Metrics */}
+        <Layout.Section>
+          <InlineStack gap="400">
+            <Card>
+              <Text tone="subdued">Total conversations</Text>
+              <Text variant="heading2xl">{analytics.totalConversations}</Text>
+            </Card>
+            <Card>
+              <Text tone="subdued">Resolution rate</Text>
+              <Text variant="heading2xl">{analytics.resolutionRate}%</Text>
+            </Card>
+            <Card>
+              <Text tone="subdued">Assisted revenue</Text>
+              <Text variant="heading2xl">₹{analytics.assistedRevenue}</Text>
+            </Card>
+          </InlineStack>
+        </Layout.Section>
 
-      {/* ✅ ONBOARDING SECTION (CRITICAL FOR REVIEW) */}
-      <s-section heading="🚀 Step-by-Step Setup Guide">
+        <Layout.Section>
+          <InlineStack gap="400">
+            <Card>
+              <Text tone="subdued">Chat-to-sales rate</Text>
+              <Text variant="heading2xl">{analytics.chatToSalesRate}%</Text>
+            </Card>
+            <Card>
+              <Text tone="subdued">Sales share by Chatty</Text>
+              <Text variant="heading2xl">{analytics.totalSalesShare}%</Text>
+            </Card>
+          </InlineStack>
+        </Layout.Section>
 
-        <s-box padding="base" borderWidth="base" borderRadius="base">
-          <s-heading size="small">Step 1: Add Talksy to your theme</s-heading>
-          <s-paragraph>
-            Click the button below to open your theme editor.
-          </s-paragraph>
+        {/* Setup */}
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="400">
+              <Text variant="headingMd">Set up live chat</Text>
+              <Text tone="subdued">
+                {setupProgress.completed} of {setupProgress.total} tasks completed
+              </Text>
 
-          <s-button onClick={openThemeEditor}>
-            Open Theme Editor
-          </s-button>
-        </s-box>
+              <ProgressBar progress={progressPercent} size="small" />
 
-        <s-box padding="base" borderWidth="base" borderRadius="base">
-          <s-heading size="small">Step 2: Add the App Block</s-heading>
-          <s-paragraph>
-            In the Theme Customizer:
-            <br />• Click <b>Add Section</b>
-            <br />• Open <b>Apps</b>
-            <br />• Select <b>Talksy Chat</b>
-            <br />• Click <b>Save</b>
-          </s-paragraph>
-        </s-box>
+              <Divider />
 
-        <s-box padding="base" borderWidth="base" borderRadius="base">
-          <s-heading size="small">Step 3: Done 🎉</s-heading>
-          <s-paragraph>
-            The chat widget will now appear on your store. You can start receiving customer messages immediately.
-          </s-paragraph>
-        </s-box>
+              <Button
+                fullWidth
+                textAlign="left"
+                disclosure={liveChatOpen ? "up" : "down"}
+                onClick={() => setLiveChatOpen(!liveChatOpen)}
+              >
+                Set up live chat
+              </Button>
+              <Collapsible open={liveChatOpen}>
+                <Box padding="200">
+                  Configure your live chat settings.
+                </Box>
+              </Collapsible>
 
-      </s-section>
+              <Button
+                fullWidth
+                textAlign="left"
+                disclosure={aiAssistantOpen ? "up" : "down"}
+                onClick={() => setAiAssistantOpen(!aiAssistantOpen)}
+              >
+                Set up AI assistant
+              </Button>
+              <Collapsible open={aiAssistantOpen}>
+                <Box padding="200">Configure AI assistant.</Box>
+              </Collapsible>
 
-      {/* MAIN INTRO */}
-      <s-section heading="💬 Connect with your customers in real-time">
-        <s-paragraph>
-          Talksy helps you communicate with your customers via real-time live chat.
-          Manage all conversations from one dashboard and provide faster support.
-        </s-paragraph>
-      </s-section>
+              <Button
+                fullWidth
+                textAlign="left"
+                disclosure={faqOpen ? "up" : "down"}
+                onClick={() => setFaqOpen(!faqOpen)}
+              >
+                Set up FAQs
+              </Button>
+              <Collapsible open={faqOpen}>
+                <Box padding="200">Add FAQs.</Box>
+              </Collapsible>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
 
-      {/* FEATURES */}
-      <s-section heading="Core Features">
-        <s-stack direction="block" gap="loose">
-          <s-box padding="base" borderWidth="base" borderRadius="base">
-            <s-heading size="small">Real-time Live Chat</s-heading>
-            <s-paragraph>Chat instantly with store visitors.</s-paragraph>
-          </s-box>
+        {/* Suggest Feature */}
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="400">
+              <Text variant="headingMd">Suggest Feature</Text>
 
-          <s-box padding="base" borderWidth="base" borderRadius="base">
-            <s-heading size="small">Visitor Context</s-heading>
-            <s-paragraph>See customer info and behavior in real time.</s-paragraph>
-          </s-box>
+              <TextField
+                label="Title"
+                value={featureTitle}
+                onChange={setFeatureTitle}
+              />
 
-          <s-box padding="base" borderWidth="base" borderRadius="base">
-            <s-heading size="small">Quick Replies</s-heading>
-            <s-paragraph>Reply faster using predefined messages.</s-paragraph>
-          </s-box>
-        </s-stack>
-      </s-section>
+              <TextField
+                label="Description"
+                value={featureDescription}
+                onChange={setFeatureDescription}
+                multiline={4}
+              />
 
-    </s-page>
+              <Button
+                primary
+                onClick={handleSubmitFeature}
+                disabled={!featureTitle || !featureDescription}
+              >
+                Add idea
+              </Button>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+      </Layout>
+    </Page>
   );
 }
-
-export const headers = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
