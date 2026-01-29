@@ -10,6 +10,8 @@ export async function action({ request }) {
   try {
     const body = await request.json();
     const { handle, title, settings, categories } = body;
+    
+    console.log("Creating/updating FAQ page:", { shop, handle, title });
 
     // First, find or create the page record in the database
     let faqPage = await prisma.faqPage.findFirst({
@@ -43,6 +45,18 @@ export async function action({ request }) {
 
     // Generate the FAQ page HTML content
     const pageContent = generateFaqPageHtml(settings, categories, shop);
+    
+    // Check HTML size (Shopify has a 256KB limit for page body)
+    const contentSize = Buffer.byteLength(pageContent, 'utf8');
+    console.log(`Generated HTML size: ${contentSize} bytes (${(contentSize / 1024).toFixed(2)} KB)`);
+    
+    if (contentSize > 256000) {
+      console.error("HTML content too large:", contentSize);
+      return json({
+        success: false,
+        error: "FAQ content is too large. Please reduce the number of FAQs or shorten the content."
+      });
+    }
 
     // Create or update the Shopify page via Admin API
     let shopifyPage;
@@ -50,6 +64,8 @@ export async function action({ request }) {
     try {
       if (faqPage.shopifyPageId) {
         // Update existing page
+        console.log("Updating existing page with ID:", faqPage.shopifyPageId);
+        
         const updateResponse = await admin.graphql(
           `#graphql
             mutation updatePage($id: ID!, $page: PageUpdateInput!) {
@@ -79,6 +95,7 @@ export async function action({ request }) {
         );
 
         const updateData = await updateResponse.json();
+        console.log("Update response:", JSON.stringify(updateData, null, 2));
         
         if (updateData.data?.pageUpdate?.userErrors?.length > 0) {
           console.error("GraphQL update errors:", updateData.data.pageUpdate.userErrors);
@@ -91,6 +108,8 @@ export async function action({ request }) {
         shopifyPage = updateData.data?.pageUpdate?.page;
       } else {
         // Create new page
+        console.log("Creating new page with handle:", handle);
+        
         const createResponse = await admin.graphql(
           `#graphql
             mutation createPage($page: PageCreateInput!) {
@@ -120,6 +139,7 @@ export async function action({ request }) {
         );
 
         const createData = await createResponse.json();
+        console.log("Create response:", JSON.stringify(createData, null, 2));
         
         if (createData.data?.pageCreate?.userErrors?.length > 0) {
           console.error("GraphQL create errors:", createData.data.pageCreate.userErrors);
@@ -133,6 +153,7 @@ export async function action({ request }) {
 
         // Update our database record with the Shopify page ID
         if (shopifyPage) {
+          console.log("Updating database with Shopify page ID:", shopifyPage.id);
           await prisma.faqPage.update({
             where: { id: faqPage.id },
             data: {
@@ -144,6 +165,7 @@ export async function action({ request }) {
       }
     } catch (graphqlError) {
       console.error("GraphQL API error:", graphqlError);
+      console.error("Error details:", JSON.stringify(graphqlError, null, 2));
       return json({
         success: false,
         error: "Failed to communicate with Shopify API: " + (graphqlError.message || "Unknown error")
