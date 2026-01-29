@@ -577,7 +577,9 @@ export default function FaqPage() {
     setBackgroundImage(null);
   };
 
-  const faqPageUrl = `https://${shop.replace('.myshopify.com', '')}/pages/${pageHandle}`;
+  // Construct proper FAQ page URL
+  const shopDomain = shop.replace('.myshopify.com', '');
+  const faqPageUrl = `https://${shopDomain}.myshopify.com/pages/${pageHandle}`;
 
   return (
     <Page

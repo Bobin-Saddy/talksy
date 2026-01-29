@@ -192,8 +192,9 @@ export async function action({ request }) {
         if (shopifyPage) {
           console.log("Updating database with Shopify page ID:", shopifyPage.id);
           
-          // Construct the page URL manually
-          const pageUrl = `https://${shop.replace('.myshopify.com', '')}.myshopify.com/pages/${shopifyPage.handle}`;
+          // Construct the page URL - remove .myshopify.com if it's already in shop
+          const shopDomain = shop.replace('.myshopify.com', '');
+          const pageUrl = `https://${shopDomain}.myshopify.com/pages/${shopifyPage.handle}`;
           
           await prisma.faqPage.update({
             where: { id: faqPage.id },
@@ -213,8 +214,9 @@ export async function action({ request }) {
       }, { status: 500 });
     }
 
-    // Construct final page URL
-    const finalPageUrl = `https://${shop.replace('.myshopify.com', '')}.myshopify.com/pages/${handle}`;
+    // Construct final page URL - remove .myshopify.com if it's already in shop
+    const shopDomain = shop.replace('.myshopify.com', '');
+    const finalPageUrl = `https://${shopDomain}.myshopify.com/pages/${handle}`;
 
     return json({
       success: true,
@@ -238,14 +240,14 @@ export async function action({ request }) {
 function generateFaqPageHtml(settings, categories, shop) {
   const activeCategories = categories.filter(cat => cat.isActive);
   
-  // Apply theme presets
+  // Apply theme presets - but only if NOT custom theme
   let themeColors = {
     backgroundColor: settings.customBackgroundColor || '#FFFFFF',
     textColor: settings.customTextColor || '#000000',
     accentColor: settings.customAccentColor || '#5C6AC4'
   };
 
-  // Override with preset themes if selected
+  // Override with preset themes if selected (not custom)
   if (settings.appearanceTheme === 'light') {
     themeColors = {
       backgroundColor: '#FFFFFF',
@@ -265,12 +267,19 @@ function generateFaqPageHtml(settings, categories, shop) {
       accentColor: '#00A896'
     };
   }
-  // For 'custom' theme, use the custom colors from settings
+  // For 'custom' theme, themeColors already has the custom values
+  
+  // Determine which colors to use
+  const finalColors = settings.appearanceTheme === 'custom' ? {
+    backgroundColor: settings.customBackgroundColor || '#FFFFFF',
+    textColor: settings.customTextColor || '#000000',
+    accentColor: settings.customAccentColor || '#5C6AC4'
+  } : themeColors;
   
   // Build background style
   const backgroundStyle = settings.customBackgroundImage 
     ? `background-image: url('${settings.customBackgroundImage}'); background-size: cover; background-position: center; background-attachment: fixed;`
-    : `background-color: ${themeColors.backgroundColor};`;
+    : `background-color: ${finalColors.backgroundColor};`;
   
   return `
 <!DOCTYPE html>
@@ -289,7 +298,7 @@ function generateFaqPageHtml(settings, categories, shop) {
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       line-height: ${settings.customLineHeight || 1.6};
-      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
+      color: ${finalColors.textColor};
       ${backgroundStyle}
       font-size: ${settings.customFontSize || 16}px;
       min-height: 100vh;
@@ -312,12 +321,12 @@ function generateFaqPageHtml(settings, categories, shop) {
       font-size: 2.5rem;
       font-weight: 700;
       margin-bottom: 12px;
-      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
+      color: ${finalColors.textColor};
     }
     
     .faq-header p {
       font-size: 1.125rem;
-      color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
+      color: ${finalColors.accentColor};
     }
     ` : ''}
     
@@ -336,11 +345,11 @@ function generateFaqPageHtml(settings, categories, shop) {
       outline: none;
       transition: border-color 0.2s;
       background-color: ${settings.appearanceTheme === 'dark' ? '#2a2a2a' : '#fff'};
-      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
+      color: ${finalColors.textColor};
     }
     
     .faq-search input:focus {
-      border-color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
+      border-color: ${finalColors.accentColor};
     }
     ` : ''}
     
@@ -362,7 +371,7 @@ function generateFaqPageHtml(settings, categories, shop) {
       font-size: 1.5rem;
       font-weight: 600;
       margin-bottom: 20px;
-      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
+      color: ${finalColors.textColor};
     }
     ` : ''}
     
@@ -387,7 +396,7 @@ function generateFaqPageHtml(settings, categories, shop) {
       text-align: left;
       font-size: 1rem;
       font-weight: 500;
-      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
+      color: ${finalColors.textColor};
       cursor: pointer;
       display: flex;
       justify-content: space-between;
@@ -404,7 +413,7 @@ function generateFaqPageHtml(settings, categories, shop) {
       font-size: 1.5rem;
       font-weight: 300;
       transition: transform 0.2s;
-      color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
+      color: ${finalColors.accentColor};
     }
     
     .faq-item.active .faq-question::after {
@@ -419,7 +428,7 @@ function generateFaqPageHtml(settings, categories, shop) {
     
     .faq-answer-content {
       padding: 0 20px 16px;
-      color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
+      color: ${finalColors.accentColor};
       line-height: ${settings.customLineHeight || 1.6};
     }
     
@@ -441,11 +450,11 @@ function generateFaqPageHtml(settings, categories, shop) {
       font-size: 1.25rem;
       font-weight: 600;
       margin-bottom: 8px;
-      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
+      color: ${finalColors.textColor};
     }
     
     .faq-contact p {
-      color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
+      color: ${finalColors.accentColor};
       margin-bottom: 20px;
     }
     
@@ -459,7 +468,7 @@ function generateFaqPageHtml(settings, categories, shop) {
       font-size: 1rem;
       font-family: inherit;
       background-color: ${settings.appearanceTheme === 'dark' ? '#1f1f1f' : '#fff'};
-      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
+      color: ${finalColors.textColor};
     }
     
     .faq-contact textarea {
@@ -470,7 +479,7 @@ function generateFaqPageHtml(settings, categories, shop) {
     .faq-contact button {
       width: 100%;
       padding: 12px 24px;
-      background-color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
+      background-color: ${finalColors.accentColor};
       color: #fff;
       border: none;
       border-radius: 4px;
