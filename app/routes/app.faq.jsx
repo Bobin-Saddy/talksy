@@ -1,4 +1,4 @@
-// app/routes/app.faq.jsx - Enhanced with Live Preview & Dynamic Page Creation
+// app/routes/app.faq.jsx - Enhanced with Live Preview, Dynamic Page Creation & Advanced Customization
 import { useState, useEffect, useCallback } from "react";
 import { useLoaderData } from "react-router";
 import { json } from "@remix-run/node";
@@ -72,9 +72,12 @@ export async function loader({ request }) {
       layout: "list",
       appearanceTheme: "light",
       customBackgroundColor: "#FFFFFF",
+      customBackgroundImage: "",
       customTextColor: "#000000",
       customAccentColor: "#5C6AC4",
       customBorderRadius: 8,
+      customFontSize: 16,
+      customLineHeight: 1.6,
       headerEnabled: true,
       headerTitle: "Frequently Asked Questions",
       headerDescription: "Got a question? We are here to answer!",
@@ -119,6 +122,7 @@ export default function FaqPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingPage, setIsCreatingPage] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
+  const [autoUpdatePage, setAutoUpdatePage] = useState(false);
   
   // Modals
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -260,8 +264,9 @@ export default function FaqPage() {
       if (result.success) {
         await refreshCategories();
         setShowCategoryModal(false);
-        // Auto-update page
-        await handleCreateOrUpdatePage();
+        if (autoUpdatePage) {
+          await handleCreateOrUpdatePage();
+        }
       }
     } catch (error) {
       console.error("Error saving category:", error);
@@ -286,7 +291,9 @@ export default function FaqPage() {
 
       if (result.success) {
         setCategories(categories.filter(cat => cat.id !== categoryId));
-        await handleCreateOrUpdatePage();
+        if (autoUpdatePage) {
+          await handleCreateOrUpdatePage();
+        }
       }
     } catch (error) {
       console.error("Error deleting category:", error);
@@ -315,7 +322,9 @@ export default function FaqPage() {
       const result = await response.json();
       if (result.success) {
         await refreshCategories();
-        await handleCreateOrUpdatePage();
+        if (autoUpdatePage) {
+          await handleCreateOrUpdatePage();
+        }
       }
     } catch (error) {
       console.error("Error moving category:", error);
@@ -344,7 +353,9 @@ export default function FaqPage() {
       const result = await response.json();
       if (result.success) {
         await refreshCategories();
-        await handleCreateOrUpdatePage();
+        if (autoUpdatePage) {
+          await handleCreateOrUpdatePage();
+        }
       }
     } catch (error) {
       console.error("Error moving category:", error);
@@ -399,7 +410,9 @@ export default function FaqPage() {
       if (result.success) {
         await refreshCategories();
         setShowFaqModal(false);
-        await handleCreateOrUpdatePage();
+        if (autoUpdatePage) {
+          await handleCreateOrUpdatePage();
+        }
       }
     } catch (error) {
       console.error("Error saving FAQ:", error);
@@ -432,7 +445,9 @@ export default function FaqPage() {
           }
           return cat;
         }));
-        await handleCreateOrUpdatePage();
+        if (autoUpdatePage) {
+          await handleCreateOrUpdatePage();
+        }
       }
     } catch (error) {
       console.error("Error deleting FAQ:", error);
@@ -461,7 +476,9 @@ export default function FaqPage() {
       const result = await response.json();
       if (result.success) {
         await refreshCategories();
-        await handleCreateOrUpdatePage();
+        if (autoUpdatePage) {
+          await handleCreateOrUpdatePage();
+        }
       }
     } catch (error) {
       console.error("Error moving FAQ:", error);
@@ -490,7 +507,9 @@ export default function FaqPage() {
       const result = await response.json();
       if (result.success) {
         await refreshCategories();
-        await handleCreateOrUpdatePage();
+        if (autoUpdatePage) {
+          await handleCreateOrUpdatePage();
+        }
       }
     } catch (error) {
       console.error("Error moving FAQ:", error);
@@ -509,7 +528,9 @@ export default function FaqPage() {
 
       const result = await response.json();
       if (result.success) {
-        await handleCreateOrUpdatePage();
+        if (autoUpdatePage) {
+          await handleCreateOrUpdatePage();
+        }
         shopify.toast.show("Settings saved successfully!");
       }
     } catch (error) {
@@ -768,7 +789,7 @@ export default function FaqPage() {
                           placeholder="faqs"
                           autoComplete="off"
                           prefix={`https://${shop.replace('.myshopify.com', '')}/pages/`}
-                          helpText="This creates the URL for your FAQ page"
+                          helpText="This creates the URL for your FAQ page. Changing this will delete the old page and create a new one."
                         />
 
                         <InlineStack gap="200">
@@ -777,42 +798,21 @@ export default function FaqPage() {
                             onClick={handleCreateOrUpdatePage}
                             loading={isCreatingPage}
                           >
-                            {faqPage?.id ? 'Update Page' : 'Create Page'}
+                            {faqPage?.shopifyPageId ? 'Update Page' : 'Create Page'}
                           </Button>
-                          {faqPage?.id && (
+                          {faqPage?.shopifyPageId && (
                             <Button onClick={() => window.open(faqPageUrl, '_blank')}>
                               View Page
                             </Button>
                           )}
                         </InlineStack>
-                      </BlockStack>
-                    </Card>
-
-                    {/* Embed app to theme */}
-                    <Card>
-                      <BlockStack gap="300">
-                        <InlineStack align="space-between" blockAlign="center">
-                          <Text variant="headingSm" as="h3">Embed app to your theme</Text>
-                          <Button onClick={() => window.open(`https://${shop}/admin/themes/current/editor`, '_blank')}>
-                            Open theme editor
-                          </Button>
-                        </InlineStack>
-                        <Text tone="subdued">
-                          Add the FAQ app block to your theme to display FAQs on your store
-                        </Text>
-                      </BlockStack>
-                    </Card>
-
-                    {/* Display FAQ page */}
-                    <Card>
-                      <BlockStack gap="300">
-                        <InlineStack align="space-between" blockAlign="center">
-                          <Text variant="headingSm" as="h3">Display FAQ page</Text>
-                          <Checkbox
-                            checked={settings.headerEnabled}
-                            onChange={(value) => setSettings({...settings, headerEnabled: value})}
-                          />
-                        </InlineStack>
+                        
+                        <Checkbox
+                          label="Automatically update page when making changes"
+                          checked={autoUpdatePage}
+                          onChange={setAutoUpdatePage}
+                          helpText="When enabled, the live page will update automatically when you save changes"
+                        />
                       </BlockStack>
                     </Card>
 
@@ -891,6 +891,58 @@ export default function FaqPage() {
                             </BlockStack>
                           )}
                         </BlockStack>
+
+                        {/* Background Image */}
+                        <BlockStack gap="200">
+                          <Text variant="headingSm" as="h4">Background Image</Text>
+                          <TextField
+                            label="Background Image URL"
+                            value={settings.customBackgroundImage}
+                            onChange={(value) => setSettings({...settings, customBackgroundImage: value})}
+                            placeholder="https://example.com/image.jpg"
+                            autoComplete="off"
+                            helpText="Enter a URL for a background image (optional). This will override the background color."
+                          />
+                          {settings.customBackgroundImage && (
+                            <div style={{
+                              width: '100%',
+                              height: '150px',
+                              backgroundImage: `url(${settings.customBackgroundImage})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              borderRadius: '8px',
+                              border: '1px solid #E1E3E5'
+                            }} />
+                          )}
+                        </BlockStack>
+                      </BlockStack>
+                    </Card>
+
+                    {/* Typography */}
+                    <Card>
+                      <BlockStack gap="400">
+                        <Text variant="headingMd" as="h3">Typography</Text>
+
+                        <TextField
+                          label="Font Size (px)"
+                          type="number"
+                          value={String(settings.customFontSize)}
+                          onChange={(value) => setSettings({...settings, customFontSize: parseInt(value) || 16})}
+                          autoComplete="off"
+                          min="12"
+                          max="24"
+                          helpText="Base font size for FAQ text (12-24px)"
+                        />
+
+                        <RangeSlider
+                          label={`Line Height (${settings.customLineHeight})`}
+                          value={settings.customLineHeight}
+                          onChange={(value) => setSettings({...settings, customLineHeight: value})}
+                          min={1.2}
+                          max={2.0}
+                          step={0.1}
+                          output
+                        />
                       </BlockStack>
                     </Card>
 
@@ -965,13 +1017,22 @@ export default function FaqPage() {
                       </BlockStack>
                     </Card>
 
-                    <InlineStack align="end">
+                    <InlineStack align="end" gap="200">
                       <Button 
-                        variant="primary" 
                         onClick={handleSaveSettings}
                         loading={isSaving}
                       >
                         Save Settings
+                      </Button>
+                      <Button 
+                        variant="primary" 
+                        onClick={async () => {
+                          await handleSaveSettings();
+                          await handleCreateOrUpdatePage();
+                        }}
+                        loading={isSaving || isCreatingPage}
+                      >
+                        Save & Update Page
                       </Button>
                     </InlineStack>
                   </BlockStack>
@@ -1151,181 +1212,204 @@ export default function FaqPage() {
 function FAQPreview({ settings, categories }) {
   const [openFaq, setOpenFaq] = useState(null);
 
-  return (
-    <div style={{
-      backgroundColor: settings.customBackgroundColor || '#FFFFFF',
-      minHeight: '100%',
-      padding: '20px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
-      {/* Header */}
-      {settings.headerEnabled && (
-        <div style={{
-          textAlign: settings.headerAlignment || 'center',
-          marginBottom: '30px'
-        }}>
-          <h1 style={{
-            fontSize: '24px',
-            fontWeight: 'bold',
-            color: settings.customTextColor || '#000000',
-            marginBottom: '8px'
-          }}>
-            {settings.headerTitle || 'Frequently Asked Questions'}
-          </h1>
-          <p style={{
-            fontSize: '14px',
-            color: settings.customAccentColor || '#666666'
-          }}>
-            {settings.headerDescription || 'Got a question? We are here to answer!'}
-          </p>
-        </div>
-      )}
+  // Build background style
+  const backgroundStyle = settings.customBackgroundImage 
+    ? {
+        backgroundImage: `url(${settings.customBackgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }
+    : {
+        backgroundColor: settings.customBackgroundColor || '#FFFFFF'
+      };
 
-      {/* Categories and FAQs */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {categories.filter(cat => cat.isActive).map((category) => (
-          <div key={category.id}>
-            {settings.showCategories && (
-              <h2 style={{
-                fontSize: '18px',
-                fontWeight: '600',
-                color: settings.customTextColor || '#000000',
-                marginBottom: '12px'
-              }}>
-                {category.title}
-              </h2>
-            )}
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {category.faqs.filter(faq => faq.isActive).map((faq) => (
-                <div 
-                  key={faq.id}
-                  style={{
-                    border: '1px solid #E1E3E5',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    backgroundColor: '#fff'
-                  }}
-                >
-                  <button
-                    onClick={() => setOpenFaq(openFaq === faq.id ? null : faq.id)}
+  const contentStyle = {
+    minHeight: '100%',
+    padding: '20px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    fontSize: `${settings.customFontSize || 16}px`,
+    lineHeight: settings.customLineHeight || 1.6
+  };
+
+  return (
+    <div style={{ ...backgroundStyle, ...contentStyle }}>
+      {/* If background image exists, add an overlay container */}
+      <div style={settings.customBackgroundImage ? {
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
+        padding: '20px',
+        borderRadius: '8px'
+      } : {}}>
+        
+        {/* Header */}
+        {settings.headerEnabled && (
+          <div style={{
+            textAlign: settings.headerAlignment || 'center',
+            marginBottom: '30px'
+          }}>
+            <h1 style={{
+              fontSize: '24px',
+              fontWeight: 'bold',
+              color: settings.customTextColor || '#000000',
+              marginBottom: '8px'
+            }}>
+              {settings.headerTitle || 'Frequently Asked Questions'}
+            </h1>
+            <p style={{
+              fontSize: '14px',
+              color: settings.customAccentColor || '#666666'
+            }}>
+              {settings.headerDescription || 'Got a question? We are here to answer!'}
+            </p>
+          </div>
+        )}
+
+        {/* Categories and FAQs */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {categories.filter(cat => cat.isActive).map((category) => (
+            <div key={category.id}>
+              {settings.showCategories && (
+                <h2 style={{
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  color: settings.customTextColor || '#000000',
+                  marginBottom: '12px'
+                }}>
+                  {category.title}
+                </h2>
+              )}
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {category.faqs.filter(faq => faq.isActive).map((faq) => (
+                  <div 
+                    key={faq.id}
                     style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      textAlign: 'left',
-                      border: 'none',
-                      backgroundColor: 'transparent',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
+                      border: '1px solid #E1E3E5',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      backgroundColor: '#fff'
                     }}
                   >
-                    <span style={{
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      color: settings.customTextColor || '#000000'
-                    }}>
-                      {faq.question}
-                    </span>
-                    <span style={{ fontSize: '12px' }}>
-                      {openFaq === faq.id ? '−' : '+'}
-                    </span>
-                  </button>
-                  
-                  {openFaq === faq.id && (
-                    <div style={{
-                      padding: '0 16px 12px',
-                      fontSize: '13px',
-                      color: settings.customAccentColor || '#666666',
-                      lineHeight: '1.5'
-                    }}>
-                      {faq.answer}
-                    </div>
-                  )}
-                </div>
-              ))}
+                    <button
+                      onClick={() => setOpenFaq(openFaq === faq.id ? null : faq.id)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        textAlign: 'left',
+                        border: 'none',
+                        backgroundColor: 'transparent',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <span style={{
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        color: settings.customTextColor || '#000000'
+                      }}>
+                        {faq.question}
+                      </span>
+                      <span style={{ fontSize: '12px' }}>
+                        {openFaq === faq.id ? '−' : '+'}
+                      </span>
+                    </button>
+                    
+                    {openFaq === faq.id && (
+                      <div style={{
+                        padding: '0 16px 12px',
+                        fontSize: '13px',
+                        color: settings.customAccentColor || '#666666',
+                        lineHeight: '1.5'
+                      }}>
+                        {faq.answer}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Contact Form */}
+        {settings.contactFormEnabled && (
+          <div style={{
+            marginTop: '30px',
+            padding: '16px',
+            border: '1px solid #E1E3E5',
+            borderRadius: '8px',
+            backgroundColor: '#F9FAFB'
+          }}>
+            <h3 style={{
+              fontSize: '16px',
+              fontWeight: '600',
+              marginBottom: '8px',
+              color: settings.customTextColor || '#000000'
+            }}>
+              {settings.contactFormTitle}
+            </h3>
+            <p style={{
+              fontSize: '13px',
+              color: settings.customAccentColor || '#666666',
+              marginBottom: '12px'
+            }}>
+              {settings.contactFormDescription}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <input 
+                type="email" 
+                placeholder={settings.contactFormEmailPlaceholder}
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  border: '1px solid #E1E3E5',
+                  borderRadius: '4px'
+                }}
+              />
+              <textarea 
+                placeholder={settings.contactFormMessagePlaceholder}
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  border: '1px solid #E1E3E5',
+                  borderRadius: '4px',
+                  minHeight: '60px',
+                  resize: 'vertical'
+                }}
+              />
+              <button style={{
+                padding: '8px 16px',
+                fontSize: '13px',
+                fontWeight: '500',
+                color: '#fff',
+                backgroundColor: settings.customAccentColor || '#5C6AC4',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}>
+                {settings.contactFormButtonText}
+              </button>
             </div>
           </div>
-        ))}
-      </div>
+        )}
 
-      {/* Contact Form */}
-      {settings.contactFormEnabled && (
-        <div style={{
-          marginTop: '30px',
-          padding: '16px',
-          border: '1px solid #E1E3E5',
-          borderRadius: '8px',
-          backgroundColor: '#F9FAFB'
-        }}>
-          <h3 style={{
-            fontSize: '16px',
-            fontWeight: '600',
-            marginBottom: '8px',
-            color: settings.customTextColor || '#000000'
+        {/* Custom CSS Preview Note */}
+        {settings.customCSS && (
+          <div style={{
+            marginTop: '20px',
+            padding: '12px',
+            backgroundColor: '#FFF4E5',
+            border: '1px solid #FFD580',
+            borderRadius: '4px',
+            fontSize: '12px',
+            color: '#663C00'
           }}>
-            {settings.contactFormTitle}
-          </h3>
-          <p style={{
-            fontSize: '13px',
-            color: settings.customAccentColor || '#666666',
-            marginBottom: '12px'
-          }}>
-            {settings.contactFormDescription}
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <input 
-              type="email" 
-              placeholder={settings.contactFormEmailPlaceholder}
-              style={{
-                padding: '8px 12px',
-                fontSize: '13px',
-                border: '1px solid #E1E3E5',
-                borderRadius: '4px'
-              }}
-            />
-            <textarea 
-              placeholder={settings.contactFormMessagePlaceholder}
-              style={{
-                padding: '8px 12px',
-                fontSize: '13px',
-                border: '1px solid #E1E3E5',
-                borderRadius: '4px',
-                minHeight: '60px',
-                resize: 'vertical'
-              }}
-            />
-            <button style={{
-              padding: '8px 16px',
-              fontSize: '13px',
-              fontWeight: '500',
-              color: '#fff',
-              backgroundColor: settings.customAccentColor || '#5C6AC4',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}>
-              {settings.contactFormButtonText}
-            </button>
+            ⚠️ Custom CSS is applied on the live page
           </div>
-        </div>
-      )}
-
-      {/* Custom CSS Preview Note */}
-      {settings.customCSS && (
-        <div style={{
-          marginTop: '20px',
-          padding: '12px',
-          backgroundColor: '#FFF4E5',
-          border: '1px solid #FFD580',
-          borderRadius: '4px',
-          fontSize: '12px',
-          color: '#663C00'
-        }}>
-          ⚠️ Custom CSS is applied on the live page
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

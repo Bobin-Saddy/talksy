@@ -15,24 +15,63 @@ export async function action({ request }) {
 
     // First, find or create the page record in the database
     let faqPage = await prisma.faqPage.findFirst({
-      where: {
-        shop,
-        handle
-      }
+      where: { shop }
     });
 
-    if (faqPage) {
-      // Update existing page
+    // If handle has changed and there's an existing Shopify page, delete the old one
+    if (faqPage && faqPage.handle !== handle && faqPage.shopifyPageId) {
+      console.log("Handle changed from", faqPage.handle, "to", handle, "- deleting old page");
+      
+      try {
+        await admin.graphql(
+          `#graphql
+            mutation deletePage($id: ID!) {
+              pageDelete(id: $id) {
+                deletedPageId
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }`,
+          {
+            variables: {
+              id: faqPage.shopifyPageId
+            }
+          }
+        );
+        
+        console.log("Old page deleted successfully");
+        
+        // Update the database record to clear the old Shopify page ID
+        faqPage = await prisma.faqPage.update({
+          where: { id: faqPage.id },
+          data: {
+            handle,
+            title,
+            shopifyPageId: null,
+            pageUrl: null,
+            isPublished: true,
+            updatedAt: new Date()
+          }
+        });
+      } catch (deleteError) {
+        console.error("Error deleting old page:", deleteError);
+        // Continue anyway - we'll create a new page
+      }
+    } else if (faqPage) {
+      // Update existing page record
       faqPage = await prisma.faqPage.update({
         where: { id: faqPage.id },
         data: {
+          handle,
           title,
           isPublished: true,
           updatedAt: new Date()
         }
       });
     } else {
-      // Create new page
+      // Create new page record
       faqPage = await prisma.faqPage.create({
         data: {
           shop,
@@ -199,12 +238,18 @@ export async function action({ request }) {
 function generateFaqPageHtml(settings, categories, shop) {
   const activeCategories = categories.filter(cat => cat.isActive);
   
+  // Build background style
+  const backgroundStyle = settings.customBackgroundImage 
+    ? `background-image: url('${settings.customBackgroundImage}'); background-size: cover; background-position: center; background-attachment: fixed;`
+    : `background-color: ${settings.customBackgroundColor || '#FFFFFF'};`;
+  
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${settings.headerTitle || 'Frequently Asked Questions'}</title>
   <style>
     * {
       margin: 0;
@@ -214,15 +259,18 @@ function generateFaqPageHtml(settings, categories, shop) {
     
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      line-height: 1.6;
+      line-height: ${settings.customLineHeight || 1.6};
       color: ${settings.customTextColor || '#000000'};
-      background-color: ${settings.customBackgroundColor || '#FFFFFF'};
+      ${backgroundStyle}
+      font-size: ${settings.customFontSize || 16}px;
+      min-height: 100vh;
     }
     
     .faq-container {
       max-width: 1200px;
       margin: 0 auto;
       padding: 40px 20px;
+      ${settings.customBackgroundImage ? 'background-color: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);' : ''}
     }
     
     ${settings.headerEnabled ? `
