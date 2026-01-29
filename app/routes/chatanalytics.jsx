@@ -1,283 +1,344 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Page,
+  Layout,
+  Card,
+  Text,
+  Button,
+  Badge,
+  ProgressBar,
+  TextField,
+  Collapsible,
+  Icon,
+  BlockStack,
+  InlineStack,
+  Box,
+  Divider,
+} from '@shopify/polaris';
+import {
+  RefreshIcon,
+  CalendarIcon,
+} from '@shopify/polaris-icons';
 
-// Inline SVG icons to avoid lucide-react dependency
-const RefreshIcon = ({ className = "", spinning = false }) => (
-  <svg 
-    className={`${className} ${spinning ? 'animate-spin' : ''}`}
-    width="20" 
-    height="20" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2"
-    strokeLinecap="round" 
-    strokeLinejoin="round"
-  >
-    <polyline points="23 4 23 10 17 10"></polyline>
-    <polyline points="1 20 1 14 7 14"></polyline>
-    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-  </svg>
-);
-
-const CalendarIcon = ({ className = "" }) => (
-  <svg 
-    className={className}
-    width="16" 
-    height="16" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2"
-    strokeLinecap="round" 
-    strokeLinejoin="round"
-  >
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-    <line x1="16" y1="2" x2="16" y2="6"></line>
-    <line x1="8" y1="2" x2="8" y2="6"></line>
-    <line x1="3" y1="10" x2="21" y2="10"></line>
-  </svg>
-);
-
-const CloseIcon = ({ className = "" }) => (
-  <svg 
-    className={className}
-    width="20" 
-    height="20" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2"
-    strokeLinecap="round" 
-    strokeLinejoin="round"
-  >
-    <line x1="18" y1="6" x2="6" y2="18"></line>
-    <line x1="6" y1="6" x2="18" y2="18"></line>
-  </svg>
-);
-
-const ChevronDownIcon = ({ className = "" }) => (
-  <svg 
-    className={className}
-    width="20" 
-    height="20" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2"
-    strokeLinecap="round" 
-    strokeLinejoin="round"
-  >
-    <polyline points="6 9 12 15 18 9"></polyline>
-  </svg>
-);
-
-const ChatAnalytics = () => {
+export default function ChatAnalytics() {
   const [analytics, setAnalytics] = useState({
     totalConversations: 0,
     resolutionRate: 0,
     assistedRevenue: 0,
     chatToSalesRate: 0,
     totalSalesShare: 0,
-    loading: true
+    loading: true,
   });
 
   const [dateRange, setDateRange] = useState('Last 3 days');
-  const [setupProgress, setSetupProgress] = useState(3);
-  const [totalTasks, setTotalTasks] = useState(11);
+  const [setupProgress] = useState({ completed: 3, total: 11 });
+  const [liveChatOpen, setLiveChatOpen] = useState(false);
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [featureTitle, setFeatureTitle] = useState('');
+  const [featureDescription, setFeatureDescription] = useState('');
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [dateRange]);
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
-      // Replace with your actual API endpoint
+      setAnalytics((prev) => ({ ...prev, loading: true }));
+      
       const response = await fetch('/api/chat-analytics', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ dateRange })
+        body: JSON.stringify({ dateRange }),
       });
-      
+
       const data = await response.json();
-      
+
       setAnalytics({
         totalConversations: data.totalConversations || 0,
         resolutionRate: data.resolutionRate || 0,
         assistedRevenue: data.assistedRevenue || 0,
         chatToSalesRate: data.chatToSalesRate || 0,
         totalSalesShare: data.totalSalesShare || 0,
-        loading: false
+        loading: false,
       });
     } catch (error) {
       console.error('Error fetching analytics:', error);
-      setAnalytics(prev => ({ ...prev, loading: false }));
+      setAnalytics((prev) => ({ ...prev, loading: false }));
     }
-  };
+  }, [dateRange]);
 
-  const handleReload = () => {
-    setAnalytics(prev => ({ ...prev, loading: true }));
+  useEffect(() => {
     fetchAnalytics();
-  };
+  }, [fetchAnalytics]);
 
-  const MetricCard = ({ title, value, prefix = '', suffix = '' }) => (
-    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-      <div className="text-sm text-gray-600 mb-2">{title}</div>
-      <div className="text-3xl font-semibold text-gray-900">
-        {prefix}{value}{suffix}
-      </div>
-    </div>
-  );
+  const handleReload = useCallback(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  const handleSubmitFeature = useCallback(() => {
+    if (!featureTitle || !featureDescription) {
+      return;
+    }
+    
+    // Handle feature submission
+    console.log('Feature submitted:', { featureTitle, featureDescription });
+    
+    // Reset form
+    setFeatureTitle('');
+    setFeatureDescription('');
+  }, [featureTitle, featureDescription]);
+
+  const progressPercent = (setupProgress.completed / setupProgress.total) * 100;
 
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-white">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold text-gray-900">Overview</h1>
-          <button 
-            onClick={handleReload}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            disabled={analytics.loading}
-          >
-            <RefreshIcon spinning={analytics.loading} />
-          </button>
-        </div>
-        
-        <div className="flex items-center gap-4 text-sm text-gray-600">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-300 rounded-lg">
-            <CalendarIcon />
-            <span>{dateRange}</span>
-          </div>
-          <span>Compare to: 24 Jan - 26 Jan 2026</span>
-          <span className="ml-auto text-gray-500">Updated 33m ago</span>
-          <button className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-            <RefreshIcon className="w-4 h-4" />
-            Reload
-          </button>
-        </div>
-      </div>
+    <Page
+      title="Overview"
+      secondaryActions={[
+        {
+          content: 'Reload',
+          icon: RefreshIcon,
+          onAction: handleReload,
+          loading: analytics.loading,
+        },
+      ]}
+    >
+      <Layout>
+        {/* Date Range and Metadata */}
+        <Layout.Section>
+          <InlineStack gap="400" align="start" blockAlign="center">
+            <Badge icon={CalendarIcon}>{dateRange}</Badge>
+            <Text as="span" variant="bodySm" tone="subdued">
+              Compare to: 24 Jan - 26 Jan 2026
+            </Text>
+            <Box as="span" paddingInlineStart="auto">
+              <Text as="span" variant="bodySm" tone="subdued">
+                Updated 33m ago
+              </Text>
+            </Box>
+          </InlineStack>
+        </Layout.Section>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <MetricCard 
-          title="Total conversations" 
-          value={analytics.totalConversations}
-        />
-        <MetricCard 
-          title="Resolution rate" 
-          value={analytics.resolutionRate}
-          suffix="%"
-        />
-        <MetricCard 
-          title="Assisted revenue" 
-          value={analytics.assistedRevenue}
-          prefix="₹"
-        />
-      </div>
+        {/* Metrics - Row 1 */}
+        <Layout.Section>
+          <InlineStack gap="400" wrap={false}>
+            <Box width="33.33%">
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Total conversations
+                  </Text>
+                  <Text as="h2" variant="heading2xl">
+                    {analytics.totalConversations}
+                  </Text>
+                </BlockStack>
+              </Card>
+            </Box>
+            
+            <Box width="33.33%">
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Resolution rate
+                  </Text>
+                  <Text as="h2" variant="heading2xl">
+                    {analytics.resolutionRate}%
+                  </Text>
+                </BlockStack>
+              </Card>
+            </Box>
+            
+            <Box width="33.33%">
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Assisted revenue
+                  </Text>
+                  <Text as="h2" variant="heading2xl">
+                    ₹{analytics.assistedRevenue}
+                  </Text>
+                </BlockStack>
+              </Card>
+            </Box>
+          </InlineStack>
+        </Layout.Section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <MetricCard 
-          title="Chat-to-sales rate" 
-          value={analytics.chatToSalesRate}
-          suffix="%"
-        />
-        <MetricCard 
-          title="Total sales share contributed by Chatty" 
-          value={analytics.totalSalesShare}
-          suffix="%"
-        />
-      </div>
+        {/* Metrics - Row 2 */}
+        <Layout.Section>
+          <InlineStack gap="400" wrap={false}>
+            <Box width="50%">
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Chat-to-sales rate
+                  </Text>
+                  <Text as="h2" variant="heading2xl">
+                    {analytics.chatToSalesRate}%
+                  </Text>
+                </BlockStack>
+              </Card>
+            </Box>
+            
+            <Box width="50%">
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Total sales share contributed by Chatty
+                  </Text>
+                  <Text as="h2" variant="heading2xl">
+                    {analytics.totalSalesShare}%
+                  </Text>
+                </BlockStack>
+              </Card>
+            </Box>
+          </InlineStack>
+        </Layout.Section>
 
-      {/* Setup Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Set up live chat</h2>
-            <p className="text-sm text-gray-600">Use this guide to start setup app on your store</p>
-          </div>
-          <button className="text-gray-400 hover:text-gray-600">
-            <CloseIcon />
-          </button>
-        </div>
-        
-        <div className="mb-4">
-          <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-gray-600">{setupProgress} of {totalTasks} tasks completed</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-gray-900 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(setupProgress / totalTasks) * 100}%` }}
-            ></div>
-          </div>
-        </div>
+        {/* Setup Section */}
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="400">
+              <InlineStack align="space-between">
+                <BlockStack gap="100">
+                  <Text as="h2" variant="headingMd">
+                    Set up live chat
+                  </Text>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Use this guide to start setup app on your store
+                  </Text>
+                </BlockStack>
+              </InlineStack>
 
-        <div className="space-y-2">
-          <details className="group">
-            <summary className="flex items-center justify-between cursor-pointer py-3 px-4 hover:bg-gray-50 rounded-lg list-none">
-              <span className="font-medium text-gray-900">Set up live chat</span>
-              <ChevronDownIcon className="text-gray-500 group-open:rotate-180 transition-transform" />
-            </summary>
-          </details>
-          
-          <details className="group">
-            <summary className="flex items-center justify-between cursor-pointer py-3 px-4 hover:bg-gray-50 rounded-lg list-none">
-              <span className="font-medium text-gray-900">Set up AI assistant</span>
-              <ChevronDownIcon className="text-gray-500 group-open:rotate-180 transition-transform" />
-            </summary>
-          </details>
-          
-          <details className="group">
-            <summary className="flex items-center justify-between cursor-pointer py-3 px-4 hover:bg-gray-50 rounded-lg list-none">
-              <span className="font-medium text-gray-900">Set up FAQs</span>
-              <ChevronDownIcon className="text-gray-500 group-open:rotate-180 transition-transform" />
-            </summary>
-          </details>
-        </div>
+              <BlockStack gap="200">
+                <Text as="p" variant="bodySm" tone="subdued">
+                  {setupProgress.completed} of {setupProgress.total} tasks completed
+                </Text>
+                <ProgressBar progress={progressPercent} size="small" />
+              </BlockStack>
 
-        <button className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-          </svg>
-          Let us set up for you
-        </button>
-      </div>
+              <Divider />
 
-      {/* Suggest Features Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Suggest Features</h2>
-        <p className="text-sm text-gray-600 mb-4">Share your feature ideas</p>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-            <input 
-              type="text"
-              placeholder="Name your feature"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea 
-              placeholder="How would this feature help you?"
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
-            ></textarea>
-          </div>
-          
-          <button className="w-full bg-blue-700 hover:bg-blue-800 text-white font-medium py-3 px-6 rounded-lg transition-colors">
-            Add idea
-          </button>
-        </div>
-      </div>
-    </div>
+              {/* Set up live chat collapsible */}
+              <BlockStack gap="200">
+                <Button
+                  onClick={() => setLiveChatOpen(!liveChatOpen)}
+                  ariaExpanded={liveChatOpen}
+                  ariaControls="live-chat-collapsible"
+                  fullWidth
+                  textAlign="left"
+                  disclosure={liveChatOpen ? 'up' : 'down'}
+                >
+                  Set up live chat
+                </Button>
+                <Collapsible
+                  open={liveChatOpen}
+                  id="live-chat-collapsible"
+                  transition={{ duration: '200ms', timingFunction: 'ease-in-out' }}
+                >
+                  <Box paddingBlockStart="200">
+                    <Text as="p" variant="bodySm">
+                      Configure your live chat settings and appearance.
+                    </Text>
+                  </Box>
+                </Collapsible>
+              </BlockStack>
+
+              {/* Set up AI assistant collapsible */}
+              <BlockStack gap="200">
+                <Button
+                  onClick={() => setAiAssistantOpen(!aiAssistantOpen)}
+                  ariaExpanded={aiAssistantOpen}
+                  ariaControls="ai-assistant-collapsible"
+                  fullWidth
+                  textAlign="left"
+                  disclosure={aiAssistantOpen ? 'up' : 'down'}
+                >
+                  Set up AI assistant
+                </Button>
+                <Collapsible
+                  open={aiAssistantOpen}
+                  id="ai-assistant-collapsible"
+                  transition={{ duration: '200ms', timingFunction: 'ease-in-out' }}
+                >
+                  <Box paddingBlockStart="200">
+                    <Text as="p" variant="bodySm">
+                      Configure AI responses and automation rules.
+                    </Text>
+                  </Box>
+                </Collapsible>
+              </BlockStack>
+
+              {/* Set up FAQs collapsible */}
+              <BlockStack gap="200">
+                <Button
+                  onClick={() => setFaqOpen(!faqOpen)}
+                  ariaExpanded={faqOpen}
+                  ariaControls="faq-collapsible"
+                  fullWidth
+                  textAlign="left"
+                  disclosure={faqOpen ? 'up' : 'down'}
+                >
+                  Set up FAQs
+                </Button>
+                <Collapsible
+                  open={faqOpen}
+                  id="faq-collapsible"
+                  transition={{ duration: '200ms', timingFunction: 'ease-in-out' }}
+                >
+                  <Box paddingBlockStart="200">
+                    <Text as="p" variant="bodySm">
+                      Add frequently asked questions and answers.
+                    </Text>
+                  </Box>
+                </Collapsible>
+              </BlockStack>
+
+              <Divider />
+
+              <Button plain>Let us set up for you</Button>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+
+        {/* Suggest Features Section */}
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="400">
+              <BlockStack gap="100">
+                <Text as="h2" variant="headingMd">
+                  Suggest Features
+                </Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Share your feature ideas
+                </Text>
+              </BlockStack>
+
+              <TextField
+                label="Title"
+                value={featureTitle}
+                onChange={setFeatureTitle}
+                placeholder="Name your feature"
+                autoComplete="off"
+              />
+
+              <TextField
+                label="Description"
+                value={featureDescription}
+                onChange={setFeatureDescription}
+                placeholder="How would this feature help you?"
+                multiline={4}
+                autoComplete="off"
+              />
+
+              <Button
+                primary
+                onClick={handleSubmitFeature}
+                disabled={!featureTitle || !featureDescription}
+              >
+                Add idea
+              </Button>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+      </Layout>
+    </Page>
   );
-};
-
-export default ChatAnalytics;
+}
