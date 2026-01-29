@@ -1,102 +1,213 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Page,
+  Layout,
+  Card,
+  Text,
+  Button,
+  Badge,
+  ProgressBar,
+  TextField,
+  Collapsible,
+  BlockStack,
+  InlineStack,
+  Box,
+  Divider,
+} from "@shopify/polaris";
+import { RefreshIcon, CalendarIcon } from "@shopify/polaris-icons";
 
 export default function ChatAnalytics() {
-  const [loading, setLoading] = useState(false);
+  const [analytics, setAnalytics] = useState({
+    totalConversations: 0,
+    resolutionRate: 0,
+    assistedRevenue: 0,
+    chatToSalesRate: 0,
+    totalSalesShare: 0,
+    loading: false,
+  });
+
+  const [dateRange] = useState("Last 3 days");
+  const [setupProgress] = useState({ completed: 3, total: 11 });
+  const [liveChatOpen, setLiveChatOpen] = useState(false);
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [featureTitle, setFeatureTitle] = useState("");
+  const [featureDescription, setFeatureDescription] = useState("");
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      setAnalytics((prev) => ({ ...prev, loading: true }));
+
+      // fake API delay
+      setTimeout(() => {
+        setAnalytics({
+          totalConversations: 12,
+          resolutionRate: 85,
+          assistedRevenue: 1240,
+          chatToSalesRate: 22,
+          totalSalesShare: 18,
+          loading: false,
+        });
+      }, 800);
+    } catch (e) {
+      setAnalytics((prev) => ({ ...prev, loading: false }));
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  const handleSubmitFeature = () => {
+    if (!featureTitle || !featureDescription) return;
+
+    console.log("Feature submitted:", featureTitle, featureDescription);
+
+    setFeatureTitle("");
+    setFeatureDescription("");
+  };
+
+  const progressPercent = (setupProgress.completed / setupProgress.total) * 100;
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-semibold text-gray-900">Overview</h1>
-
-            <button
-              onClick={() => setLoading(true)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              {loading ? "Refreshing..." : "Reload"}
-            </button>
-          </div>
-
-          {/* Date Range */}
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded-lg">
-              📅 <span className="text-gray-700">Last 3 days</span>
-            </div>
-            <span className="text-gray-600">Compare to: 24 Jan - 26 Jan 2026</span>
-            <span className="ml-auto text-gray-500">Updated 33m ago</span>
-          </div>
-        </div>
+    <Page
+      title="Overview"
+      secondaryActions={[
+        {
+          content: "Reload",
+          icon: RefreshIcon,
+          onAction: fetchAnalytics,
+          loading: analytics.loading,
+        },
+      ]}
+    >
+      <Layout>
+        {/* Header Row */}
+        <Layout.Section>
+          <InlineStack gap="400" align="start">
+            <Badge icon={CalendarIcon}>{dateRange}</Badge>
+            <Text tone="subdued">Compare to: 24 Jan - 26 Jan 2026</Text>
+            <Box paddingInlineStart="auto">
+              <Text tone="subdued">Updated 33m ago</Text>
+            </Box>
+          </InlineStack>
+        </Layout.Section>
 
         {/* Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className="bg-white rounded-lg p-6 border">
-            <p className="text-sm text-gray-600 mb-2">Total conversations</p>
-            <h2 className="text-3xl font-semibold">0</h2>
-          </div>
+        <Layout.Section>
+          <InlineStack gap="400">
+            <Card>
+              <Text tone="subdued">Total conversations</Text>
+              <Text variant="heading2xl">{analytics.totalConversations}</Text>
+            </Card>
+            <Card>
+              <Text tone="subdued">Resolution rate</Text>
+              <Text variant="heading2xl">{analytics.resolutionRate}%</Text>
+            </Card>
+            <Card>
+              <Text tone="subdued">Assisted revenue</Text>
+              <Text variant="heading2xl">₹{analytics.assistedRevenue}</Text>
+            </Card>
+          </InlineStack>
+        </Layout.Section>
 
-          <div className="bg-white rounded-lg p-6 border">
-            <p className="text-sm text-gray-600 mb-2">Resolution rate</p>
-            <h2 className="text-3xl font-semibold">0%</h2>
-          </div>
+        <Layout.Section>
+          <InlineStack gap="400">
+            <Card>
+              <Text tone="subdued">Chat-to-sales rate</Text>
+              <Text variant="heading2xl">{analytics.chatToSalesRate}%</Text>
+            </Card>
+            <Card>
+              <Text tone="subdued">Sales share by Chatty</Text>
+              <Text variant="heading2xl">{analytics.totalSalesShare}%</Text>
+            </Card>
+          </InlineStack>
+        </Layout.Section>
 
-          <div className="bg-white rounded-lg p-6 border">
-            <p className="text-sm text-gray-600 mb-2">Assisted revenue</p>
-            <h2 className="text-3xl font-semibold">₹0</h2>
-          </div>
-        </div>
+        {/* Setup */}
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="400">
+              <Text variant="headingMd">Set up live chat</Text>
+              <Text tone="subdued">
+                {setupProgress.completed} of {setupProgress.total} tasks completed
+              </Text>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-lg p-6 border">
-            <p className="text-sm text-gray-600 mb-2">Chat-to-sales rate</p>
-            <h2 className="text-3xl font-semibold">0%</h2>
-          </div>
+              <ProgressBar progress={progressPercent} size="small" />
 
-          <div className="bg-white rounded-lg p-6 border">
-            <p className="text-sm text-gray-600 mb-2">Total sales share by Chatty</p>
-            <h2 className="text-3xl font-semibold">0%</h2>
-          </div>
-        </div>
+              <Divider />
 
-        {/* Setup Section */}
-        <div className="bg-white rounded-lg p-6 border mb-6">
-          <h2 className="text-lg font-semibold mb-2">Set up live chat</h2>
-          <p className="text-sm text-gray-600 mb-4">3 of 11 tasks completed</p>
+              <Button
+                fullWidth
+                textAlign="left"
+                disclosure={liveChatOpen ? "up" : "down"}
+                onClick={() => setLiveChatOpen(!liveChatOpen)}
+              >
+                Set up live chat
+              </Button>
+              <Collapsible open={liveChatOpen}>
+                <Box padding="200">
+                  Configure your live chat settings.
+                </Box>
+              </Collapsible>
 
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-            <div className="bg-black h-2 rounded-full" style={{ width: "30%" }}></div>
-          </div>
+              <Button
+                fullWidth
+                textAlign="left"
+                disclosure={aiAssistantOpen ? "up" : "down"}
+                onClick={() => setAiAssistantOpen(!aiAssistantOpen)}
+              >
+                Set up AI assistant
+              </Button>
+              <Collapsible open={aiAssistantOpen}>
+                <Box padding="200">Configure AI assistant.</Box>
+              </Collapsible>
 
-          <div className="space-y-2">
-            <div className="p-3 border rounded">Set up live chat</div>
-            <div className="p-3 border rounded">Set up AI assistant</div>
-            <div className="p-3 border rounded">Set up FAQs</div>
-          </div>
-        </div>
+              <Button
+                fullWidth
+                textAlign="left"
+                disclosure={faqOpen ? "up" : "down"}
+                onClick={() => setFaqOpen(!faqOpen)}
+              >
+                Set up FAQs
+              </Button>
+              <Collapsible open={faqOpen}>
+                <Box padding="200">Add FAQs.</Box>
+              </Collapsible>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
 
         {/* Suggest Feature */}
-        <div className="bg-white rounded-lg p-6 border">
-          <h2 className="text-lg font-semibold mb-4">Suggest Features</h2>
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="400">
+              <Text variant="headingMd">Suggest Feature</Text>
 
-          <input
-            className="w-full border p-2 rounded mb-3"
-            placeholder="Feature title"
-          />
+              <TextField
+                label="Title"
+                value={featureTitle}
+                onChange={setFeatureTitle}
+              />
 
-          <textarea
-            className="w-full border p-2 rounded mb-3"
-            rows="4"
-            placeholder="Feature description"
-          ></textarea>
+              <TextField
+                label="Description"
+                value={featureDescription}
+                onChange={setFeatureDescription}
+                multiline={4}
+              />
 
-          <button className="w-full bg-blue-600 text-white p-3 rounded">
-            Add idea
-          </button>
-        </div>
-
-      </div>
-    </div>
+              <Button
+                primary
+                onClick={handleSubmitFeature}
+                disabled={!featureTitle || !featureDescription}
+              >
+                Add idea
+              </Button>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+      </Layout>
+    </Page>
   );
 }
