@@ -45,6 +45,7 @@ model ChatSession {
 
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+  isResolved Boolean @default(false)
 }
 
 model ChatMessage {
@@ -188,4 +189,13 @@ model Faq {
 
   @@index([shop])
   @@index([categoryId, position])
+}
+
+model AssistedOrder {
+  id            String @id @default(cuid())
+  shop          String
+  orderId       String
+  amount        Float
+  chatSessionId String
+  createdAt     DateTime @default(now())
 }
