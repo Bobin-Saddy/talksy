@@ -11,26 +11,35 @@ export async function action({ request }) {
     const body = await request.json();
     const { handle, title, settings, categories } = body;
 
-    // First, save or update the page record in the database
-    const faqPage = await prisma.faqPage.upsert({
+    // First, find or create the page record in the database
+    let faqPage = await prisma.faqPage.findFirst({
       where: {
-        shop_handle: {
-          shop,
-          handle
-        }
-      },
-      update: {
-        title,
-        isPublished: true,
-        updatedAt: new Date()
-      },
-      create: {
         shop,
-        handle,
-        title,
-        isPublished: true
+        handle
       }
     });
+
+    if (faqPage) {
+      // Update existing page
+      faqPage = await prisma.faqPage.update({
+        where: { id: faqPage.id },
+        data: {
+          title,
+          isPublished: true,
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      // Create new page
+      faqPage = await prisma.faqPage.create({
+        data: {
+          shop,
+          handle,
+          title,
+          isPublished: true
+        }
+      });
+    }
 
     // Generate the FAQ page HTML content
     const pageContent = generateFaqPageHtml(settings, categories, shop);
@@ -38,95 +47,107 @@ export async function action({ request }) {
     // Create or update the Shopify page via Admin API
     let shopifyPage;
     
-    if (faqPage.shopifyPageId) {
-      // Update existing page
-      const updateResponse = await admin.graphql(
-        `#graphql
-          mutation updatePage($id: ID!, $page: PageUpdateInput!) {
-            pageUpdate(id: $id, page: $page) {
-              page {
-                id
-                handle
-                title
-                onlineStoreUrl
+    try {
+      if (faqPage.shopifyPageId) {
+        // Update existing page
+        const updateResponse = await admin.graphql(
+          `#graphql
+            mutation updatePage($id: ID!, $page: PageUpdateInput!) {
+              pageUpdate(id: $id, page: $page) {
+                page {
+                  id
+                  handle
+                  title
+                  onlineStoreUrl
+                }
+                userErrors {
+                  field
+                  message
+                }
               }
-              userErrors {
-                field
-                message
+            }`,
+          {
+            variables: {
+              id: faqPage.shopifyPageId,
+              page: {
+                title,
+                body: pageContent,
+                isPublished: true
               }
-            }
-          }`,
-        {
-          variables: {
-            id: faqPage.shopifyPageId,
-            page: {
-              title,
-              body: pageContent,
-              isPublished: true
             }
           }
+        );
+
+        const updateData = await updateResponse.json();
+        
+        if (updateData.data?.pageUpdate?.userErrors?.length > 0) {
+          console.error("GraphQL update errors:", updateData.data.pageUpdate.userErrors);
+          return json({
+            success: false,
+            error: updateData.data.pageUpdate.userErrors[0].message
+          });
         }
-      );
 
-      const updateData = await updateResponse.json();
-      
-      if (updateData.data?.pageUpdate?.userErrors?.length > 0) {
-        return json({
-          success: false,
-          error: updateData.data.pageUpdate.userErrors[0].message
-        });
-      }
-
-      shopifyPage = updateData.data?.pageUpdate?.page;
-    } else {
-      // Create new page
-      const createResponse = await admin.graphql(
-        `#graphql
-          mutation createPage($page: PageCreateInput!) {
-            pageCreate(page: $page) {
-              page {
-                id
-                handle
-                title
-                onlineStoreUrl
+        shopifyPage = updateData.data?.pageUpdate?.page;
+      } else {
+        // Create new page
+        const createResponse = await admin.graphql(
+          `#graphql
+            mutation createPage($page: PageCreateInput!) {
+              pageCreate(page: $page) {
+                page {
+                  id
+                  handle
+                  title
+                  onlineStoreUrl
+                }
+                userErrors {
+                  field
+                  message
+                }
               }
-              userErrors {
-                field
-                message
+            }`,
+          {
+            variables: {
+              page: {
+                title,
+                handle,
+                body: pageContent,
+                isPublished: true
               }
-            }
-          }`,
-        {
-          variables: {
-            page: {
-              title,
-              handle,
-              body: pageContent,
-              isPublished: true
             }
           }
-        }
-      );
+        );
 
-      const createData = await createResponse.json();
-      
-      if (createData.data?.pageCreate?.userErrors?.length > 0) {
-        return json({
-          success: false,
-          error: createData.data.pageCreate.userErrors[0].message
-        });
+        const createData = await createResponse.json();
+        
+        if (createData.data?.pageCreate?.userErrors?.length > 0) {
+          console.error("GraphQL create errors:", createData.data.pageCreate.userErrors);
+          return json({
+            success: false,
+            error: createData.data.pageCreate.userErrors[0].message
+          });
+        }
+
+        shopifyPage = createData.data?.pageCreate?.page;
+
+        // Update our database record with the Shopify page ID
+        if (shopifyPage) {
+          await prisma.faqPage.update({
+            where: { id: faqPage.id },
+            data: {
+              shopifyPageId: shopifyPage.id,
+              pageUrl: shopifyPage.onlineStoreUrl
+            }
+          });
+        }
       }
-
-      shopifyPage = createData.data?.pageCreate?.page;
-
-      // Update our database record with the Shopify page ID
-      await prisma.faqPage.update({
-        where: { id: faqPage.id },
-        data: {
-          shopifyPageId: shopifyPage.id,
-          pageUrl: shopifyPage.onlineStoreUrl
-        }
-      });
+    } catch (graphqlError) {
+      console.error("GraphQL API error:", graphqlError);
+      return json({
+        success: false,
+        error: "Failed to communicate with Shopify API: " + (graphqlError.message || "Unknown error")
+      }, { status: 500 });
     }
 
     return json({
