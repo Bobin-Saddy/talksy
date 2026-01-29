@@ -1,171 +1,147 @@
-import { useState, useEffect, useCallback } from "react";
-import {
-  Page,
-  Layout,
-  Card,
-  Text,
-  Button,
-  Badge,
-  ProgressBar,
-  TextField,
-  Collapsible,
-  BlockStack,
-  InlineStack,
-  Box,
-  Divider,
-} from "@shopify/polaris";
-import { RefreshIcon, CalendarIcon } from "@shopify/polaris-icons";
+import { json } from "@remix-run/node";
+import { useLoaderData } from "react-router";
+import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
 
-export default function ChatAnalytics() {
-  const [analytics, setAnalytics] = useState({
-    totalConversations: 0,
-    resolutionRate: 0,
-    assistedRevenue: 0,
-    chatToSalesRate: 0,
-    totalSalesShare: 0,
-    loading: true,
+/* ---------------- LOADER ---------------- */
+export async function loader({ request }) {
+  // 🔐 Ensure Shopify login
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
+
+  // 📊 Fetch analytics data
+  const totalChats = await prisma.chatSession.count({
+    where: { shop },
   });
 
-  const [dateRange, setDateRange] = useState("Last 3 days");
-  const [setupProgress] = useState({ completed: 3, total: 11 });
-  const [liveChatOpen, setLiveChatOpen] = useState(false);
-  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
-  const [faqOpen, setFaqOpen] = useState(false);
-  const [featureTitle, setFeatureTitle] = useState("");
-  const [featureDescription, setFeatureDescription] = useState("");
+  const totalMessages = await prisma.chatMessage.count({
+    where: {
+      session: {
+        shop,
+      },
+    },
+  });
 
-  const fetchAnalytics = useCallback(async () => {
-    try {
-      setAnalytics((p) => ({ ...p, loading: true }));
+  const userMessages = await prisma.chatMessage.count({
+    where: {
+      sender: "user",
+      session: {
+        shop,
+      },
+    },
+  });
 
-      const res = await fetch("/api/chat-analytics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dateRange }),
-      });
+  const adminMessages = await prisma.chatMessage.count({
+    where: {
+      sender: "admin",
+      session: {
+        shop,
+      },
+    },
+  });
 
-      const data = await res.json();
+  const recentChats = await prisma.chatSession.findMany({
+    where: { shop },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    include: {
+      messages: true,
+    },
+  });
 
-      setAnalytics({
-        totalConversations: data.totalConversations || 0,
-        resolutionRate: data.resolutionRate || 0,
-        assistedRevenue: data.assistedRevenue || 0,
-        chatToSalesRate: data.chatToSalesRate || 0,
-        totalSalesShare: data.totalSalesShare || 0,
-        loading: false,
-      });
-    } catch (e) {
-      console.error(e);
-      setAnalytics((p) => ({ ...p, loading: false }));
-    }
-  }, [dateRange]);
+  return json({
+    totalChats,
+    totalMessages,
+    userMessages,
+    adminMessages,
+    recentChats,
+  });
+}
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
-
-  const progressPercent = (setupProgress.completed / setupProgress.total) * 100;
+/* ---------------- PAGE ---------------- */
+export default function ChatAnalytics() {
+  const {
+    totalChats,
+    totalMessages,
+    userMessages,
+    adminMessages,
+    recentChats,
+  } = useLoaderData();
 
   return (
-    <Page
-      title="Overview"
-      secondaryActions={[
-        {
-          content: "Reload",
-          icon: RefreshIcon,
-          onAction: fetchAnalytics,
-          loading: analytics.loading,
-        },
-      ]}
-    >
-      <Layout>
+    <div style={{ padding: "24px", fontFamily: "system-ui" }}>
 
-        {/* Header */}
-        <Layout.Section>
-          <InlineStack gap="400">
-            <Badge icon={CalendarIcon}>{dateRange}</Badge>
-            <Text tone="subdued">Compare to: 24 Jan - 26 Jan 2026</Text>
-            <Box paddingInlineStart="auto">
-              <Text tone="subdued">Live data</Text>
-            </Box>
-          </InlineStack>
-        </Layout.Section>
+      {/* Header */}
+      <div style={{ marginBottom: "20px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: "600" }}>
+          Chat Analytics
+        </h1>
+        <p style={{ color: "#666" }}>
+          Overview of customer conversations
+        </p>
+      </div>
 
-        {/* Metrics */}
-        <Layout.Section>
-          <InlineStack gap="400">
-            <Metric title="Total conversations" value={analytics.totalConversations} />
-            <Metric title="Resolution rate" value={`${analytics.resolutionRate}%`} />
-            <Metric title="Assisted revenue" value={`₹${analytics.assistedRevenue}`} />
-          </InlineStack>
-        </Layout.Section>
+      {/* Stats Boxes */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
 
-        <Layout.Section>
-          <InlineStack gap="400">
-            <Metric title="Chat-to-sales rate" value={`${analytics.chatToSalesRate}%`} />
-            <Metric title="Sales share by Chatty" value={`${analytics.totalSalesShare}%`} />
-          </InlineStack>
-        </Layout.Section>
+        <StatBox title="Total Chats" value={totalChats} />
+        <StatBox title="Total Messages" value={totalMessages} />
+        <StatBox title="User Messages" value={userMessages} />
+        <StatBox title="Admin Messages" value={adminMessages} />
 
-        {/* Setup */}
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="400">
-              <Text variant="headingMd">Set up live chat</Text>
-              <Text tone="subdued">
-                {setupProgress.completed} of {setupProgress.total} tasks completed
-              </Text>
+      </div>
 
-              <ProgressBar progress={progressPercent} size="small" />
-              <Divider />
+      {/* Recent Chats */}
+      <div style={{ background: "#fff", border: "1px solid #e5e5e5", borderRadius: "8px", padding: "16px" }}>
+        <h2 style={{ fontSize: "18px", marginBottom: "12px" }}>
+          Recent Conversations
+        </h2>
 
-              <SetupItem title="Set up live chat" open={liveChatOpen} setOpen={setLiveChatOpen} />
-              <SetupItem title="Set up AI assistant" open={aiAssistantOpen} setOpen={setAiAssistantOpen} />
-              <SetupItem title="Set up FAQs" open={faqOpen} setOpen={setFaqOpen} />
+        {recentChats.length === 0 ? (
+          <p>No chats yet.</p>
+        ) : (
+          <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f5f5f5", textAlign: "left" }}>
+                <th>Session ID</th>
+                <th>Customer</th>
+                <th>Email</th>
+                <th>Total Messages</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentChats.map((chat) => (
+                <tr key={chat.id} style={{ borderBottom: "1px solid #eee" }}>
+                  <td>{chat.sessionId}</td>
+                  <td>{chat.firstName || "-"} {chat.lastName || ""}</td>
+                  <td>{chat.email || "-"}</td>
+                  <td>{chat.messages.length}</td>
+                  <td>{new Date(chat.createdAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-
-        {/* Feature */}
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="400">
-              <Text variant="headingMd">Suggest Feature</Text>
-
-              <TextField label="Title" value={featureTitle} onChange={setFeatureTitle} />
-              <TextField label="Description" value={featureDescription} onChange={setFeatureDescription} multiline={4} />
-
-              <Button primary disabled={!featureTitle || !featureDescription}>
-                Add idea
-              </Button>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-
-      </Layout>
-    </Page>
+    </div>
   );
 }
 
-function Metric({ title, value }) {
+/* ---------------- SMALL COMPONENT ---------------- */
+function StatBox({ title, value }) {
   return (
-    <Card>
-      <Text tone="subdued">{title}</Text>
-      <Text variant="heading2xl">{value}</Text>
-    </Card>
-  );
-}
-
-function SetupItem({ title, open, setOpen }) {
-  return (
-    <>
-      <Button fullWidth textAlign="left" disclosure={open ? "up" : "down"} onClick={() => setOpen(!open)}>
-        {title}
-      </Button>
-      <Collapsible open={open}>
-        <Box padding="200">Configure {title}</Box>
-      </Collapsible>
-    </>
+    <div style={{
+      background: "#fff",
+      border: "1px solid #e5e5e5",
+      borderRadius: "8px",
+      padding: "16px"
+    }}>
+      <div style={{ fontSize: "13px", color: "#666" }}>{title}</div>
+      <div style={{ fontSize: "28px", fontWeight: "600", marginTop: "4px" }}>
+        {value}
+      </div>
+    </div>
   );
 }
