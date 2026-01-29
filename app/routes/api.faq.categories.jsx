@@ -1,3 +1,4 @@
+// app/routes/api.faq.categories.jsx
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 
@@ -6,7 +7,6 @@ import prisma from "../db.server";
  */
 function cors(data, status = 200, request) {
   const origin = request?.headers.get("Origin") || "*";
-
   return new Response(JSON.stringify(data), {
     status,
     headers: {
@@ -63,7 +63,7 @@ export async function loader({ request }) {
 }
 
 /**
- * POST: Admin actions (create, update, delete, reorder)
+ * POST: Admin actions (create, update, delete, reorder, toggle)
  */
 export async function action({ request }) {
   try {
@@ -79,42 +79,89 @@ export async function action({ request }) {
       case "create": {
         const title = formData.get("title");
         const position = parseInt(formData.get("position") || "0");
-
+        
         const category = await prisma.faqCategory.create({
-          data: { shop, title, position },
+          data: { 
+            shop, 
+            title, 
+            position,
+            isActive: true // Default to active
+          },
+          include: {
+            faqs: true
+          }
         });
-
+        
         return cors({ success: true, category }, 200, request);
       }
 
       case "update": {
         const id = formData.get("id");
         const title = formData.get("title");
-        const position = parseInt(formData.get("position") || "0");
+        const position = formData.get("position") ? parseInt(formData.get("position")) : undefined;
         const isActive = formData.get("isActive") === "true";
 
+        const updateData = {};
+        if (title) updateData.title = title;
+        if (position !== undefined) updateData.position = position;
+        if (formData.has("isActive")) updateData.isActive = isActive;
+        
         const category = await prisma.faqCategory.update({
           where: { id },
-          data: { title, position, isActive },
+          data: updateData,
+          include: {
+            faqs: {
+              orderBy: { position: "asc" }
+            }
+          }
         });
-
+        
         return cors({ success: true, category }, 200, request);
       }
 
       case "delete": {
         const id = formData.get("id");
-
+        
+        // Delete all FAQs in this category first
+        await prisma.faqItem.deleteMany({
+          where: { categoryId: id }
+        });
+        
+        // Then delete the category
         await prisma.faqCategory.delete({
           where: { id },
         });
-
+        
         return cors({ success: true }, 200, request);
+      }
+
+      case "toggle": {
+        const id = formData.get("id");
+        
+        // Get current state
+        const category = await prisma.faqCategory.findUnique({
+          where: { id }
+        });
+        
+        // Toggle the isActive state
+        const updated = await prisma.faqCategory.update({
+          where: { id },
+          data: { isActive: !category.isActive },
+          include: {
+            faqs: {
+              orderBy: { position: "asc" }
+            }
+          }
+        });
+        
+        return cors({ success: true, category: updated }, 200, request);
       }
 
       case "reorder": {
         const updates = JSON.parse(formData.get("updates"));
-
-        await Promise.all(
+        
+        // Update all positions in a transaction
+        await prisma.$transaction(
           updates.map((update) =>
             prisma.faqCategory.update({
               where: { id: update.id },
@@ -122,7 +169,7 @@ export async function action({ request }) {
             })
           )
         );
-
+        
         return cors({ success: true }, 200, request);
       }
 
@@ -131,6 +178,9 @@ export async function action({ request }) {
     }
   } catch (error) {
     console.error("FAQ category action error:", error);
-    return cors({ error: "Operation failed" }, 500, request);
+    return cors({ 
+      error: "Operation failed", 
+      details: error.message 
+    }, 500, request);
   }
 }
