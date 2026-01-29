@@ -67,7 +67,7 @@ export async function loader({ request }) {
       })
     ]);
 
-    // Default settings if not found
+    // Default settings if not found - matching DB schema exactly
     const defaultSettings = settings || {
       layout: "list",
       appearanceTheme: "light",
@@ -829,92 +829,106 @@ export default function FaqPage() {
                               pressed={settings.layout === "list"}
                               onClick={() => setSettings({...settings, layout: "list"})}
                             >
-                              1-page layout
+                              List Layout
                             </Button>
                             <Button
                               pressed={settings.layout === "grid"}
                               onClick={() => setSettings({...settings, layout: "grid"})}
                             >
-                              Card layout
+                              Grid Layout
                             </Button>
                           </ButtonGroup>
-                          <Text tone="subdued" variant="bodySm">
-                            {settings.layout === "list" 
-                              ? "Best for simple FAQs, showing all questions in one list" 
-                              : "Best for detailed help center, grouping questions into categories"}
-                          </Text>
                         </BlockStack>
 
-                        {/* Color */}
+                        {/* Theme */}
                         <BlockStack gap="200">
-                          <Text variant="headingSm" as="h4">Color</Text>
-                          <InlineStack gap="200">
-                            <ButtonGroup segmented>
-                              <Button
-                                pressed={settings.appearanceTheme === "preset"}
-                                onClick={() => setSettings({...settings, appearanceTheme: "preset"})}
-                              >
-                                Preset
-                              </Button>
-                              <Button
-                                pressed={settings.appearanceTheme === "custom"}
-                                onClick={() => setSettings({...settings, appearanceTheme: "custom"})}
-                              >
-                                Custom
-                              </Button>
-                            </ButtonGroup>
-                          </InlineStack>
-
-                          {settings.appearanceTheme === "custom" && (
-                            <BlockStack gap="300">
-                              <TextField
-                                label="Page background"
-                                value={settings.customBackgroundColor}
-                                onChange={(value) => setSettings({...settings, customBackgroundColor: value})}
-                                type="color"
-                                autoComplete="off"
-                              />
-                              <TextField
-                                label="Question text"
-                                value={settings.customTextColor}
-                                onChange={(value) => setSettings({...settings, customTextColor: value})}
-                                type="color"
-                                autoComplete="off"
-                              />
-                              <TextField
-                                label="Answer text"
-                                value={settings.customAccentColor}
-                                onChange={(value) => setSettings({...settings, customAccentColor: value})}
-                                type="color"
-                                autoComplete="off"
-                              />
-                            </BlockStack>
-                          )}
+                          <Text variant="headingSm" as="h4">Theme</Text>
+                          <ButtonGroup segmented>
+                            <Button
+                              pressed={settings.appearanceTheme === "light"}
+                              onClick={() => setSettings({...settings, appearanceTheme: "light"})}
+                            >
+                              Light
+                            </Button>
+                            <Button
+                              pressed={settings.appearanceTheme === "dark"}
+                              onClick={() => setSettings({...settings, appearanceTheme: "dark"})}
+                            >
+                              Dark
+                            </Button>
+                            <Button
+                              pressed={settings.appearanceTheme === "preset"}
+                              onClick={() => setSettings({...settings, appearanceTheme: "preset"})}
+                            >
+                              Preset
+                            </Button>
+                            <Button
+                              pressed={settings.appearanceTheme === "custom"}
+                              onClick={() => setSettings({...settings, appearanceTheme: "custom"})}
+                            >
+                              Custom
+                            </Button>
+                          </ButtonGroup>
                         </BlockStack>
+
+                        {/* Custom Colors (only show when custom theme is selected) */}
+                        {settings.appearanceTheme === "custom" && (
+                          <BlockStack gap="300">
+                            <TextField
+                              label="Background Color"
+                              value={settings.customBackgroundColor}
+                              onChange={(value) => setSettings({...settings, customBackgroundColor: value})}
+                              type="color"
+                              autoComplete="off"
+                            />
+                            <TextField
+                              label="Text Color"
+                              value={settings.customTextColor}
+                              onChange={(value) => setSettings({...settings, customTextColor: value})}
+                              type="color"
+                              autoComplete="off"
+                            />
+                            <TextField
+                              label="Accent Color"
+                              value={settings.customAccentColor}
+                              onChange={(value) => setSettings({...settings, customAccentColor: value})}
+                              type="color"
+                              autoComplete="off"
+                            />
+                          </BlockStack>
+                        )}
 
                         {/* Background Image */}
-                        <BlockStack gap="200">
-                          <Text variant="headingSm" as="h4">Background Image</Text>
-                          <TextField
-                            label="Background Image URL"
-                            value={settings.customBackgroundImage}
-                            onChange={(value) => setSettings({...settings, customBackgroundImage: value})}
-                            placeholder="https://example.com/image.jpg"
-                            autoComplete="off"
-                            helpText="Enter a URL for a background image (optional). This will override the background color."
-                          />
-                          {settings.customBackgroundImage && (
-                            <div style={{
-                              width: '100%',
-                              height: '150px',
-                              backgroundImage: `url(${settings.customBackgroundImage})`,
-                              backgroundSize: 'cover',
-                              backgroundPosition: 'center',
-                              borderRadius: '8px',
-                              border: '1px solid #E1E3E5'
-                            }} />
-                          )}
-                        </BlockStack>
+                        <TextField
+                          label="Background Image URL (optional)"
+                          value={settings.customBackgroundImage}
+                          onChange={(value) => setSettings({...settings, customBackgroundImage: value})}
+                          placeholder="https://example.com/image.jpg"
+                          autoComplete="off"
+                          helpText="Enter a URL for a background image. This will override the background color."
+                        />
+
+                        {settings.customBackgroundImage && (
+                          <div style={{
+                            width: '100%',
+                            height: '150px',
+                            backgroundImage: `url(${settings.customBackgroundImage})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            borderRadius: '8px',
+                            border: '1px solid #E1E3E5'
+                          }} />
+                        )}
+
+                        {/* Border Radius */}
+                        <RangeSlider
+                          label={`Border Radius (${settings.customBorderRadius}px)`}
+                          value={settings.customBorderRadius}
+                          onChange={(value) => setSettings({...settings, customBorderRadius: value})}
+                          min={0}
+                          max={24}
+                          output
+                        />
                       </BlockStack>
                     </Card>
 
@@ -923,15 +937,13 @@ export default function FaqPage() {
                       <BlockStack gap="400">
                         <Text variant="headingMd" as="h3">Typography</Text>
 
-                        <TextField
-                          label="Font Size (px)"
-                          type="number"
-                          value={String(settings.customFontSize)}
-                          onChange={(value) => setSettings({...settings, customFontSize: parseInt(value) || 16})}
-                          autoComplete="off"
-                          min="12"
-                          max="24"
-                          helpText="Base font size for FAQ text (12-24px)"
+                        <RangeSlider
+                          label={`Font Size (${settings.customFontSize}px)`}
+                          value={settings.customFontSize}
+                          onChange={(value) => setSettings({...settings, customFontSize: value})}
+                          min={12}
+                          max={24}
+                          output
                         />
 
                         <RangeSlider
@@ -946,74 +958,194 @@ export default function FaqPage() {
                       </BlockStack>
                     </Card>
 
-                    {/* Header */}
+                    {/* Header Settings */}
                     <Card>
                       <BlockStack gap="400">
                         <InlineStack align="space-between">
                           <Text variant="headingMd" as="h3">Header</Text>
+                          <Checkbox
+                            label="Enable"
+                            checked={settings.headerEnabled}
+                            onChange={(value) => setSettings({...settings, headerEnabled: value})}
+                          />
                         </InlineStack>
 
-                        <TextField
-                          label="Heading"
-                          value={settings.headerTitle}
-                          onChange={(value) => setSettings({...settings, headerTitle: value})}
-                          placeholder="Frequently Asked Questions"
-                          autoComplete="off"
-                        />
+                        {settings.headerEnabled && (
+                          <>
+                            <TextField
+                              label="Header Title"
+                              value={settings.headerTitle}
+                              onChange={(value) => setSettings({...settings, headerTitle: value})}
+                              placeholder="Frequently Asked Questions"
+                              autoComplete="off"
+                            />
 
-                        <TextField
-                          label="Description"
-                          value={settings.headerDescription}
-                          onChange={(value) => setSettings({...settings, headerDescription: value})}
-                          placeholder="Got a question? We are here to answer!"
-                          multiline={2}
-                          autoComplete="off"
+                            <TextField
+                              label="Header Description"
+                              value={settings.headerDescription}
+                              onChange={(value) => setSettings({...settings, headerDescription: value})}
+                              placeholder="Got a question? We are here to answer!"
+                              multiline={2}
+                              autoComplete="off"
+                            />
+
+                            <Select
+                              label="Header Alignment"
+                              options={[
+                                { label: 'Left', value: 'left' },
+                                { label: 'Center', value: 'center' },
+                                { label: 'Right', value: 'right' }
+                              ]}
+                              value={settings.headerAlignment}
+                              onChange={(value) => setSettings({...settings, headerAlignment: value})}
+                            />
+                          </>
+                        )}
+                      </BlockStack>
+                    </Card>
+
+                    {/* Search Settings */}
+                    <Card>
+                      <BlockStack gap="400">
+                        <InlineStack align="space-between">
+                          <Text variant="headingMd" as="h3">Search</Text>
+                          <Checkbox
+                            label="Enable"
+                            checked={settings.searchEnabled}
+                            onChange={(value) => setSettings({...settings, searchEnabled: value})}
+                          />
+                        </InlineStack>
+
+                        {settings.searchEnabled && (
+                          <TextField
+                            label="Search Placeholder"
+                            value={settings.searchPlaceholder}
+                            onChange={(value) => setSettings({...settings, searchPlaceholder: value})}
+                            placeholder="Search FAQs..."
+                            autoComplete="off"
+                          />
+                        )}
+                      </BlockStack>
+                    </Card>
+
+                    {/* Display Options */}
+                    <Card>
+                      <BlockStack gap="400">
+                        <Text variant="headingMd" as="h3">Display Options</Text>
+
+                        <Checkbox
+                          label="Show Icons"
+                          checked={settings.showIcons}
+                          onChange={(value) => setSettings({...settings, showIcons: value})}
                         />
 
                         <Checkbox
-                          label="Show Banner"
-                          checked={settings.headerEnabled}
-                          onChange={(value) => setSettings({...settings, headerEnabled: value})}
+                          label="Show Categories"
+                          checked={settings.showCategories}
+                          onChange={(value) => setSettings({...settings, showCategories: value})}
+                        />
+
+                        <Checkbox
+                          label="Enable Accordion (close others when one opens)"
+                          checked={settings.enableAccordion}
+                          onChange={(value) => setSettings({...settings, enableAccordion: value})}
+                        />
+
+                        <Select
+                          label="FAQ Spacing"
+                          options={[
+                            { label: 'Compact', value: 'compact' },
+                            { label: 'Comfortable', value: 'comfortable' },
+                            { label: 'Spacious', value: 'spacious' }
+                          ]}
+                          value={settings.faqSpacing}
+                          onChange={(value) => setSettings({...settings, faqSpacing: value})}
                         />
                       </BlockStack>
                     </Card>
 
-                    {/* Contact us */}
+                    {/* Contact Form */}
                     <Card>
                       <BlockStack gap="400">
                         <InlineStack align="space-between">
-                          <Text variant="headingMd" as="h3">Contact us</Text>
+                          <Text variant="headingMd" as="h3">Contact Form</Text>
                           <Checkbox
+                            label="Enable"
                             checked={settings.contactFormEnabled}
                             onChange={(value) => setSettings({...settings, contactFormEnabled: value})}
                           />
                         </InlineStack>
 
                         {settings.contactFormEnabled && (
-                          <Text tone="subdued">
-                            Allow customers to contact you via chatbox or email.
-                          </Text>
+                          <>
+                            <TextField
+                              label="Form Title"
+                              value={settings.contactFormTitle}
+                              onChange={(value) => setSettings({...settings, contactFormTitle: value})}
+                              autoComplete="off"
+                            />
+
+                            <TextField
+                              label="Form Description"
+                              value={settings.contactFormDescription}
+                              onChange={(value) => setSettings({...settings, contactFormDescription: value})}
+                              multiline={2}
+                              autoComplete="off"
+                            />
+
+                            <TextField
+                              label="Email Label"
+                              value={settings.contactFormEmailLabel}
+                              onChange={(value) => setSettings({...settings, contactFormEmailLabel: value})}
+                              autoComplete="off"
+                            />
+
+                            <TextField
+                              label="Email Placeholder"
+                              value={settings.contactFormEmailPlaceholder}
+                              onChange={(value) => setSettings({...settings, contactFormEmailPlaceholder: value})}
+                              autoComplete="off"
+                            />
+
+                            <TextField
+                              label="Message Label"
+                              value={settings.contactFormMessageLabel}
+                              onChange={(value) => setSettings({...settings, contactFormMessageLabel: value})}
+                              autoComplete="off"
+                            />
+
+                            <TextField
+                              label="Message Placeholder"
+                              value={settings.contactFormMessagePlaceholder}
+                              onChange={(value) => setSettings({...settings, contactFormMessagePlaceholder: value})}
+                              autoComplete="off"
+                            />
+
+                            <TextField
+                              label="Button Text"
+                              value={settings.contactFormButtonText}
+                              onChange={(value) => setSettings({...settings, contactFormButtonText: value})}
+                              autoComplete="off"
+                            />
+                          </>
                         )}
                       </BlockStack>
                     </Card>
 
-                    {/* Advanced settings */}
+                    {/* Advanced Settings */}
                     <Card>
                       <BlockStack gap="400">
-                        <Text variant="headingMd" as="h3">Advanced settings</Text>
+                        <Text variant="headingMd" as="h3">Advanced Settings</Text>
 
                         <TextField
-                          label="Customize CSS"
+                          label="Custom CSS"
                           value={settings.customCSS}
                           onChange={(value) => setSettings({...settings, customCSS: value})}
                           placeholder=".faq-item { margin-bottom: 10px; }"
-                          multiline={4}
+                          multiline={6}
                           autoComplete="off"
+                          helpText="Add custom CSS to style your FAQ page"
                         />
-
-                        <Text tone="subdued" variant="bodySm">
-                          Add custom CSS to style your FAQ page to match your theme.
-                        </Text>
                       </BlockStack>
                     </Card>
 
@@ -1212,7 +1344,6 @@ export default function FaqPage() {
 function FAQPreview({ settings, categories }) {
   const [openFaq, setOpenFaq] = useState(null);
 
-  // Build background style
   const backgroundStyle = settings.customBackgroundImage 
     ? {
         backgroundImage: `url(${settings.customBackgroundImage})`,
@@ -1233,15 +1364,13 @@ function FAQPreview({ settings, categories }) {
 
   return (
     <div style={{ ...backgroundStyle, ...contentStyle }}>
-      {/* If background image exists, add an overlay container */}
       <div style={settings.customBackgroundImage ? {
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(10px)',
         padding: '20px',
-        borderRadius: '8px'
+        borderRadius: `${settings.customBorderRadius}px`
       } : {}}>
         
-        {/* Header */}
         {settings.headerEnabled && (
           <div style={{
             textAlign: settings.headerAlignment || 'center',
@@ -1264,8 +1393,29 @@ function FAQPreview({ settings, categories }) {
           </div>
         )}
 
-        {/* Categories and FAQs */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {settings.searchEnabled && (
+          <div style={{ marginBottom: '20px' }}>
+            <input 
+              type="text"
+              placeholder={settings.searchPlaceholder}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                fontSize: '14px',
+                border: '1px solid #E1E3E5',
+                borderRadius: `${settings.customBorderRadius}px`,
+                outline: 'none'
+              }}
+            />
+          </div>
+        )}
+
+        <div style={{ 
+          display: settings.layout === 'grid' ? 'grid' : 'flex',
+          gridTemplateColumns: settings.layout === 'grid' ? 'repeat(auto-fit, minmax(250px, 1fr))' : undefined,
+          flexDirection: settings.layout === 'list' ? 'column' : undefined,
+          gap: '20px' 
+        }}>
           {categories.filter(cat => cat.isActive).map((category) => (
             <div key={category.id}>
               {settings.showCategories && (
@@ -1279,19 +1429,29 @@ function FAQPreview({ settings, categories }) {
                 </h2>
               )}
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: settings.faqSpacing === 'compact' ? '6px' : settings.faqSpacing === 'spacious' ? '16px' : '10px' 
+              }}>
                 {category.faqs.filter(faq => faq.isActive).map((faq) => (
                   <div 
                     key={faq.id}
                     style={{
                       border: '1px solid #E1E3E5',
-                      borderRadius: '8px',
+                      borderRadius: `${settings.customBorderRadius}px`,
                       overflow: 'hidden',
                       backgroundColor: '#fff'
                     }}
                   >
                     <button
-                      onClick={() => setOpenFaq(openFaq === faq.id ? null : faq.id)}
+                      onClick={() => {
+                        if (settings.enableAccordion) {
+                          setOpenFaq(openFaq === faq.id ? null : faq.id);
+                        } else {
+                          setOpenFaq(openFaq === faq.id ? null : faq.id);
+                        }
+                      }}
                       style={{
                         width: '100%',
                         padding: '12px 16px',
@@ -1311,7 +1471,7 @@ function FAQPreview({ settings, categories }) {
                       }}>
                         {faq.question}
                       </span>
-                      <span style={{ fontSize: '12px' }}>
+                      <span style={{ fontSize: '18px', fontWeight: '300' }}>
                         {openFaq === faq.id ? '−' : '+'}
                       </span>
                     </button>
@@ -1321,7 +1481,7 @@ function FAQPreview({ settings, categories }) {
                         padding: '0 16px 12px',
                         fontSize: '13px',
                         color: settings.customAccentColor || '#666666',
-                        lineHeight: '1.5'
+                        lineHeight: settings.customLineHeight
                       }}>
                         {faq.answer}
                       </div>
@@ -1333,13 +1493,12 @@ function FAQPreview({ settings, categories }) {
           ))}
         </div>
 
-        {/* Contact Form */}
         {settings.contactFormEnabled && (
           <div style={{
             marginTop: '30px',
             padding: '16px',
             border: '1px solid #E1E3E5',
-            borderRadius: '8px',
+            borderRadius: `${settings.customBorderRadius}px`,
             backgroundColor: '#F9FAFB'
           }}>
             <h3 style={{
@@ -1395,7 +1554,6 @@ function FAQPreview({ settings, categories }) {
           </div>
         )}
 
-        {/* Custom CSS Preview Note */}
         {settings.customCSS && (
           <div style={{
             marginTop: '20px',
@@ -1403,7 +1561,7 @@ function FAQPreview({ settings, categories }) {
             backgroundColor: '#FFF4E5',
             border: '1px solid #FFD580',
             borderRadius: '4px',
-            fontSize: '12px',
+            fontSize: '11px',
             color: '#663C00'
           }}>
             ⚠️ Custom CSS is applied on the live page
