@@ -23,7 +23,7 @@ export default function App() {
           <s-link href="/app/chat/admin">Chats</s-link>
           <s-link href="/app/settings">Settings</s-link>
           <s-link href="/app/faq">FAQs</s-link>
-           <s-link href="/app/chatanalytics">Analytics</s-link>
+          
         </s-app-nav>
         <Outlet />
       </PolarisAppProvider>

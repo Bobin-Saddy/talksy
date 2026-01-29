@@ -23,10 +23,10 @@ export default function ChatAnalytics() {
     assistedRevenue: 0,
     chatToSalesRate: 0,
     totalSalesShare: 0,
-    loading: false,
+    loading: true,
   });
 
-  const [dateRange] = useState("Last 3 days");
+  const [dateRange, setDateRange] = useState("Last 3 days");
   const [setupProgress] = useState({ completed: 3, total: 11 });
   const [liveChatOpen, setLiveChatOpen] = useState(false);
   const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
@@ -36,36 +36,33 @@ export default function ChatAnalytics() {
 
   const fetchAnalytics = useCallback(async () => {
     try {
-      setAnalytics((prev) => ({ ...prev, loading: true }));
+      setAnalytics((p) => ({ ...p, loading: true }));
 
-      // fake API delay
-      setTimeout(() => {
-        setAnalytics({
-          totalConversations: 12,
-          resolutionRate: 85,
-          assistedRevenue: 1240,
-          chatToSalesRate: 22,
-          totalSalesShare: 18,
-          loading: false,
-        });
-      }, 800);
+      const res = await fetch("/api/chat-analytics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dateRange }),
+      });
+
+      const data = await res.json();
+
+      setAnalytics({
+        totalConversations: data.totalConversations || 0,
+        resolutionRate: data.resolutionRate || 0,
+        assistedRevenue: data.assistedRevenue || 0,
+        chatToSalesRate: data.chatToSalesRate || 0,
+        totalSalesShare: data.totalSalesShare || 0,
+        loading: false,
+      });
     } catch (e) {
-      setAnalytics((prev) => ({ ...prev, loading: false }));
+      console.error(e);
+      setAnalytics((p) => ({ ...p, loading: false }));
     }
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     fetchAnalytics();
   }, [fetchAnalytics]);
-
-  const handleSubmitFeature = () => {
-    if (!featureTitle || !featureDescription) return;
-
-    console.log("Feature submitted:", featureTitle, featureDescription);
-
-    setFeatureTitle("");
-    setFeatureDescription("");
-  };
 
   const progressPercent = (setupProgress.completed / setupProgress.total) * 100;
 
@@ -82,13 +79,14 @@ export default function ChatAnalytics() {
       ]}
     >
       <Layout>
-        {/* Header Row */}
+
+        {/* Header */}
         <Layout.Section>
-          <InlineStack gap="400" align="start">
+          <InlineStack gap="400">
             <Badge icon={CalendarIcon}>{dateRange}</Badge>
             <Text tone="subdued">Compare to: 24 Jan - 26 Jan 2026</Text>
             <Box paddingInlineStart="auto">
-              <Text tone="subdued">Updated 33m ago</Text>
+              <Text tone="subdued">Live data</Text>
             </Box>
           </InlineStack>
         </Layout.Section>
@@ -96,31 +94,16 @@ export default function ChatAnalytics() {
         {/* Metrics */}
         <Layout.Section>
           <InlineStack gap="400">
-            <Card>
-              <Text tone="subdued">Total conversations</Text>
-              <Text variant="heading2xl">{analytics.totalConversations}</Text>
-            </Card>
-            <Card>
-              <Text tone="subdued">Resolution rate</Text>
-              <Text variant="heading2xl">{analytics.resolutionRate}%</Text>
-            </Card>
-            <Card>
-              <Text tone="subdued">Assisted revenue</Text>
-              <Text variant="heading2xl">₹{analytics.assistedRevenue}</Text>
-            </Card>
+            <Metric title="Total conversations" value={analytics.totalConversations} />
+            <Metric title="Resolution rate" value={`${analytics.resolutionRate}%`} />
+            <Metric title="Assisted revenue" value={`₹${analytics.assistedRevenue}`} />
           </InlineStack>
         </Layout.Section>
 
         <Layout.Section>
           <InlineStack gap="400">
-            <Card>
-              <Text tone="subdued">Chat-to-sales rate</Text>
-              <Text variant="heading2xl">{analytics.chatToSalesRate}%</Text>
-            </Card>
-            <Card>
-              <Text tone="subdued">Sales share by Chatty</Text>
-              <Text variant="heading2xl">{analytics.totalSalesShare}%</Text>
-            </Card>
+            <Metric title="Chat-to-sales rate" value={`${analytics.chatToSalesRate}%`} />
+            <Metric title="Sales share by Chatty" value={`${analytics.totalSalesShare}%`} />
           </InlineStack>
         </Layout.Section>
 
@@ -134,80 +117,55 @@ export default function ChatAnalytics() {
               </Text>
 
               <ProgressBar progress={progressPercent} size="small" />
-
               <Divider />
 
-              <Button
-                fullWidth
-                textAlign="left"
-                disclosure={liveChatOpen ? "up" : "down"}
-                onClick={() => setLiveChatOpen(!liveChatOpen)}
-              >
-                Set up live chat
-              </Button>
-              <Collapsible open={liveChatOpen}>
-                <Box padding="200">
-                  Configure your live chat settings.
-                </Box>
-              </Collapsible>
+              <SetupItem title="Set up live chat" open={liveChatOpen} setOpen={setLiveChatOpen} />
+              <SetupItem title="Set up AI assistant" open={aiAssistantOpen} setOpen={setAiAssistantOpen} />
+              <SetupItem title="Set up FAQs" open={faqOpen} setOpen={setFaqOpen} />
 
-              <Button
-                fullWidth
-                textAlign="left"
-                disclosure={aiAssistantOpen ? "up" : "down"}
-                onClick={() => setAiAssistantOpen(!aiAssistantOpen)}
-              >
-                Set up AI assistant
-              </Button>
-              <Collapsible open={aiAssistantOpen}>
-                <Box padding="200">Configure AI assistant.</Box>
-              </Collapsible>
-
-              <Button
-                fullWidth
-                textAlign="left"
-                disclosure={faqOpen ? "up" : "down"}
-                onClick={() => setFaqOpen(!faqOpen)}
-              >
-                Set up FAQs
-              </Button>
-              <Collapsible open={faqOpen}>
-                <Box padding="200">Add FAQs.</Box>
-              </Collapsible>
             </BlockStack>
           </Card>
         </Layout.Section>
 
-        {/* Suggest Feature */}
+        {/* Feature */}
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
               <Text variant="headingMd">Suggest Feature</Text>
 
-              <TextField
-                label="Title"
-                value={featureTitle}
-                onChange={setFeatureTitle}
-              />
+              <TextField label="Title" value={featureTitle} onChange={setFeatureTitle} />
+              <TextField label="Description" value={featureDescription} onChange={setFeatureDescription} multiline={4} />
 
-              <TextField
-                label="Description"
-                value={featureDescription}
-                onChange={setFeatureDescription}
-                multiline={4}
-              />
-
-              <Button
-                primary
-                onClick={handleSubmitFeature}
-                disabled={!featureTitle || !featureDescription}
-              >
+              <Button primary disabled={!featureTitle || !featureDescription}>
                 Add idea
               </Button>
             </BlockStack>
           </Card>
         </Layout.Section>
+
       </Layout>
     </Page>
+  );
+}
+
+function Metric({ title, value }) {
+  return (
+    <Card>
+      <Text tone="subdued">{title}</Text>
+      <Text variant="heading2xl">{value}</Text>
+    </Card>
+  );
+}
+
+function SetupItem({ title, open, setOpen }) {
+  return (
+    <>
+      <Button fullWidth textAlign="left" disclosure={open ? "up" : "down"} onClick={() => setOpen(!open)}>
+        {title}
+      </Button>
+      <Collapsible open={open}>
+        <Box padding="200">Configure {title}</Box>
+      </Collapsible>
+    </>
   );
 }
