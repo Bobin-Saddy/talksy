@@ -27,7 +27,8 @@ import {
   ButtonGroup,
   Checkbox,
   Thumbnail,
-  Spinner
+  Spinner,
+  DropZone
 } from "@shopify/polaris";
 import {
   PlusIcon,
@@ -123,6 +124,10 @@ export default function FaqPage() {
   const [isCreatingPage, setIsCreatingPage] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
   const [autoUpdatePage, setAutoUpdatePage] = useState(false);
+  
+  // Image upload state
+  const [backgroundImage, setBackgroundImage] = useState(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   
   // Modals
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -541,6 +546,37 @@ export default function FaqPage() {
     }
   };
 
+  // Handle image upload
+  const handleImageUpload = async (files) => {
+    if (!files || files.length === 0) return;
+    
+    setIsUploadingImage(true);
+    const file = files[0];
+    
+    try {
+      // Convert image to base64
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result;
+        setSettings({...settings, customBackgroundImage: base64String});
+        setBackgroundImage(file);
+        shopify.toast.show("Image uploaded successfully!");
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      shopify.toast.show("Failed to upload image", { isError: true });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  // Remove background image
+  const handleRemoveImage = () => {
+    setSettings({...settings, customBackgroundImage: ""});
+    setBackgroundImage(null);
+  };
+
   const faqPageUrl = `https://${shop.replace('.myshopify.com', '')}/pages/${pageHandle}`;
 
   return (
@@ -874,51 +910,127 @@ export default function FaqPage() {
                         {/* Custom Colors (only show when custom theme is selected) */}
                         {settings.appearanceTheme === "custom" && (
                           <BlockStack gap="300">
-                            <TextField
-                              label="Background Color"
-                              value={settings.customBackgroundColor}
-                              onChange={(value) => setSettings({...settings, customBackgroundColor: value})}
-                              type="color"
-                              autoComplete="off"
-                            />
-                            <TextField
-                              label="Text Color"
-                              value={settings.customTextColor}
-                              onChange={(value) => setSettings({...settings, customTextColor: value})}
-                              type="color"
-                              autoComplete="off"
-                            />
-                            <TextField
-                              label="Accent Color"
-                              value={settings.customAccentColor}
-                              onChange={(value) => setSettings({...settings, customAccentColor: value})}
-                              type="color"
-                              autoComplete="off"
-                            />
+                            <BlockStack gap="200">
+                              <Text variant="bodySm" fontWeight="medium">Background Color</Text>
+                              <InlineStack gap="200" blockAlign="center">
+                                <input
+                                  type="color"
+                                  value={settings.customBackgroundColor}
+                                  onChange={(e) => setSettings({...settings, customBackgroundColor: e.target.value})}
+                                  style={{
+                                    width: '60px',
+                                    height: '38px',
+                                    border: '1px solid #E1E3E5',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                  }}
+                                />
+                                <TextField
+                                  value={settings.customBackgroundColor}
+                                  onChange={(value) => setSettings({...settings, customBackgroundColor: value})}
+                                  autoComplete="off"
+                                  placeholder="#FFFFFF"
+                                />
+                              </InlineStack>
+                            </BlockStack>
+
+                            <BlockStack gap="200">
+                              <Text variant="bodySm" fontWeight="medium">Text Color</Text>
+                              <InlineStack gap="200" blockAlign="center">
+                                <input
+                                  type="color"
+                                  value={settings.customTextColor}
+                                  onChange={(e) => setSettings({...settings, customTextColor: e.target.value})}
+                                  style={{
+                                    width: '60px',
+                                    height: '38px',
+                                    border: '1px solid #E1E3E5',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                  }}
+                                />
+                                <TextField
+                                  value={settings.customTextColor}
+                                  onChange={(value) => setSettings({...settings, customTextColor: value})}
+                                  autoComplete="off"
+                                  placeholder="#000000"
+                                />
+                              </InlineStack>
+                            </BlockStack>
+
+                            <BlockStack gap="200">
+                              <Text variant="bodySm" fontWeight="medium">Accent Color</Text>
+                              <InlineStack gap="200" blockAlign="center">
+                                <input
+                                  type="color"
+                                  value={settings.customAccentColor}
+                                  onChange={(e) => setSettings({...settings, customAccentColor: e.target.value})}
+                                  style={{
+                                    width: '60px',
+                                    height: '38px',
+                                    border: '1px solid #E1E3E5',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                  }}
+                                />
+                                <TextField
+                                  value={settings.customAccentColor}
+                                  onChange={(value) => setSettings({...settings, customAccentColor: value})}
+                                  autoComplete="off"
+                                  placeholder="#5C6AC4"
+                                />
+                              </InlineStack>
+                            </BlockStack>
                           </BlockStack>
                         )}
 
                         {/* Background Image */}
-                        <TextField
-                          label="Background Image URL (optional)"
-                          value={settings.customBackgroundImage}
-                          onChange={(value) => setSettings({...settings, customBackgroundImage: value})}
-                          placeholder="https://example.com/image.jpg"
-                          autoComplete="off"
-                          helpText="Enter a URL for a background image. This will override the background color."
-                        />
-
-                        {settings.customBackgroundImage && (
-                          <div style={{
-                            width: '100%',
-                            height: '150px',
-                            backgroundImage: `url(${settings.customBackgroundImage})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                            borderRadius: '8px',
-                            border: '1px solid #E1E3E5'
-                          }} />
-                        )}
+                        <BlockStack gap="300">
+                          <Text variant="headingSm" as="h4">Background Image (optional)</Text>
+                          
+                          {!settings.customBackgroundImage ? (
+                            <DropZone
+                              accept="image/*"
+                              type="image"
+                              onDrop={handleImageUpload}
+                              disabled={isUploadingImage}
+                            >
+                              <DropZone.FileUpload
+                                actionTitle="Add image"
+                                actionHint="or drop image to upload"
+                              />
+                            </DropZone>
+                          ) : (
+                            <BlockStack gap="300">
+                              <div style={{
+                                width: '100%',
+                                height: '150px',
+                                backgroundImage: `url(${settings.customBackgroundImage})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                borderRadius: '8px',
+                                border: '1px solid #E1E3E5',
+                                position: 'relative'
+                              }}>
+                                <Button
+                                  onClick={handleRemoveImage}
+                                  tone="critical"
+                                  size="slim"
+                                  style={{
+                                    position: 'absolute',
+                                    top: '8px',
+                                    right: '8px'
+                                  }}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                              <Text tone="subdued" variant="bodySm">
+                                Background image will override the background color
+                              </Text>
+                            </BlockStack>
+                          )}
+                        </BlockStack>
 
                         {/* Border Radius */}
                         <RangeSlider
