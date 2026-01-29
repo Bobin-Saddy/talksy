@@ -1,5 +1,75 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Calendar } from 'lucide-react';
+
+// Inline SVG icons to avoid lucide-react dependency
+const RefreshIcon = ({ className = "", spinning = false }) => (
+  <svg 
+    className={`${className} ${spinning ? 'animate-spin' : ''}`}
+    width="20" 
+    height="20" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2"
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    <polyline points="23 4 23 10 17 10"></polyline>
+    <polyline points="1 20 1 14 7 14"></polyline>
+    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+  </svg>
+);
+
+const CalendarIcon = ({ className = "" }) => (
+  <svg 
+    className={className}
+    width="16" 
+    height="16" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2"
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+    <line x1="16" y1="2" x2="16" y2="6"></line>
+    <line x1="8" y1="2" x2="8" y2="6"></line>
+    <line x1="3" y1="10" x2="21" y2="10"></line>
+  </svg>
+);
+
+const CloseIcon = ({ className = "" }) => (
+  <svg 
+    className={className}
+    width="20" 
+    height="20" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2"
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+);
+
+const ChevronDownIcon = ({ className = "" }) => (
+  <svg 
+    className={className}
+    width="20" 
+    height="20" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2"
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    <polyline points="6 9 12 15 18 9"></polyline>
+  </svg>
+);
 
 const ChatAnalytics = () => {
   const [analytics, setAnalytics] = useState({
@@ -71,19 +141,19 @@ const ChatAnalytics = () => {
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             disabled={analytics.loading}
           >
-            <RefreshCw className={`w-5 h-5 text-gray-600 ${analytics.loading ? 'animate-spin' : ''}`} />
+            <RefreshIcon spinning={analytics.loading} />
           </button>
         </div>
         
         <div className="flex items-center gap-4 text-sm text-gray-600">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-300 rounded-lg">
-            <Calendar className="w-4 h-4" />
+            <CalendarIcon />
             <span>{dateRange}</span>
           </div>
           <span>Compare to: 24 Jan - 26 Jan 2026</span>
           <span className="ml-auto text-gray-500">Updated 33m ago</span>
           <button className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-            <RefreshCw className="w-4 h-4" />
+            <RefreshIcon className="w-4 h-4" />
             Reload
           </button>
         </div>
@@ -128,9 +198,7 @@ const ChatAnalytics = () => {
             <p className="text-sm text-gray-600">Use this guide to start setup app on your store</p>
           </div>
           <button className="text-gray-400 hover:text-gray-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <CloseIcon />
           </button>
         </div>
         
@@ -148,36 +216,32 @@ const ChatAnalytics = () => {
 
         <div className="space-y-2">
           <details className="group">
-            <summary className="flex items-center justify-between cursor-pointer py-3 px-4 hover:bg-gray-50 rounded-lg">
+            <summary className="flex items-center justify-between cursor-pointer py-3 px-4 hover:bg-gray-50 rounded-lg list-none">
               <span className="font-medium text-gray-900">Set up live chat</span>
-              <svg className="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDownIcon className="text-gray-500 group-open:rotate-180 transition-transform" />
             </summary>
           </details>
           
           <details className="group">
-            <summary className="flex items-center justify-between cursor-pointer py-3 px-4 hover:bg-gray-50 rounded-lg">
+            <summary className="flex items-center justify-between cursor-pointer py-3 px-4 hover:bg-gray-50 rounded-lg list-none">
               <span className="font-medium text-gray-900">Set up AI assistant</span>
-              <svg className="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDownIcon className="text-gray-500 group-open:rotate-180 transition-transform" />
             </summary>
           </details>
           
           <details className="group">
-            <summary className="flex items-center justify-between cursor-pointer py-3 px-4 hover:bg-gray-50 rounded-lg">
+            <summary className="flex items-center justify-between cursor-pointer py-3 px-4 hover:bg-gray-50 rounded-lg list-none">
               <span className="font-medium text-gray-900">Set up FAQs</span>
-              <svg className="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDownIcon className="text-gray-500 group-open:rotate-180 transition-transform" />
             </summary>
           </details>
         </div>
 
         <button className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
           </svg>
           Let us set up for you
         </button>
