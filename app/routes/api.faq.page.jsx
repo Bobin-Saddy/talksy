@@ -238,10 +238,39 @@ export async function action({ request }) {
 function generateFaqPageHtml(settings, categories, shop) {
   const activeCategories = categories.filter(cat => cat.isActive);
   
+  // Apply theme presets
+  let themeColors = {
+    backgroundColor: settings.customBackgroundColor || '#FFFFFF',
+    textColor: settings.customTextColor || '#000000',
+    accentColor: settings.customAccentColor || '#5C6AC4'
+  };
+
+  // Override with preset themes if selected
+  if (settings.appearanceTheme === 'light') {
+    themeColors = {
+      backgroundColor: '#FFFFFF',
+      textColor: '#000000',
+      accentColor: '#5C6AC4'
+    };
+  } else if (settings.appearanceTheme === 'dark') {
+    themeColors = {
+      backgroundColor: '#1a1a1a',
+      textColor: '#FFFFFF',
+      accentColor: '#7B61FF'
+    };
+  } else if (settings.appearanceTheme === 'preset') {
+    themeColors = {
+      backgroundColor: '#F5F5F5',
+      textColor: '#333333',
+      accentColor: '#00A896'
+    };
+  }
+  // For 'custom' theme, use the custom colors from settings
+  
   // Build background style
   const backgroundStyle = settings.customBackgroundImage 
     ? `background-image: url('${settings.customBackgroundImage}'); background-size: cover; background-position: center; background-attachment: fixed;`
-    : `background-color: ${settings.customBackgroundColor || '#FFFFFF'};`;
+    : `background-color: ${themeColors.backgroundColor};`;
   
   return `
 <!DOCTYPE html>
@@ -260,7 +289,7 @@ function generateFaqPageHtml(settings, categories, shop) {
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       line-height: ${settings.customLineHeight || 1.6};
-      color: ${settings.customTextColor || '#000000'};
+      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
       ${backgroundStyle}
       font-size: ${settings.customFontSize || 16}px;
       min-height: 100vh;
@@ -270,7 +299,7 @@ function generateFaqPageHtml(settings, categories, shop) {
       max-width: 1200px;
       margin: 0 auto;
       padding: 40px 20px;
-      ${settings.customBackgroundImage ? 'background-color: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);' : ''}
+      ${settings.customBackgroundImage ? 'background-color: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: ' + (settings.customBorderRadius || 8) + 'px;' : ''}
     }
     
     ${settings.headerEnabled ? `
@@ -283,12 +312,12 @@ function generateFaqPageHtml(settings, categories, shop) {
       font-size: 2.5rem;
       font-weight: 700;
       margin-bottom: 12px;
-      color: ${settings.customTextColor || '#000000'};
+      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
     }
     
     .faq-header p {
       font-size: 1.125rem;
-      color: ${settings.customAccentColor || '#666666'};
+      color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
     }
     ` : ''}
     
@@ -302,14 +331,16 @@ function generateFaqPageHtml(settings, categories, shop) {
       width: 100%;
       padding: 14px 20px;
       font-size: 1rem;
-      border: 2px solid #E1E3E5;
+      border: 2px solid ${settings.appearanceTheme === 'dark' ? '#333' : '#E1E3E5'};
       border-radius: ${settings.customBorderRadius || 8}px;
       outline: none;
       transition: border-color 0.2s;
+      background-color: ${settings.appearanceTheme === 'dark' ? '#2a2a2a' : '#fff'};
+      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
     }
     
     .faq-search input:focus {
-      border-color: ${settings.customAccentColor || '#5C6AC4'};
+      border-color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
     }
     ` : ''}
     
@@ -320,10 +351,10 @@ function generateFaqPageHtml(settings, categories, shop) {
     }
     
     .faq-category {
-      background: #fff;
+      background: ${settings.appearanceTheme === 'dark' ? '#2a2a2a' : '#fff'};
       border-radius: ${settings.customBorderRadius || 8}px;
       padding: 24px;
-      ${settings.layout === 'grid' ? 'border: 1px solid #E1E3E5;' : ''}
+      ${settings.layout === 'grid' ? 'border: 1px solid ' + (settings.appearanceTheme === 'dark' ? '#333' : '#E1E3E5') + ';' : ''}
     }
     
     ${settings.showCategories ? `
@@ -331,7 +362,7 @@ function generateFaqPageHtml(settings, categories, shop) {
       font-size: 1.5rem;
       font-weight: 600;
       margin-bottom: 20px;
-      color: ${settings.customTextColor || '#000000'};
+      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
     }
     ` : ''}
     
@@ -342,10 +373,10 @@ function generateFaqPageHtml(settings, categories, shop) {
     }
     
     .faq-item {
-      border: 1px solid #E1E3E5;
+      border: 1px solid ${settings.appearanceTheme === 'dark' ? '#333' : '#E1E3E5'};
       border-radius: ${settings.customBorderRadius || 8}px;
       overflow: hidden;
-      background: #fff;
+      background: ${settings.appearanceTheme === 'dark' ? '#1f1f1f' : '#fff'};
     }
     
     .faq-question {
@@ -356,7 +387,7 @@ function generateFaqPageHtml(settings, categories, shop) {
       text-align: left;
       font-size: 1rem;
       font-weight: 500;
-      color: ${settings.customTextColor || '#000000'};
+      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
       cursor: pointer;
       display: flex;
       justify-content: space-between;
@@ -365,7 +396,7 @@ function generateFaqPageHtml(settings, categories, shop) {
     }
     
     .faq-question:hover {
-      background-color: #F9FAFB;
+      background-color: ${settings.appearanceTheme === 'dark' ? '#333' : '#F9FAFB'};
     }
     
     .faq-question::after {
@@ -373,6 +404,7 @@ function generateFaqPageHtml(settings, categories, shop) {
       font-size: 1.5rem;
       font-weight: 300;
       transition: transform 0.2s;
+      color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
     }
     
     .faq-item.active .faq-question::after {
@@ -387,8 +419,8 @@ function generateFaqPageHtml(settings, categories, shop) {
     
     .faq-answer-content {
       padding: 0 20px 16px;
-      color: ${settings.customAccentColor || '#666666'};
-      line-height: 1.6;
+      color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
+      line-height: ${settings.customLineHeight || 1.6};
     }
     
     .faq-item.active .faq-answer {
@@ -400,8 +432,8 @@ function generateFaqPageHtml(settings, categories, shop) {
       max-width: 600px;
       margin: 50px auto 0;
       padding: 30px;
-      background: #F9FAFB;
-      border: 1px solid #E1E3E5;
+      background: ${settings.appearanceTheme === 'dark' ? '#2a2a2a' : '#F9FAFB'};
+      border: 1px solid ${settings.appearanceTheme === 'dark' ? '#333' : '#E1E3E5'};
       border-radius: ${settings.customBorderRadius || 8}px;
     }
     
@@ -409,11 +441,11 @@ function generateFaqPageHtml(settings, categories, shop) {
       font-size: 1.25rem;
       font-weight: 600;
       margin-bottom: 8px;
-      color: ${settings.customTextColor || '#000000'};
+      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
     }
     
     .faq-contact p {
-      color: ${settings.customAccentColor || '#666666'};
+      color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
       margin-bottom: 20px;
     }
     
@@ -422,10 +454,12 @@ function generateFaqPageHtml(settings, categories, shop) {
       width: 100%;
       padding: 12px 16px;
       margin-bottom: 12px;
-      border: 1px solid #E1E3E5;
+      border: 1px solid ${settings.appearanceTheme === 'dark' ? '#333' : '#E1E3E5'};
       border-radius: 4px;
       font-size: 1rem;
       font-family: inherit;
+      background-color: ${settings.appearanceTheme === 'dark' ? '#1f1f1f' : '#fff'};
+      color: ${settings.appearanceTheme === 'custom' ? settings.customTextColor : themeColors.textColor};
     }
     
     .faq-contact textarea {
@@ -436,7 +470,7 @@ function generateFaqPageHtml(settings, categories, shop) {
     .faq-contact button {
       width: 100%;
       padding: 12px 24px;
-      background-color: ${settings.customAccentColor || '#5C6AC4'};
+      background-color: ${settings.appearanceTheme === 'custom' ? settings.customAccentColor : themeColors.accentColor};
       color: #fff;
       border: none;
       border-radius: 4px;
@@ -454,6 +488,10 @@ function generateFaqPageHtml(settings, categories, shop) {
     ${settings.customCSS || ''}
     
     @media (max-width: 768px) {
+      body {
+        font-size: ${Math.max(14, (settings.customFontSize || 16) - 2)}px;
+      }
+      
       .faq-header h1 {
         font-size: 2rem;
       }
@@ -464,6 +502,10 @@ function generateFaqPageHtml(settings, categories, shop) {
       
       .faq-categories {
         grid-template-columns: 1fr;
+      }
+      
+      .faq-container {
+        padding: 20px 16px;
       }
     }
   </style>
