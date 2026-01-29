@@ -5,7 +5,7 @@ embedded = true
 
 
 [access_scopes]
-scopes = "write_products"
+scopes = "write_products,write_content"
 
 [access.admin]
 direct_api_mode = "online"
