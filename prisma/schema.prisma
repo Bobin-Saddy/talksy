@@ -45,7 +45,9 @@ model ChatSession {
 
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
-  isResolved Boolean @default(false)
+  isResolved Boolean       @default(false)
+  resolvedAt DateTime?
+  resolvedBy String?
 }
 
 model ChatMessage {

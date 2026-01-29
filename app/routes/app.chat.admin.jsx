@@ -14,7 +14,10 @@ const Icons = {
   Paperclip: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>,
   Smile: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" cy="9" x2="9.01" cy="9"></line><line x1="15" cy="9" x2="15.01" cy="9"></line></svg>,
   X: ({ size = 20, color = "currentColor" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" cy="6" x2="18" y2="18"></line></svg>,
-  FileText: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+  FileText: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>,
+  CheckCircle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
+  AlertCircle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
+  RotateCcw: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
 };
 
 export const loader = async ({ request }) => {
@@ -26,16 +29,50 @@ export const loader = async ({ request }) => {
     where: { shop: shop },
     include: {
       messages: {
-        orderBy: { createdAt: "desc" }, // ✅ ChatMessage uses createdAt
+        orderBy: { createdAt: "desc" },
         take: 1
       }
     },
-    orderBy: { updatedAt: "desc" } // ✅ ChatSession uses updatedAt
+    orderBy: { updatedAt: "desc" }
   });
 
   return json({ sessions, currentShop: shop });
 };
 
+export const action = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
+  
+  const body = await request.json();
+  
+  if (body.action === "resolve") {
+    // Mark chat as resolved
+    await prisma.chatSession.update({
+      where: { sessionId: body.sessionId },
+      data: { 
+        isResolved: true,
+        resolvedAt: new Date(),
+        resolvedBy: "admin"
+      }
+    });
+    return json({ success: true });
+  }
+  
+  if (body.action === "unresolve") {
+    // Reopen chat
+    await prisma.chatSession.update({
+      where: { sessionId: body.sessionId },
+      data: { 
+        isResolved: false,
+        resolvedAt: null,
+        resolvedBy: null
+      }
+    });
+    return json({ success: true });
+  }
+  
+  return json({ success: false });
+};
 
 export default function NeuralChatAdmin() {
   const { sessions: initialSessions, currentShop } = useLoaderData();
@@ -50,6 +87,7 @@ export default function NeuralChatAdmin() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [liveLocation, setLiveLocation] = useState({ city: "Detecting...", country: "", flag: "" });
   const [unreadCounts, setUnreadCounts] = useState({});
+  const [filterStatus, setFilterStatus] = useState("all"); // all, pending, resolved
 
   const fetcher = useFetcher();
   const scrollRef = useRef(null);
@@ -61,20 +99,18 @@ export default function NeuralChatAdmin() {
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
 
   useEffect(() => {
-  const interval = setInterval(async () => {
-    try {
-      const res = await fetch("/app/chat/sessions");
-      const data = await res.json();
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/app/chat/sessions");
+        const data = await res.json();
+        setSessions(data.sessions);
+      } catch (e) {
+        console.error("Failed to refresh sessions");
+      }
+    }, 4000);
 
-      setSessions(data.sessions);
-    } catch (e) {
-      console.error("Failed to refresh sessions");
-    }
-  }, 4000); // every 4 seconds
-
-  return () => clearInterval(interval);
-}, []);
-
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
@@ -82,22 +118,21 @@ export default function NeuralChatAdmin() {
       Notification.requestPermission();
     }
   }, []);
+
   useEffect(() => {
-  const interval = setInterval(async () => {
-    try {
-      const res = await fetch("/app/chat/admin");
-      const data = await res.json();
-      setSessions(data.sessions); // 🔥 auto reorder sidebar
-    } catch (e) {
-      console.error("Session refresh failed");
-    }
-  }, 4000);
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/app/chat/admin");
+        const data = await res.json();
+        setSessions(data.sessions);
+      } catch (e) {
+        console.error("Session refresh failed");
+      }
+    }, 4000);
 
-  return () => clearInterval(interval);
-}, []);
+    return () => clearInterval(interval);
+  }, []);
 
-
-  // FIXED: Improved Geolocation fetching
   const fetchUserLocation = async () => {
     setLiveLocation({ city: "Detecting...", country: "", flag: "" });
     try {
@@ -115,8 +150,16 @@ export default function NeuralChatAdmin() {
   };
 
   const filteredSessions = useMemo(() => {
-    return sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [sessions, searchTerm]);
+    let filtered = sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    if (filterStatus === "pending") {
+      filtered = filtered.filter(s => !s.isResolved);
+    } else if (filterStatus === "resolved") {
+      filtered = filtered.filter(s => s.isResolved);
+    }
+    
+    return filtered;
+  }, [sessions, searchTerm, filterStatus]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -134,55 +177,51 @@ export default function NeuralChatAdmin() {
     }
   };
 
-useEffect(() => {
-  if (!activeSession) return;
+  useEffect(() => {
+    if (!activeSession) return;
 
-  const interval = setInterval(async () => {
-    try {
-      const res = await fetch(`/app/chat/messages?sessionId=${activeSession.sessionId}`);
-      const data = await res.json();
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/app/chat/messages?sessionId=${activeSession.sessionId}`);
+        const data = await res.json();
 
-      if (data.length > 0) {
-        const latestServerMsg = data[data.length - 1];
+        if (data.length > 0) {
+          const latestServerMsg = data[data.length - 1];
 
-        if (latestServerMsg.id !== lastMessageIdRef.current) {
-          // 🔔 Play sound + notification only for user message
-          if (latestServerMsg.sender === "user" && !isFirstLoadRef.current) {
-            notifyNewMessage(activeSession, latestServerMsg);
+          if (latestServerMsg.id !== lastMessageIdRef.current) {
+            if (latestServerMsg.sender === "user" && !isFirstLoadRef.current) {
+              notifyNewMessage(activeSession, latestServerMsg);
+            }
+
+            setMessages(data);
+            lastMessageIdRef.current = latestServerMsg.id;
+
+            setSessions(prev => {
+              const updated = prev.map(s =>
+                s.sessionId === activeSession.sessionId
+                  ? { ...s, updatedAt: new Date().toISOString() }
+                  : s
+              );
+
+              return [...updated].sort(
+                (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+              );
+            });
           }
-
-          // ✅ Update messages
-          setMessages(data);
-          lastMessageIdRef.current = latestServerMsg.id;
-
-          // 🔥 MOVE THIS CHAT TO TOP IN SIDEBAR
-          setSessions(prev => {
-            const updated = prev.map(s =>
-              s.sessionId === activeSession.sessionId
-                ? { ...s, updatedAt: new Date().toISOString() }
-                : s
-            );
-
-            return [...updated].sort(
-              (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
-            );
-          });
         }
+      } catch (err) {
+        console.error("Message polling error", err);
       }
-    } catch (err) {
-      console.error("Message polling error", err);
-    }
-  }, 3000);
+    }, 3000);
 
-  return () => clearInterval(interval);
-}, [activeSession]);
-
+    return () => clearInterval(interval);
+  }, [activeSession]);
 
   const loadChat = async (session) => {
     setActiveSession(session);
     setUnreadCounts(prev => ({ ...prev, [session.sessionId]: 0 }));
     isFirstLoadRef.current = true;
-    fetchUserLocation(); // Trigger location fetch on chat click
+    fetchUserLocation();
     try {
       const res = await fetch(`/app/chat/messages?sessionId=${session.sessionId}`);
       const data = await res.json();
@@ -202,10 +241,8 @@ useEffect(() => {
     reader.readAsDataURL(file);
   };
 
-  // FIXED: Logic to handle Emoji Clicks
   const addEmoji = (emoji) => {
     setReply(prev => prev + emoji);
-    // Keep focus on input if you want
     setShowEmojiPicker(false);
   };
 
@@ -239,6 +276,54 @@ useEffect(() => {
     });
   };
 
+  const handleMarkResolved = async () => {
+    if (!activeSession) return;
+    
+    fetcher.submit(
+      JSON.stringify({ 
+        action: "resolve", 
+        sessionId: activeSession.sessionId 
+      }), 
+      {
+        method: "post",
+        action: "/app/chat/admin",
+        encType: "application/json"
+      }
+    );
+
+    // Update local state
+    setSessions(prev => prev.map(s => 
+      s.sessionId === activeSession.sessionId 
+        ? { ...s, isResolved: true, resolvedAt: new Date().toISOString() }
+        : s
+    ));
+    setActiveSession(prev => ({ ...prev, isResolved: true, resolvedAt: new Date().toISOString() }));
+  };
+
+  const handleReopenChat = async () => {
+    if (!activeSession) return;
+    
+    fetcher.submit(
+      JSON.stringify({ 
+        action: "unresolve", 
+        sessionId: activeSession.sessionId 
+      }), 
+      {
+        method: "post",
+        action: "/app/chat/admin",
+        encType: "application/json"
+      }
+    );
+
+    // Update local state
+    setSessions(prev => prev.map(s => 
+      s.sessionId === activeSession.sessionId 
+        ? { ...s, isResolved: false, resolvedAt: null }
+        : s
+    ));
+    setActiveSession(prev => ({ ...prev, isResolved: false, resolvedAt: null }));
+  };
+
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 40px)', width: 'calc(100vw - 40px)', backgroundColor: '#fff', margin: '20px', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.1)', border: '1px solid #eee', color: '#433d3c', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
       
@@ -253,6 +338,59 @@ useEffect(() => {
         <div style={{ padding: '32px 24px' }}>
           <h2 style={{ fontSize: '28px', fontWeight: '900', color: '#1a1615', margin: 0 }}>Messages</h2>
         </div>
+
+        {/* Filter Tabs */}
+        <div style={{ padding: '0 24px 16px', display: 'flex', gap: '8px' }}>
+          <button 
+            onClick={() => setFilterStatus("all")}
+            style={{ 
+              flex: 1, 
+              padding: '10px 16px', 
+              borderRadius: '12px', 
+              border: 'none', 
+              background: filterStatus === "all" ? accentColor : '#f3f4f6',
+              color: filterStatus === "all" ? '#fff' : '#78716c',
+              fontWeight: '700',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            All ({sessions.length})
+          </button>
+          <button 
+            onClick={() => setFilterStatus("pending")}
+            style={{ 
+              flex: 1, 
+              padding: '10px 16px', 
+              borderRadius: '12px', 
+              border: 'none', 
+              background: filterStatus === "pending" ? '#f59e0b' : '#f3f4f6',
+              color: filterStatus === "pending" ? '#fff' : '#78716c',
+              fontWeight: '700',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            Pending ({sessions.filter(s => !s.isResolved).length})
+          </button>
+          <button 
+            onClick={() => setFilterStatus("resolved")}
+            style={{ 
+              flex: 1, 
+              padding: '10px 16px', 
+              borderRadius: '12px', 
+              border: 'none', 
+              background: filterStatus === "resolved" ? '#10b981' : '#f3f4f6',
+              color: filterStatus === "resolved" ? '#fff' : '#78716c',
+              fontWeight: '700',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            Resolved ({sessions.filter(s => s.isResolved).length})
+          </button>
+        </div>
+
         <div style={{ padding: '0 24px 24px' }}>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <span style={{ position: 'absolute', left: '16px', color: '#a8a29e' }}><Icons.Search /></span>
@@ -264,11 +402,23 @@ useEffect(() => {
           {filteredSessions.map(session => (
             <div key={session.sessionId} onClick={() => loadChat(session)} style={{ position: 'relative', padding: '16px', borderRadius: '20px', cursor: 'pointer', marginBottom: '8px', background: activeSession?.sessionId === session.sessionId ? '#fff' : 'transparent', border: activeSession?.sessionId === session.sessionId ? '1px solid #f0f0f0' : '1px solid transparent', transition: 'all 0.2s' }}>
               <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: activeSession?.sessionId === session.sessionId ? accentColor : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: activeSession?.sessionId === session.sessionId ? 'white' : '#9d9489', flexShrink: 0 }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: activeSession?.sessionId === session.sessionId ? accentColor : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: activeSession?.sessionId === session.sessionId ? 'white' : '#9d9489', flexShrink: 0, position: 'relative' }}>
                   <Icons.User size={24} />
+                  {session.isResolved && (
+                    <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', background: '#10b981', borderRadius: '50%', padding: '3px', border: '2px solid #fcfaf8' }}>
+                      <Icons.CheckCircle />
+                    </div>
+                  )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: '700', fontSize: '15px' }}>{session.email?.split('@')[0] || 'User'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ fontWeight: '700', fontSize: '15px' }}>{session.email?.split('@')[0] || 'User'}</div>
+                    {session.isResolved && (
+                      <div style={{ background: '#d1fae5', color: '#065f46', fontSize: '10px', fontWeight: '800', padding: '2px 8px', borderRadius: '8px' }}>
+                        ✓
+                      </div>
+                    )}
+                  </div>
                   <div style={{ fontSize: '13px', color: '#78716c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.messages[0]?.message || 'New Chat'}</div>
                 </div>
                 {unreadCounts[session.sessionId] > 0 && (
@@ -286,8 +436,67 @@ useEffect(() => {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
         {activeSession ? (
           <>
-            <div style={{ padding: '24px 40px', borderBottom: '1px solid #f0f0f0' }}>
-              <h3 style={{ margin: 0, fontWeight: '800', fontSize: '20px' }}>{activeSession.email}</h3>
+            <div style={{ padding: '24px 40px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <h3 style={{ margin: 0, fontWeight: '800', fontSize: '20px' }}>{activeSession.email}</h3>
+                  {activeSession.isResolved && (
+                    <div style={{ background: '#d1fae5', color: '#065f46', fontSize: '12px', fontWeight: '700', padding: '6px 14px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Icons.CheckCircle />
+                      Resolved
+                    </div>
+                  )}
+                </div>
+                {activeSession.resolvedAt && (
+                  <div style={{ fontSize: '12px', color: '#78716c', marginTop: '4px' }}>
+                    Resolved {new Date(activeSession.resolvedAt).toLocaleDateString()}
+                  </div>
+                )}
+              </div>
+              
+              {/* Resolution Button */}
+              {!activeSession.isResolved ? (
+                <button 
+                  onClick={handleMarkResolved}
+                  style={{ 
+                    padding: '12px 20px', 
+                    borderRadius: '12px', 
+                    border: 'none', 
+                    background: '#10b981',
+                    color: '#fff',
+                    fontWeight: '700',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                  }}
+                >
+                  <Icons.CheckCircle />
+                  Mark as Resolved
+                </button>
+              ) : (
+                <button 
+                  onClick={handleReopenChat}
+                  style={{ 
+                    padding: '12px 20px', 
+                    borderRadius: '12px', 
+                    border: '2px solid #f59e0b', 
+                    background: '#fff',
+                    color: '#f59e0b',
+                    fontWeight: '700',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <Icons.RotateCcw />
+                  Reopen Chat
+                </button>
+              )}
             </div>
 
             <div ref={scrollRef} style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px', background: '#faf9f8' }}>
@@ -329,7 +538,6 @@ useEffect(() => {
 
             <div style={{ padding: '30px 40px', background: '#fff', borderTop: '1px solid #f0f0f0', position: 'relative' }}>
               
-              {/* FIXED EMOJI PICKER UI */}
               {showEmojiPicker && (
                 <div style={{ position: 'absolute', bottom: '90px', left: '40px', background: 'white', padding: '10px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #eee', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', zIndex: 10 }}>
                   {emojis.map(e => (
@@ -362,24 +570,29 @@ useEffect(() => {
         <h4 style={{ fontSize: '12px', fontWeight: '900', color: '#a8a29e', textTransform: 'uppercase', letterSpacing: '1px' }}>Intelligence Hub</h4>
         {activeSession && (
           <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* <div style={{ padding: '24px', background: '#f0f9ff', borderRadius: '24px' }}>
-              <div style={{ fontSize: '10px', color: '#0369a1', fontWeight: '900', marginBottom: '12px' }}>VISITOR LOCATION</div>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                {liveLocation.flag ? (
-                  <img src={liveLocation.flag} width="32" style={{ borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} />
-                ) : (
-                  <div style={{width: 32, height: 20, background: '#e0e0e0', borderRadius: 4}} />
-                )}
-                <div>
-                  <div style={{ fontWeight: '800', fontSize: '16px' }}>{liveLocation.city}</div>
-                  <div style={{ fontSize: '12px', color: '#78716c' }}>{liveLocation.country}</div>
-                </div>
+            {/* Status Card */}
+            <div style={{ padding: '20px', background: activeSession.isResolved ? '#d1fae5' : '#fef3c7', borderRadius: '24px' }}>
+              <div style={{ fontSize: '10px', color: activeSession.isResolved ? '#065f46' : '#92400e', fontWeight: '800', marginBottom: '10px' }}>
+                CHAT STATUS
               </div>
-            </div> */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', color: activeSession.isResolved ? '#065f46' : '#92400e' }}>
+                {activeSession.isResolved ? <Icons.CheckCircle /> : <Icons.AlertCircle />}
+                {activeSession.isResolved ? 'Resolved' : 'Pending'}
+              </div>
+            </div>
+
             <div style={{ padding: '20px', background: '#f8f7f6', borderRadius: '24px' }}>
               <div style={{ fontSize: '10px', color: '#a8a29e', fontWeight: '800', marginBottom: '10px' }}>LOCAL TIME</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}>
                 <Icons.Clock /> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+
+            {/* Message Count */}
+            <div style={{ padding: '20px', background: '#f0f9ff', borderRadius: '24px' }}>
+              <div style={{ fontSize: '10px', color: '#0369a1', fontWeight: '800', marginBottom: '10px' }}>TOTAL MESSAGES</div>
+              <div style={{ fontSize: '32px', fontWeight: '900', color: '#0c4a6e' }}>
+                {messages.length}
               </div>
             </div>
           </div>
