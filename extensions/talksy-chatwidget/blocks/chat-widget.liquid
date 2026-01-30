@@ -279,7 +279,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 .hidden-picker { display: none !important; }
 #emoji-picker { position: absolute; bottom: 85px; left: 15px; right: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
 
-/* ✅ FAQ STYLES */
 .faq-container { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 .faq-header { padding: 25px 20px; color: white; flex-shrink: 0; }
 .faq-header h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
@@ -308,7 +307,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 .faq-empty-text { font-size: 16px; color: #1e293b; font-weight: 600; margin-bottom: 8px; }
 .faq-empty-subtext { color: #94a3b8; font-size: 14px; }
 
-/* ✅ SEARCH STYLES */
 .search-container { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 .search-header { padding: 25px 20px; color: white; flex-shrink: 0; }
 .search-header h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
@@ -332,7 +330,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 .search-result-meta { font-size: 12px; color: #94a3b8; }
 .search-loading { text-align: center; padding: 20px; color: #64748b; }
 
-/* ✅ RESPONSIVE DESIGN */
 @media (max-width: 480px) {
   #chat-widget {
     width: 100%;
@@ -384,24 +381,31 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   let seenMsgs = new Set();
   let faqData = [];
   let searchTimeout = null;
+  let isSessionChecked = false;
+
+  const STORAGE_KEYS = {
+    SESSION_ID: `chat_session_${shop}`,
+    USER_EMAIL: `chat_email_${shop}`,
+    USER_FNAME: `chat_fname_${shop}`,
+    USER_LNAME: `chat_lname_${shop}`
+  };
 
   try {
     localStorage.setItem("__test", "1");
     localStorage.removeItem("__test");
   } catch (e) {
-    console.warn("LocalStorage blocked by browser");
+    console.warn("LocalStorage blocked");
   }
 
   function getOrCreateSessionId() {
-    let sId = localStorage.getItem("chat_session");
+    let sId = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
     if (!sId || sId === "null" || sId === "undefined") {
       sId = "s_" + crypto.randomUUID();
-      localStorage.setItem("chat_session", sId);
+      localStorage.setItem(STORAGE_KEYS.SESSION_ID, sId);
     }
     return sId;
   }
 
-  // ✅ Submit button validation
   function validateForm() {
     const fname = fnameInput.value.trim();
     const email = emailInput.value.trim();
@@ -464,11 +468,9 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       document.getElementById("onboarding-subtitle-text").style.color = s.onboardingTextColor;
 
       document.getElementById("main-support-avatar").src = s.welcomeImg;
-
       document.getElementById("onboarding-form-title").innerText = s.onboardingTitle;
       document.getElementById("onboarding-form-subtitle").innerText = s.onboardingSubtitle;
 
-      // ✅ Apply primary color to FAQ and Search headers
       document.querySelectorAll('.faq-header, .search-header').forEach(el => {
         el.style.background = s.primaryColor;
       });
@@ -479,7 +481,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
         document.getElementById("launcher-icon").innerHTML = ICON_SVGS[s.launcherIcon] || ICON_SVGS.bubble;
       }
 
-      // ✅ Check existing session
       await checkExistingSession();
 
     } catch (e) { 
@@ -487,51 +488,60 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     }
   }
 
-  // ✅ FIXED: Validate session with backend
   async function checkExistingSession() {
-    const existingSession = localStorage.getItem("chat_session");
-    const existingEmail = localStorage.getItem("chat_user_email");
-    const existingFname = localStorage.getItem("chat_user_fname");
+    if (isSessionChecked) return;
+    isSessionChecked = true;
 
-    if(existingSession && existingEmail && existingFname) {
-      try {
-        const response = await fetch(`${BASE_URL}/app/chat/validate-session`, {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({ 
-            shop, 
-            sessionId: existingSession,
-            email: existingEmail 
-          })
-        });
+    const existingSession = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
+    const existingEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
+    const existingFname = localStorage.getItem(STORAGE_KEYS.USER_FNAME);
 
-        const data = await response.json();
+    console.log("🔍 Checking session:", { existingSession, existingEmail, existingFname });
 
-        if(response.ok && data.valid) {
-          // ✅ Session valid - auto login
-          document.getElementById("chat-onboarding-step").style.display = "none";
-          document.getElementById("chat-chat-step").style.display = "flex";
-          startPolling();
-        } else {
-          // ❌ Session invalid - clear and show login
-          clearSession();
-        }
-      } catch(e) {
-        console.error("Session validation error:", e);
+    if(!existingSession || !existingEmail || !existingFname) {
+      console.log("❌ No complete session data");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL}/app/chat/validate-session`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ 
+          shop, 
+          sessionId: existingSession,
+          email: existingEmail 
+        })
+      });
+
+      const data = await response.json();
+      console.log("📡 Validation response:", data);
+
+      if(response.ok && data.valid) {
+        console.log("✅ Session valid - auto login");
+        showChatInterface();
+        startPolling();
+      } else {
+        console.log("❌ Session invalid");
         clearSession();
       }
+    } catch(e) {
+      console.error("❌ Validation error:", e);
+      clearSession();
     }
   }
 
   function clearSession() {
-    localStorage.removeItem("chat_session");
-    localStorage.removeItem("chat_user_email");
-    localStorage.removeItem("chat_user_fname");
+    Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
     document.getElementById("chat-onboarding-step").style.display = "flex";
     document.getElementById("chat-chat-step").style.display = "none";
   }
 
-  // ✅ SEARCH FUNCTIONALITY
+  function showChatInterface() {
+    document.getElementById("chat-onboarding-step").style.display = "none";
+    document.getElementById("chat-chat-step").style.display = "flex";
+  }
+
   async function performSearch(query, type = 'all') {
     if (!query || query.length < 2) {
       document.getElementById("search-results").innerHTML = `
@@ -551,7 +561,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       const data = await response.json();
 
       if (!data.success) throw new Error(data.error || "Search failed");
-
       renderSearchResults(data.results);
     } catch (error) {
       console.error("Search error:", error);
@@ -682,7 +691,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     }).join('');
   }
 
-  // FAQ FUNCTIONS
   async function loadFAQs() {
     try {
       const response = await fetch(`${BASE_URL}/api/faq/categories?shop=${shop}`);
@@ -762,7 +770,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     icon.classList.toggle('open');
   };
 
-  // Event Listeners
   document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById("faq-search-input");
     if (searchInput) {
@@ -813,7 +820,7 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   });
 
   async function fetchMessages() {
-    const sId = localStorage.getItem("chat_session");
+    const sId = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
     if (!sId) return;
     try {
       const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sId}`);
@@ -837,7 +844,7 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   }
 
   async function postMessage(txt = "", file = null) {
-    const sId = localStorage.getItem("chat_session");
+    const sId = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
     const message = txt || chatInput.value.trim();
     if ((!message && !file) || !sId) return;
     chatInput.value = "";
@@ -850,8 +857,8 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
           shop, 
           message, 
           fileUrl: file, 
-          email: localStorage.getItem("chat_user_email"), 
-          fname: localStorage.getItem("chat_user_fname") 
+          email: localStorage.getItem(STORAGE_KEYS.USER_EMAIL), 
+          fname: localStorage.getItem(STORAGE_KEYS.USER_FNAME) 
         })
       });
       fetchMessages();
@@ -884,7 +891,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     };
   });
 
-  // ✅ FIXED: Register/Login with proper session handling
   submitBtn.onclick = async () => {
     const f = fnameInput.value.trim();
     const l = lnameInput.value.trim();
@@ -913,19 +919,18 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       if(res.ok) {
         const data = await res.json();
         
-        // ✅ Save to localStorage
-        localStorage.setItem("chat_session", sId);
-        localStorage.setItem("chat_user_fname", f);
-        localStorage.setItem("chat_user_email", e);
+        localStorage.setItem(STORAGE_KEYS.SESSION_ID, sId);
+        localStorage.setItem(STORAGE_KEYS.USER_FNAME, f);
+        localStorage.setItem(STORAGE_KEYS.USER_LNAME, l || '');
+        localStorage.setItem(STORAGE_KEYS.USER_EMAIL, e);
 
-        // ✅ Switch to chat view
-        document.getElementById("chat-onboarding-step").style.display = "none";
-        document.getElementById("chat-chat-step").style.display = "flex";
+        console.log("✅ Registration successful, session saved");
         
-        // ✅ Start polling
+        showChatInterface();
         startPolling();
         
         submitBtn.textContent = "Start Chatting";
+        submitBtn.disabled = false;
       } else {
         alert("Registration failed. Please try again.");
         submitBtn.disabled = false;

@@ -1,97 +1,86 @@
-// app/routes/app.chat.search.jsx  ← IMPORTANT: Correct file path
-
+// app/routes/app.chat.search.jsx
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 
 const headers = { 
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
 };
 
-// ✅ Handle OPTIONS preflight request
-export const action = async ({ request }) => {
+export const loader = async ({ request }) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers });
   }
-  return loader({ request });
-};
-
-// Helper function to get Shopify access token from database
-async function getShopifyCredentials(shop) {
-  const session = await prisma.session.findFirst({
-    where: { shop: shop },
-    orderBy: { expires: 'desc' }
-  });
-  
-  if (!session) {
-    throw new Error("Shop not authenticated");
-  }
-  
-  return {
-    accessToken: session.accessToken,
-    shop: session.shop
-  };
-}
-
-// Helper function to make GraphQL requests
-async function shopifyGraphQL(shop, accessToken, query, variables = {}) {
-  const response = await fetch(`https://${shop}/admin/api/2024-01/graphql.json`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Shopify-Access-Token": accessToken,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("GraphQL Error:", errorText);
-    throw new Error(`GraphQL request failed: ${response.statusText}`);
-  }
-
-  return response.json();
-}
-
-export const loader = async ({ request }) => {
-  const url = new URL(request.url);
-  const shop = url.searchParams.get("shop");
-  const query = url.searchParams.get("query");
-  const type = url.searchParams.get("type") || "all";
-
-  console.log("Search request:", { shop, query, type });
-
-  if (!shop || !query) {
-    return json({ error: "Missing shop or query" }, { status: 400, headers });
-  }
 
   try {
-    // Get shop credentials
-    const { accessToken } = await getShopifyCredentials(shop);
+    const url = new URL(request.url);
+    const shop = url.searchParams.get("shop");
+    const query = url.searchParams.get("query");
+    const type = url.searchParams.get("type") || "all";
 
+    console.log("Search request:", { shop, query, type });
+
+    if (!shop || !query) {
+      return json({ 
+        success: false, 
+        error: "Missing required parameters" 
+      }, { status: 400, headers });
+    }
+
+    // ✅ Get shop credentials from database
+    const shopData = await prisma.session.findFirst({
+      where: { shop }
+    });
+
+    if (!shopData?.accessToken) {
+      console.error("Shop not found or not authenticated:", shop);
+      return json({ 
+        success: false, 
+        error: "Shop not authenticated" 
+      }, { status: 401, headers });
+    }
+
+    const accessToken = shopData.accessToken;
     const results = {
       products: [],
+      collections: [],
       pages: [],
-      orders: [],
-      collections: []
+      orders: []
+    };
+
+    // ✅ Helper function for GraphQL requests
+    const makeGraphQLRequest = async (query) => {
+      const response = await fetch(`https://${shop}/admin/api/2024-01/graphql.json`, {
+        method: "POST",
+        headers: {
+          "X-Shopify-Access-Token": accessToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query })
+      });
+
+      if (!response.ok) {
+        throw new Error(`GraphQL request failed: ${response.statusText}`);
+      }
+
+      return await response.json();
     };
 
     // ✅ Search Products using GraphQL
     if (type === "all" || type === "products") {
       try {
-        const productQuery = `
+        const productsQuery = `
           query searchProducts($query: String!) {
             products(first: 10, query: $query) {
               edges {
                 node {
                   id
                   title
-                  description
                   handle
+                  descriptionHtml
                   featuredImage {
                     url
-                    altText
                   }
                   priceRangeV2 {
                     minVariantPrice {
@@ -99,48 +88,75 @@ export const loader = async ({ request }) => {
                       currencyCode
                     }
                   }
-                  onlineStoreUrl
-                  variants(first: 1) {
-                    edges {
-                      node {
-                        price
-                      }
-                    }
-                  }
                 }
               }
             }
           }
         `;
 
-        const productData = await shopifyGraphQL(
-          shop, 
-          accessToken, 
-          productQuery, 
-          { query: `title:*${query}*` }
-        );
+        const productsData = await makeGraphQLRequest(productsQuery.replace('$query', `"title:*${query}*"`));
         
-        if (productData.data?.products?.edges) {
-          results.products = productData.data.products.edges.map(({ node }) => ({
+        if (productsData?.data?.products?.edges) {
+          results.products = productsData.data.products.edges.map(({ node }) => ({
+            type: 'product',
             id: node.id,
             title: node.title,
-            description: node.description?.substring(0, 150) || '',
+            description: node.descriptionHtml?.replace(/<[^>]*>/g, '').substring(0, 150) || '',
             image: node.featuredImage?.url || null,
-            price: node.variants?.edges?.[0]?.node?.price || node.priceRangeV2?.minVariantPrice?.amount || "N/A",
-            currency: node.priceRangeV2?.minVariantPrice?.currencyCode || "USD",
-            url: node.onlineStoreUrl || `https://${shop.replace('.myshopify.com', '')}/products/${node.handle}`,
-            type: "product"
+            price: node.priceRangeV2?.minVariantPrice?.amount || 'N/A',
+            currency: node.priceRangeV2?.minVariantPrice?.currencyCode || 'INR',
+            url: `https://${shop.replace('.myshopify.com', '')}/products/${node.handle}`
           }));
         }
       } catch (error) {
-        console.error("Product search error:", error);
+        console.error("Products search error:", error);
+      }
+    }
+
+    // ✅ Search Collections using GraphQL
+    if (type === "all" || type === "collections") {
+      try {
+        const collectionsQuery = `
+          query searchCollections($query: String!) {
+            collections(first: 10, query: $query) {
+              edges {
+                node {
+                  id
+                  title
+                  handle
+                  descriptionHtml
+                  image {
+                    url
+                  }
+                  productsCount
+                }
+              }
+            }
+          }
+        `;
+
+        const collectionsData = await makeGraphQLRequest(collectionsQuery.replace('$query', `"title:*${query}*"`));
+        
+        if (collectionsData?.data?.collections?.edges) {
+          results.collections = collectionsData.data.collections.edges.map(({ node }) => ({
+            type: 'collection',
+            id: node.id,
+            title: node.title,
+            description: node.descriptionHtml?.replace(/<[^>]*>/g, '').substring(0, 150) || '',
+            image: node.image?.url || null,
+            productCount: node.productsCount || 0,
+            url: `https://${shop.replace('.myshopify.com', '')}/collections/${node.handle}`
+          }));
+        }
+      } catch (error) {
+        console.error("Collections search error:", error);
       }
     }
 
     // ✅ Search Pages using GraphQL
     if (type === "all" || type === "pages") {
       try {
-        const pageQuery = `
+        const pagesQuery = `
           query searchPages($query: String!) {
             pages(first: 10, query: $query) {
               edges {
@@ -148,7 +164,6 @@ export const loader = async ({ request }) => {
                   id
                   title
                   handle
-                  body
                   bodySummary
                 }
               }
@@ -156,31 +171,26 @@ export const loader = async ({ request }) => {
           }
         `;
 
-        const pageData = await shopifyGraphQL(
-          shop, 
-          accessToken, 
-          pageQuery, 
-          { query: `title:*${query}*` }
-        );
+        const pagesData = await makeGraphQLRequest(pagesQuery.replace('$query', `"title:*${query}*"`));
         
-        if (pageData.data?.pages?.edges) {
-          results.pages = pageData.data.pages.edges.map(({ node }) => ({
+        if (pagesData?.data?.pages?.edges) {
+          results.pages = pagesData.data.pages.edges.map(({ node }) => ({
+            type: 'page',
             id: node.id,
             title: node.title,
-            description: node.bodySummary?.substring(0, 150) || node.body?.replace(/<[^>]*>/g, '').substring(0, 150) || '',
-            url: `https://${shop.replace('.myshopify.com', '')}/pages/${node.handle}`,
-            type: "page"
+            description: node.bodySummary?.substring(0, 150) || '',
+            url: `https://${shop.replace('.myshopify.com', '')}/pages/${node.handle}`
           }));
         }
       } catch (error) {
-        console.error("Page search error:", error);
+        console.error("Pages search error:", error);
       }
     }
 
     // ✅ Search Orders using GraphQL
-    if (type === "all" || type === "orders") {
+    if (type === "orders") {
       try {
-        const orderQuery = `
+        const ordersQuery = `
           query searchOrders($query: String!) {
             orders(first: 10, query: $query) {
               edges {
@@ -188,16 +198,16 @@ export const loader = async ({ request }) => {
                   id
                   name
                   email
-                  createdAt
-                  displayFinancialStatus
-                  displayFulfillmentStatus
                   totalPriceSet {
                     shopMoney {
                       amount
                       currencyCode
                     }
                   }
-                  lineItems(first: 3) {
+                  createdAt
+                  displayFinancialStatus
+                  displayFulfillmentStatus
+                  lineItems(first: 10) {
                     edges {
                       node {
                         title
@@ -214,94 +224,45 @@ export const loader = async ({ request }) => {
           }
         `;
 
-        const orderData = await shopifyGraphQL(
-          shop, 
-          accessToken, 
-          orderQuery, 
-          { query: `name:*${query}* OR email:*${query}*` }
-        );
+        const ordersData = await makeGraphQLRequest(ordersQuery.replace('$query', `"name:*${query}* OR email:*${query}*"`));
         
-        if (orderData.data?.orders?.edges) {
-          results.orders = orderData.data.orders.edges.map(({ node }) => ({
+        if (ordersData?.data?.orders?.edges) {
+          results.orders = ordersData.data.orders.edges.map(({ node }) => ({
+            type: 'order',
             id: node.id,
             orderNumber: node.name,
             email: node.email,
-            total: node.totalPriceSet?.shopMoney?.amount || "0",
-            currency: node.totalPriceSet?.shopMoney?.currencyCode || "USD",
-            status: node.displayFinancialStatus,
-            fulfillment: node.displayFulfillmentStatus,
+            total: node.totalPriceSet?.shopMoney?.amount || '0',
+            currency: node.totalPriceSet?.shopMoney?.currencyCode || 'INR',
             date: node.createdAt,
+            status: node.displayFinancialStatus || 'PENDING',
+            fulfillment: node.displayFulfillmentStatus || null,
             items: node.lineItems?.edges?.map(({ node: item }) => ({
               title: item.title,
               quantity: item.quantity,
               image: item.image?.url || null
-            })) || [],
-            type: "order"
+            })) || []
           }));
         }
       } catch (error) {
-        console.error("Order search error:", error);
+        console.error("Orders search error:", error);
       }
     }
 
-    // ✅ Search Collections using GraphQL
-    if (type === "all" || type === "collections") {
-      try {
-        const collectionQuery = `
-          query searchCollections($query: String!) {
-            collections(first: 10, query: $query) {
-              edges {
-                node {
-                  id
-                  title
-                  description
-                  handle
-                  image {
-                    url
-                    altText
-                  }
-                  productsCount
-                }
-              }
-            }
-          }
-        `;
-
-        const collectionData = await shopifyGraphQL(
-          shop, 
-          accessToken, 
-          collectionQuery, 
-          { query: `title:*${query}*` }
-        );
-        
-        if (collectionData.data?.collections?.edges) {
-          results.collections = collectionData.data.collections.edges.map(({ node }) => ({
-            id: node.id,
-            title: node.title,
-            description: node.description?.substring(0, 150) || '',
-            image: node.image?.url || null,
-            productCount: node.productsCount || 0,
-            url: `https://${shop.replace('.myshopify.com', '')}/collections/${node.handle}`,
-            type: "collection"
-          }));
-        }
-      } catch (error) {
-        console.error("Collection search error:", error);
-      }
-    }
+    console.log("Search results count:", {
+      products: results.products.length,
+      collections: results.collections.length,
+      pages: results.pages.length,
+      orders: results.orders.length
+    });
 
     return json({ success: true, results }, { headers });
+
   } catch (error) {
     console.error("Search Error:", error);
     return json({ 
-      success: false,
-      error: error.message,
-      results: {
-        products: [],
-        pages: [],
-        orders: [],
-        collections: []
-      }
+      success: false, 
+      error: error.message 
     }, { status: 500, headers });
   }
 };
