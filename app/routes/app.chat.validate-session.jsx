@@ -1,4 +1,4 @@
-// app.chat.validate-session.jsx
+// app/routes/app.chat.validate-session.jsx
 
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
@@ -17,7 +17,9 @@ export const action = async ({ request }) => {
   try {
     const { shop, sessionId, email } = await request.json();
 
-    // ✅ Check if session exists and is valid
+    console.log("Validating session:", { shop, sessionId, email });
+
+    // ✅ Check if session exists with proper query
     const session = await prisma.chatSession.findFirst({
       where: {
         shop: shop,
@@ -33,9 +35,11 @@ export const action = async ({ request }) => {
         data: { updatedAt: new Date() }
       });
 
+      console.log("Session valid:", session.id);
       return json({ valid: true, session }, { headers });
     }
 
+    console.log("Session not found");
     return json({ valid: false }, { status: 401, headers });
   } catch (e) { 
     console.error("Session validation error:", e);
