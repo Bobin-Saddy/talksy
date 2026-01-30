@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData, Form, useNavigation, useFetcher } from "react-router";
+import { useLoaderData, useFetcher } from "react-router";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { useState } from "react";
@@ -33,11 +33,10 @@ export async function loader({ request }) {
   const recentChats = await prisma.chatSession.findMany({
     where: { shop },
     orderBy: { createdAt: "desc" },
-    take: 5,
+    take: 10,
     include: { messages: true },
   });
 
-  // Get feature suggestions
   const featureSuggestions = await prisma.featureSuggestion.findMany({
     where: { shop },
     orderBy: { createdAt: "desc" },
@@ -46,12 +45,6 @@ export async function loader({ request }) {
 
   const assistedRevenue = 0;
   const chatToSalesRate = 0;
-  const salesShare = 0;
-
-  const hasChat = totalConversations > 0;
-  const hasFaq = await prisma.faq.count({ where: { shop } }) > 0;
-  const hasSettings = await prisma.chatSettings.findUnique({ where: { shop } });
-  const completedSteps = [hasChat, hasFaq, hasSettings].filter(Boolean).length;
   const avgResponseTime = "< 2 min";
 
   return json({
@@ -62,9 +55,7 @@ export async function loader({ request }) {
     resolutionRate,
     assistedRevenue,
     chatToSalesRate,
-    salesShare,
     recentChats,
-    completedSteps,
     avgResponseTime,
     featureSuggestions,
   });
@@ -115,277 +106,192 @@ export default function ChatAnalytics() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.maxWidth}>
-        {/* ANIMATED HEADER */}
+      <div style={styles.wrapper}>
+        {/* HEADER */}
         <div style={styles.header}>
-          <div style={styles.headerContent}>
-            <div style={styles.headerBadge}>
-              <span style={styles.pulsingDot}></span>
-              Live Dashboard
-            </div>
-            <h1 style={styles.mainTitle}>Analytics Dashboard</h1>
-            <p style={styles.subtitle}>
-              Track your chat performance and customer engagement in real-time
-            </p>
+          <div>
+            <h1 style={styles.title}>Analytics Dashboard</h1>
+            <p style={styles.subtitle}>Last 3 days performance overview</p>
           </div>
-          <div style={styles.headerStats}>
-            <div style={styles.miniStat}>
-              <div style={styles.miniStatValue}>{data.completedSteps}/3</div>
-              <div style={styles.miniStatLabel}>Setup</div>
-            </div>
-            <div style={styles.divider}></div>
-            <div style={styles.miniStat}>
-              <div style={styles.miniStatValue}>{data.resolutionRate}%</div>
-              <div style={styles.miniStatLabel}>Resolved</div>
-            </div>
-          </div>
+          <button style={styles.refreshBtn} onClick={() => window.location.reload()}>
+            <svg style={styles.btnIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
         </div>
 
-        {/* TIME RANGE CARD */}
-        <div style={styles.timeCard}>
-          <div style={styles.timeCardContent}>
-            <div style={styles.timeLeft}>
-              <div style={styles.activePill}>
-                <span style={styles.calendarIcon}>📅</span>
-                Last 3 days
-              </div>
-              <div style={styles.comparisonText}>vs. 24 Jan - 26 Jan 2026</div>
-            </div>
-            <button style={styles.refreshBtn} onClick={() => window.location.reload()}>
-              <span style={styles.refreshIcon}>🔄</span>
-              Refresh Data
-            </button>
-          </div>
-        </div>
-
-        {/* MAIN METRICS GRID - Enhanced */}
+        {/* MAIN METRICS */}
         <div style={styles.metricsGrid}>
           <MetricCard 
-            icon="💬" 
+            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>}
             title="Total Conversations" 
-            value={data.totalConversations} 
-            color="#6366f1"
-            subtitle="All chat sessions"
-            bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-            trend="+12%"
+            value={data.totalConversations}
+            change="+12%"
+            changeType="positive"
           />
           <MetricCard 
-            icon="✅" 
+            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             title="Resolved Chats" 
-            value={data.resolvedChats} 
-            color="#10b981"
+            value={data.resolvedChats}
             subtitle={`${data.resolutionRate}% resolution rate`}
-            bg="linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
-            trend="+8%"
+            change="+8%"
+            changeType="positive"
           />
           <MetricCard 
-            icon="⏳" 
+            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             title="Pending Chats" 
-            value={data.pendingChats} 
-            color="#f59e0b"
+            value={data.pendingChats}
             subtitle="Awaiting resolution"
-            bg="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
-            trend="-3%"
+            change="-3%"
+            changeType="negative"
           />
           <MetricCard 
-            icon="📊" 
+            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>}
             title="Total Messages" 
-            value={data.totalMessages} 
-            color="#8b5cf6"
+            value={data.totalMessages}
             subtitle="Across all chats"
-            bg="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"
-            trend="+15%"
+            change="+15%"
+            changeType="positive"
           />
         </div>
 
         {/* TWO COLUMN LAYOUT */}
-        <div style={styles.twoColumnGrid}>
+        <div style={styles.gridLayout}>
           {/* LEFT COLUMN */}
-          <div style={styles.leftColumn}>
-            {/* RESOLUTION BREAKDOWN - Enhanced */}
+          <div style={styles.leftCol}>
+            {/* RESOLUTION OVERVIEW */}
             <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <div>
-                  <h2 style={styles.cardTitle}>
-                    <span style={styles.cardIcon}>📊</span>
-                    Resolution Breakdown
-                  </h2>
-                  <p style={styles.cardSubtitle}>Performance overview</p>
-                </div>
-              </div>
-              
-              <div style={styles.resolutionGrid}>
-                <div style={styles.resolvedBox}>
-                  <div style={styles.statLabel}>RESOLVED</div>
+              <h2 style={styles.cardTitle}>
+                <svg style={styles.titleIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Resolution Overview
+              </h2>
+
+              <div style={styles.statsRow}>
+                <div style={styles.statBox}>
+                  <div style={styles.statLabel}>Resolved</div>
                   <div style={styles.statValue}>{data.resolvedChats}</div>
-                  <div style={styles.statPercentage}>{data.resolutionRate}% of total</div>
-                  <div style={styles.sparkline}>
-                    {[65, 72, 68, 80, 85, 82, data.resolutionRate].map((v, i) => (
-                      <div key={i} style={{...styles.sparkBar, height: `${v}%`}}></div>
-                    ))}
+                  <div style={styles.statPercent}>{data.resolutionRate}%</div>
+                </div>
+                <div style={styles.statBox}>
+                  <div style={styles.statLabel}>Pending</div>
+                  <div style={styles.statValue}>{data.pendingChats}</div>
+                  <div style={styles.statPercent}>
+                    {data.totalConversations > 0 ? 100 - data.resolutionRate : 0}%
                   </div>
                 </div>
-
-                <div style={styles.pendingBox}>
-                  <div style={styles.statLabel}>PENDING</div>
-                  <div style={styles.statValue}>{data.pendingChats}</div>
-                  <div style={styles.statPercentage}>
-                    {data.totalConversations > 0 ? Math.round((data.pendingChats / data.totalConversations) * 100) : 0}% of total
-                  </div>
-                  <div style={styles.sparkline}>
-                    {[35, 28, 32, 20, 15, 18, 100 - data.resolutionRate].map((v, i) => (
-                      <div key={i} style={{...styles.sparkBar, height: `${v}%`, background: "#f59e0b"}}></div>
-                    ))}
-                  </div>
+                <div style={styles.statBox}>
+                  <div style={styles.statLabel}>Total</div>
+                  <div style={styles.statValue}>{data.totalConversations}</div>
+                  <div style={styles.statPercent}>100%</div>
                 </div>
               </div>
 
-              <div style={styles.totalBox}>
-                <div style={styles.totalContent}>
-                  <div>
-                    <div style={styles.totalLabel}>TOTAL CONVERSATIONS</div>
-                    <div style={styles.totalValue}>{data.totalConversations}</div>
-                  </div>
-                  <div style={styles.progressCircle}>
-                    <svg width="80" height="80">
-                      <circle cx="40" cy="40" r="35" fill="none" stroke="#e5e7eb" strokeWidth="8"/>
-                      <circle 
-                        cx="40" 
-                        cy="40" 
-                        r="35" 
-                        fill="none" 
-                        stroke="#6366f1" 
-                        strokeWidth="8"
-                        strokeDasharray={`${2 * Math.PI * 35 * data.resolutionRate / 100} ${2 * Math.PI * 35}`}
-                        strokeLinecap="round"
-                        transform="rotate(-90 40 40)"
-                      />
-                      <text x="40" y="45" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#6366f1">
-                        {data.resolutionRate}%
-                      </text>
-                    </svg>
-                  </div>
+              <div style={styles.progressSection}>
+                <div style={styles.progressHeader}>
+                  <span style={styles.progressLabel}>Resolution Progress</span>
+                  <span style={styles.progressValue}>{data.resolutionRate}%</span>
+                </div>
+                <div style={styles.progressBar}>
+                  <div style={{...styles.progressFill, width: `${data.resolutionRate}%`}} />
                 </div>
               </div>
             </div>
 
-            {/* SECONDARY METRICS - Enhanced */}
-            <div style={styles.secondaryMetrics}>
-              <div style={styles.secondaryCard}>
-                <div style={styles.secondaryIcon}>💰</div>
-                <div style={styles.secondaryContent}>
-                  <div style={styles.secondaryLabel}>Assisted Revenue</div>
-                  <div style={styles.secondaryValue}>₹{data.assistedRevenue.toLocaleString()}</div>
-                  <div style={styles.secondarySubtext}>From chat conversions</div>
-                </div>
-                <div style={styles.trendBadge}>
-                  <span>📈</span> +0%
-                </div>
-              </div>
+            {/* PERFORMANCE METRICS */}
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>
+                <svg style={styles.titleIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                Performance Metrics
+              </h2>
 
-              <div style={styles.secondaryCard}>
-                <div style={{...styles.secondaryIcon, background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"}}>🎯</div>
-                <div style={styles.secondaryContent}>
-                  <div style={styles.secondaryLabel}>Chat-to-Sales</div>
-                  <div style={styles.secondaryValue}>{data.chatToSalesRate}%</div>
-                  <div style={styles.progressBar}>
-                    <div style={{...styles.progressFill, width: `${data.chatToSalesRate}%`}} />
+              <div style={styles.metricsList}>
+                <div style={styles.metricRow}>
+                  <div style={styles.metricLeft}>
+                    <svg style={styles.metricIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <div style={styles.metricTitle}>Assisted Revenue</div>
+                      <div style={styles.metricSubtitle}>From chat conversions</div>
+                    </div>
                   </div>
+                  <div style={styles.metricValue}>₹{data.assistedRevenue}</div>
                 </div>
-                <div style={styles.trendBadge}>
-                  <span>📊</span> 0%
-                </div>
-              </div>
 
-              <div style={styles.secondaryCard}>
-                <div style={{...styles.secondaryIcon, background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"}}>⚡</div>
-                <div style={styles.secondaryContent}>
-                  <div style={styles.secondaryLabel}>Avg Response Time</div>
-                  <div style={styles.secondaryValue}>{data.avgResponseTime}</div>
-                  <div style={styles.secondarySubtext}>Fast & efficient support</div>
+                <div style={styles.metricRow}>
+                  <div style={styles.metricLeft}>
+                    <svg style={styles.metricIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <div>
+                      <div style={styles.metricTitle}>Chat-to-Sales Rate</div>
+                      <div style={styles.metricSubtitle}>Conversion percentage</div>
+                    </div>
+                  </div>
+                  <div style={styles.metricValue}>{data.chatToSalesRate}%</div>
                 </div>
-                <div style={{...styles.trendBadge, background: "#d1fae5", color: "#065f46"}}>
-                  <span>⚡</span> Great
+
+                <div style={styles.metricRow}>
+                  <div style={styles.metricLeft}>
+                    <svg style={styles.metricIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <div>
+                      <div style={styles.metricTitle}>Avg Response Time</div>
+                      <div style={styles.metricSubtitle}>Fast support delivery</div>
+                    </div>
+                  </div>
+                  <div style={styles.metricValue}>{data.avgResponseTime}</div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* RIGHT COLUMN */}
-          <div style={styles.rightColumn}>
-            {/* SETUP PROGRESS - Enhanced */}
+          <div style={styles.rightCol}>
+            {/* RECENT ACTIVITY */}
             <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <div>
-                  <h2 style={styles.cardTitle}>
-                    <span style={styles.cardIcon}>🚀</span>
-                    Setup Progress
-                  </h2>
-                  <p style={styles.cardSubtitle}>Complete your configuration</p>
-                </div>
-                <div style={styles.progressBadge}>
-                  {data.completedSteps}/3
-                </div>
-              </div>
+              <h2 style={styles.cardTitle}>
+                <svg style={styles.titleIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Recent Activity
+              </h2>
 
-              <div style={styles.progressBarLarge}>
-                <div style={{
-                  ...styles.progressFillLarge, 
-                  width: `${(data.completedSteps / 3) * 100}%`
-                }} />
-              </div>
-
-              <div style={styles.checklistGrid}>
-                <ChecklistItem completed={true} text="Set up live chat" icon="💬" />
-                <ChecklistItem completed={true} text="Configure AI assistant" icon="🤖" />
-                <ChecklistItem completed={data.completedSteps >= 3} text="Add FAQ knowledge base" icon="📚" />
-              </div>
-
-              {data.completedSteps < 3 && (
-                <div style={styles.setupCTA}>
-                  <button style={styles.ctaButton}>
-                    Complete Setup →
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* RECENT ACTIVITY - Enhanced */}
-            <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <h2 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>🕒</span>
-                  Recent Activity
-                </h2>
-              </div>
-              
               <div style={styles.activityList}>
                 {data.recentChats.length > 0 ? (
-                  data.recentChats.slice(0, 5).map((chat, index) => (
+                  data.recentChats.map((chat, index) => (
                     <div key={chat.sessionId} style={styles.activityItem}>
                       <div style={styles.activityAvatar}>
-                        {chat.email ? chat.email.charAt(0).toUpperCase() : index + 1}
+                        {chat.email ? chat.email.charAt(0).toUpperCase() : (index + 1)}
                       </div>
                       <div style={styles.activityContent}>
                         <div style={styles.activityName}>
                           {chat.email || `Customer ${index + 1}`}
                         </div>
                         <div style={styles.activityMeta}>
-                          {chat.messages.length} messages • {new Date(chat.createdAt).toLocaleDateString()}
+                          {chat.messages.length} messages · {new Date(chat.createdAt).toLocaleDateString()}
                         </div>
                       </div>
                       {chat.isResolved ? (
-                        <div style={styles.resolvedBadge}>✓ Resolved</div>
+                        <span style={styles.badgeResolved}>Resolved</span>
                       ) : (
-                        <div style={styles.pendingBadge}>⏳ Pending</div>
+                        <span style={styles.badgePending}>Pending</span>
                       )}
                     </div>
                   ))
                 ) : (
                   <div style={styles.emptyState}>
-                    <div style={styles.emptyIcon}>📭</div>
-                    <div style={styles.emptyText}>No recent activity</div>
-                    <div style={styles.emptySubtext}>Chat sessions will appear here</div>
+                    <svg style={styles.emptyIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                    <p style={styles.emptyText}>No recent activity</p>
+                    <p style={styles.emptySubtext}>Chat sessions will appear here</p>
                   </div>
                 )}
               </div>
@@ -393,53 +299,68 @@ export default function ChatAnalytics() {
           </div>
         </div>
 
-        {/* FEATURE SUGGESTIONS SECTION - Enhanced & Dynamic */}
-        <div style={styles.featureSection}>
-          <div style={styles.card}>
-            <div style={styles.cardHeader}>
-              <div>
-                <h2 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>💡</span>
-                  Feature Suggestions
-                </h2>
-                <p style={styles.cardSubtitle}>Help us improve by sharing your ideas</p>
-              </div>
-              <button 
-                style={styles.addButton}
-                onClick={() => setShowFeatureForm(!showFeatureForm)}
-              >
-                {showFeatureForm ? "✕ Close" : "+ New Idea"}
-              </button>
-            </div>
-
-            {showFeatureForm && (
-              <FeatureForm onClose={() => setShowFeatureForm(false)} />
-            )}
-
-            {/* Feature List */}
-            {data.featureSuggestions && data.featureSuggestions.length > 0 && (
-              <div style={styles.featureList}>
-                {data.featureSuggestions.map((feature) => (
-                  <FeatureCard key={feature.id} feature={feature} />
-                ))}
-              </div>
-            )}
-
-            {(!data.featureSuggestions || data.featureSuggestions.length === 0) && !showFeatureForm && (
-              <div style={styles.emptyState}>
-                <div style={styles.emptyIcon}>✨</div>
-                <div style={styles.emptyText}>No suggestions yet</div>
-                <div style={styles.emptySubtext}>Be the first to share your idea!</div>
-              </div>
-            )}
+        {/* FEATURE SUGGESTIONS */}
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <h2 style={styles.cardTitle}>
+              <svg style={styles.titleIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              Feature Suggestions
+            </h2>
+            <button 
+              style={styles.addBtn}
+              onClick={() => setShowFeatureForm(!showFeatureForm)}
+            >
+              <svg style={styles.btnIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              {showFeatureForm ? "Close" : "Add Idea"}
+            </button>
           </div>
+
+          {showFeatureForm && <FeatureForm onClose={() => setShowFeatureForm(false)} />}
+
+          {data.featureSuggestions && data.featureSuggestions.length > 0 ? (
+            <div style={styles.featureList}>
+              {data.featureSuggestions.map((feature) => (
+                <FeatureCard key={feature.id} feature={feature} />
+              ))}
+            </div>
+          ) : !showFeatureForm ? (
+            <div style={styles.emptyState}>
+              <svg style={styles.emptyIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              <p style={styles.emptyText}>No suggestions yet</p>
+              <p style={styles.emptySubtext}>Share your ideas to help us improve</p>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
-/* ---------------- DYNAMIC FORM COMPONENT ---------------- */
+/* ---------------- COMPONENTS ---------------- */
+function MetricCard({ icon, title, value, subtitle, change, changeType }) {
+  return (
+    <div style={styles.metricCard}>
+      <div style={styles.metricCardTop}>
+        <div style={styles.iconWrapper}>{icon}</div>
+        {change && (
+          <span style={changeType === 'positive' ? styles.changePositive : styles.changeNegative}>
+            {change}
+          </span>
+        )}
+      </div>
+      <div style={styles.metricCardTitle}>{title}</div>
+      <div style={styles.metricCardValue}>{value}</div>
+      {subtitle && <div style={styles.metricCardSubtitle}>{subtitle}</div>}
+    </div>
+  );
+}
+
 function FeatureForm({ onClose }) {
   const fetcher = useFetcher();
   const [formData, setFormData] = useState({
@@ -459,92 +380,80 @@ function FeatureForm({ onClose }) {
     form.append("priority", formData.priority);
     
     fetcher.submit(form, { method: "post" });
-    
     setFormData({ title: "", description: "", category: "general", priority: "medium" });
     setTimeout(onClose, 500);
   };
 
   return (
-    <div style={styles.featureForm}>
-      <form onSubmit={handleSubmit}>
-        <div style={styles.formGrid}>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Feature Title *</label>
-            <input 
-              name="title" 
-              placeholder="e.g., Video chat support"
-              style={styles.input}
-              value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
-              required
-            />
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Category *</label>
-            <select 
-              name="category" 
-              style={styles.select}
-              value={formData.category}
-              onChange={(e) => setFormData({...formData, category: e.target.value})}
-            >
-              <option value="general">General</option>
-              <option value="chat">Chat Features</option>
-              <option value="analytics">Analytics</option>
-              <option value="integration">Integration</option>
-              <option value="ui">User Interface</option>
-              <option value="performance">Performance</option>
-            </select>
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Priority *</label>
-            <select 
-              name="priority" 
-              style={styles.select}
-              value={formData.priority}
-              onChange={(e) => setFormData({...formData, priority: e.target.value})}
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
-          </div>
-        </div>
-
+    <form onSubmit={handleSubmit} style={styles.form}>
+      <div style={styles.formGrid}>
         <div style={styles.formGroup}>
-          <label style={styles.label}>Description *</label>
-          <textarea 
-            name="description" 
-            placeholder="Describe how this feature would help your business..."
-            style={styles.textarea}
-            value={formData.description}
-            onChange={(e) => setFormData({...formData, description: e.target.value})}
+          <label style={styles.label}>Title</label>
+          <input 
+            type="text"
+            name="title" 
+            placeholder="Feature title"
+            style={styles.input}
+            value={formData.title}
+            onChange={(e) => setFormData({...formData, title: e.target.value})}
             required
           />
         </div>
-
-        <div style={styles.formActions}>
-          <button type="button" style={styles.cancelButton} onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" style={styles.submitButton}>
-            <span style={styles.buttonIcon}>✨</span>
-            Submit Idea
-          </button>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Category</label>
+          <select 
+            name="category" 
+            style={styles.select}
+            value={formData.category}
+            onChange={(e) => setFormData({...formData, category: e.target.value})}
+          >
+            <option value="general">General</option>
+            <option value="chat">Chat Features</option>
+            <option value="analytics">Analytics</option>
+            <option value="integration">Integration</option>
+            <option value="ui">UI/UX</option>
+            <option value="performance">Performance</option>
+          </select>
         </div>
-      </form>
-    </div>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Priority</label>
+          <select 
+            name="priority" 
+            style={styles.select}
+            value={formData.priority}
+            onChange={(e) => setFormData({...formData, priority: e.target.value})}
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+      </div>
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Description</label>
+        <textarea 
+          name="description" 
+          placeholder="Describe your feature idea..."
+          style={styles.textarea}
+          value={formData.description}
+          onChange={(e) => setFormData({...formData, description: e.target.value})}
+          required
+        />
+      </div>
+      <div style={styles.formActions}>
+        <button type="button" style={styles.cancelBtn} onClick={onClose}>Cancel</button>
+        <button type="submit" style={styles.submitBtn}>Submit Idea</button>
+      </div>
+    </form>
   );
 }
 
-/* ---------------- FEATURE CARD COMPONENT ---------------- */
 function FeatureCard({ feature }) {
   const fetcher = useFetcher();
 
   const handleDelete = () => {
-    if (confirm("Are you sure you want to delete this suggestion?")) {
+    if (confirm("Delete this suggestion?")) {
       const form = new FormData();
       form.append("_action", "deleteFeature");
       form.append("id", feature.id);
@@ -552,80 +461,21 @@ function FeatureCard({ feature }) {
     }
   };
 
-  const getCategoryColor = (category) => {
-    const colors = {
-      general: "#6b7280",
-      chat: "#6366f1",
-      analytics: "#8b5cf6",
-      integration: "#10b981",
-      ui: "#f59e0b",
-      performance: "#ef4444"
-    };
-    return colors[category] || "#6b7280";
-  };
-
-  const getPriorityColor = (priority) => {
-    const colors = {
-      low: "#6b7280",
-      medium: "#f59e0b",
-      high: "#ef4444",
-      critical: "#dc2626"
-    };
-    return colors[priority] || "#6b7280";
-  };
-
   return (
     <div style={styles.featureCard}>
-      <div style={styles.featureHeader}>
-        <h3 style={styles.featureTitle}>{feature.title}</h3>
-        <button style={styles.deleteButton} onClick={handleDelete}>
-          🗑️
+      <div style={styles.featureCardHeader}>
+        <h3 style={styles.featureCardTitle}>{feature.title}</h3>
+        <button style={styles.deleteBtn} onClick={handleDelete}>
+          <svg style={styles.deleteIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
         </button>
       </div>
-      <p style={styles.featureDescription}>{feature.description}</p>
-      <div style={styles.featureMeta}>
-        <span style={{...styles.categoryBadge, background: `${getCategoryColor(feature.category)}15`, color: getCategoryColor(feature.category)}}>
-          {feature.category}
-        </span>
-        <span style={{...styles.priorityBadge, background: `${getPriorityColor(feature.priority)}15`, color: getPriorityColor(feature.priority)}}>
-          {feature.priority}
-        </span>
-        <span style={styles.dateBadge}>
-          {new Date(feature.createdAt).toLocaleDateString()}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ---------------- METRIC CARD COMPONENT ---------------- */
-function MetricCard({ icon, title, value, color, subtitle, bg, trend }) {
-  return (
-    <div style={{...styles.metricCard, background: bg}}>
-      <div style={styles.metricIcon}>{icon}</div>
-      <div style={styles.metricContent}>
-        <div style={styles.metricTitle}>{title}</div>
-        <div style={styles.metricValue}>{value}</div>
-        <div style={styles.metricFooter}>
-          <span style={styles.metricSubtitle}>{subtitle}</span>
-          {trend && <span style={styles.metricTrend}>{trend}</span>}
-        </div>
-      </div>
-      <div style={styles.metricGlow}></div>
-    </div>
-  );
-}
-
-/* ---------------- CHECKLIST ITEM COMPONENT ---------------- */
-function ChecklistItem({ completed, text, icon }) {
-  return (
-    <div style={completed ? styles.checklistItemCompleted : styles.checklistItem}>
-      <div style={styles.checklistIcon}>
-        {completed ? "✅" : "⬜"}
-      </div>
-      <div style={styles.checklistContent}>
-        <div style={styles.checklistText}>{text}</div>
-        <div style={styles.checklistEmoji}>{icon}</div>
+      <p style={styles.featureCardDesc}>{feature.description}</p>
+      <div style={styles.featureCardFooter}>
+        <span style={styles.categoryTag}>{feature.category}</span>
+        <span style={styles.priorityTag}>{feature.priority}</span>
+        <span style={styles.dateTag}>{new Date(feature.createdAt).toLocaleDateString()}</span>
       </div>
     </div>
   );
@@ -634,475 +484,261 @@ function ChecklistItem({ completed, text, icon }) {
 /* ---------------- STYLES ---------------- */
 const styles = {
   container: {
-    padding: "40px 24px",
-    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
     minHeight: "100vh",
+    background: "#f8fafc",
+    padding: "24px",
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
-  maxWidth: {
-    maxWidth: "1600px",
+  wrapper: {
+    maxWidth: "1400px",
     margin: "0 auto",
   },
   header: {
-    marginBottom: 32,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    marginBottom: 32,
     flexWrap: "wrap",
-    gap: 20,
+    gap: 16,
   },
-  headerContent: {
-    flex: 1,
-  },
-  headerBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "6px 12px",
-    background: "rgba(99, 102, 241, 0.1)",
-    border: "1px solid rgba(99, 102, 241, 0.3)",
-    borderRadius: 20,
-    fontSize: 12,
-    fontWeight: 600,
-    color: "#6366f1",
-    marginBottom: 12,
-  },
-  pulsingDot: {
-    width: 8,
-    height: 8,
-    background: "#10b981",
-    borderRadius: "50%",
-    animation: "pulse 2s infinite",
-  },
-  mainTitle: {
-    fontSize: 42,
-    fontWeight: 800,
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
+  title: {
+    fontSize: 32,
+    fontWeight: 700,
+    color: "#0f172a",
     margin: 0,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#6b7280",
+    fontSize: 15,
+    color: "#64748b",
     margin: 0,
-  },
-  headerStats: {
-    display: "flex",
-    gap: 24,
-    alignItems: "center",
-    background: "#fff",
-    padding: "16px 24px",
-    borderRadius: 16,
-    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)",
-  },
-  miniStat: {
-    textAlign: "center",
-  },
-  miniStatValue: {
-    fontSize: 24,
-    fontWeight: 800,
-    color: "#111827",
-  },
-  miniStatLabel: {
-    fontSize: 11,
-    color: "#6b7280",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    marginTop: 4,
-  },
-  divider: {
-    width: 1,
-    height: 40,
-    background: "#e5e7eb",
-  },
-  timeCard: {
-    background: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)",
-    marginBottom: 24,
-  },
-  timeCardContent: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 16,
-  },
-  timeLeft: {
-    display: "flex",
-    gap: 16,
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  activePill: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "10px 16px",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    color: "#fff",
-    borderRadius: 10,
-    fontSize: 13,
-    fontWeight: 600,
-  },
-  calendarIcon: {
-    fontSize: 16,
-  },
-  comparisonText: {
-    fontSize: 14,
-    color: "#6b7280",
   },
   refreshBtn: {
     display: "flex",
     alignItems: "center",
     gap: 8,
     padding: "10px 18px",
-    background: "#f9fafb",
-    border: "2px solid #e5e7eb",
-    borderRadius: 10,
-    fontSize: 13,
-    fontWeight: 600,
-    color: "#374151",
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 500,
+    color: "#475569",
     cursor: "pointer",
     transition: "all 0.2s",
   },
-  refreshIcon: {
-    fontSize: 14,
+  btnIcon: {
+    width: 16,
+    height: 16,
+    strokeWidth: 2,
   },
   metricsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: 24,
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: 20,
     marginBottom: 32,
   },
   metricCard: {
-    position: "relative",
-    padding: 28,
-    borderRadius: 20,
-    overflow: "hidden",
-    transition: "transform 0.3s, box-shadow 0.3s",
-    cursor: "pointer",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.1)",
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 12,
+    padding: 24,
+    transition: "box-shadow 0.2s",
   },
-  metricGlow: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "radial-gradient(circle at top right, rgba(255, 255, 255, 0.3), transparent)",
-    pointerEvents: "none",
-  },
-  metricIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-    filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15))",
-  },
-  metricContent: {
-    position: "relative",
-    zIndex: 1,
-  },
-  metricTitle: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.9)",
-    fontWeight: 600,
-    textTransform: "uppercase",
-    letterSpacing: "1px",
-    marginBottom: 8,
-  },
-  metricValue: {
-    fontSize: 42,
-    fontWeight: 800,
-    color: "#fff",
-    marginBottom: 8,
-  },
-  metricFooter: {
+  metricCardTop: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 16,
   },
-  metricSubtitle: {
-    fontSize: 13,
-    color: "rgba(255, 255, 255, 0.8)",
+  iconWrapper: {
+    width: 40,
+    height: 40,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#f1f5f9",
+    borderRadius: 10,
+    color: "#475569",
   },
-  metricTrend: {
+  changePositive: {
     fontSize: 12,
-    fontWeight: 700,
+    fontWeight: 600,
+    color: "#10b981",
+    background: "#d1fae5",
     padding: "4px 8px",
-    background: "rgba(255, 255, 255, 0.2)",
     borderRadius: 6,
-    color: "#fff",
   },
-  twoColumnGrid: {
+  changeNegative: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#ef4444",
+    background: "#fee2e2",
+    padding: "4px 8px",
+    borderRadius: 6,
+  },
+  metricCardTitle: {
+    fontSize: 13,
+    color: "#64748b",
+    fontWeight: 500,
+    marginBottom: 8,
+  },
+  metricCardValue: {
+    fontSize: 32,
+    fontWeight: 700,
+    color: "#0f172a",
+    marginBottom: 4,
+  },
+  metricCardSubtitle: {
+    fontSize: 13,
+    color: "#94a3b8",
+  },
+  gridLayout: {
     display: "grid",
     gridTemplateColumns: "1.5fr 1fr",
     gap: 24,
-    marginBottom: 32,
+    marginBottom: 24,
   },
-  leftColumn: {
+  leftCol: {
     display: "flex",
     flexDirection: "column",
     gap: 24,
   },
-  rightColumn: {
+  rightCol: {
     display: "flex",
     flexDirection: "column",
     gap: 24,
   },
   card: {
     background: "#fff",
-    borderRadius: 20,
-    padding: 28,
-    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)",
-    border: "1px solid #e5e7eb",
+    border: "1px solid #e2e8f0",
+    borderRadius: 12,
+    padding: 24,
   },
   cardHeader: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     marginBottom: 24,
   },
   cardTitle: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: "#111827",
+    fontSize: 18,
+    fontWeight: 600,
+    color: "#0f172a",
     margin: 0,
+    marginBottom: 24,
     display: "flex",
     alignItems: "center",
     gap: 10,
   },
-  cardIcon: {
-    fontSize: 24,
+  titleIcon: {
+    width: 20,
+    height: 20,
+    color: "#64748b",
+    strokeWidth: 2,
   },
-  cardSubtitle: {
-    fontSize: 13,
-    color: "#6b7280",
-    margin: 0,
-    marginTop: 6,
-  },
-  resolutionGrid: {
+  statsRow: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "repeat(3, 1fr)",
     gap: 16,
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  resolvedBox: {
-    padding: 24,
-    background: "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)",
-    borderRadius: 16,
-    border: "2px solid #86efac",
-  },
-  pendingBox: {
-    padding: 24,
-    background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
-    borderRadius: 16,
-    border: "2px solid #fcd34d",
+  statBox: {
+    padding: 20,
+    background: "#f8fafc",
+    borderRadius: 10,
+    textAlign: "center",
+    border: "1px solid #e2e8f0",
   },
   statLabel: {
-    fontSize: 10,
-    color: "#065f46",
-    fontWeight: 700,
-    marginBottom: 12,
-    letterSpacing: "1px",
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: 500,
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
   },
   statValue: {
-    fontSize: 40,
-    fontWeight: 800,
-    color: "#065f46",
-    marginBottom: 8,
-  },
-  statPercentage: {
-    fontSize: 12,
-    color: "#10b981",
-    marginBottom: 12,
-  },
-  sparkline: {
-    display: "flex",
-    gap: 3,
-    alignItems: "flex-end",
-    height: 30,
-  },
-  sparkBar: {
-    flex: 1,
-    background: "#10b981",
-    borderRadius: 2,
-    minHeight: 4,
-    transition: "height 0.3s",
-  },
-  totalBox: {
-    padding: 24,
-    background: "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)",
-    borderRadius: 16,
-    border: "2px solid #c4b5fd",
-  },
-  totalContent: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  totalLabel: {
-    fontSize: 11,
-    color: "#5b21b6",
+    fontSize: 32,
     fontWeight: 700,
-    letterSpacing: "1px",
-    marginBottom: 8,
-  },
-  totalValue: {
-    fontSize: 40,
-    fontWeight: 800,
-    color: "#5b21b6",
-  },
-  progressCircle: {
-    filter: "drop-shadow(0 4px 8px rgba(99, 102, 241, 0.2))",
-  },
-  secondaryMetrics: {
-    display: "grid",
-    gap: 16,
-  },
-  secondaryCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: 16,
-    padding: 20,
-    background: "#fff",
-    borderRadius: 16,
-    border: "1px solid #e5e7eb",
-    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
-    transition: "transform 0.2s, box-shadow 0.2s",
-  },
-  secondaryIcon: {
-    width: 56,
-    height: 56,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 24,
-    borderRadius: 12,
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    flexShrink: 0,
-  },
-  secondaryContent: {
-    flex: 1,
-  },
-  secondaryLabel: {
-    fontSize: 12,
-    color: "#6b7280",
-    fontWeight: 600,
-    marginBottom: 6,
-  },
-  secondaryValue: {
-    fontSize: 28,
-    fontWeight: 800,
-    color: "#111827",
+    color: "#0f172a",
     marginBottom: 4,
   },
-  secondarySubtext: {
-    fontSize: 11,
-    color: "#9ca3af",
+  statPercent: {
+    fontSize: 13,
+    color: "#475569",
+    fontWeight: 500,
   },
-  trendBadge: {
-    padding: "6px 12px",
-    background: "#fef3c7",
-    color: "#92400e",
-    fontSize: 11,
-    fontWeight: 700,
-    borderRadius: 8,
-    flexShrink: 0,
+  progressSection: {
+    paddingTop: 20,
+    borderTop: "1px solid #e2e8f0",
+  },
+  progressHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  progressLabel: {
+    fontSize: 13,
+    color: "#64748b",
+    fontWeight: 500,
+  },
+  progressValue: {
+    fontSize: 13,
+    color: "#0f172a",
+    fontWeight: 600,
   },
   progressBar: {
-    background: "#e5e7eb",
-    height: 6,
+    height: 8,
+    background: "#e2e8f0",
     borderRadius: 10,
     overflow: "hidden",
-    marginTop: 8,
   },
   progressFill: {
     height: "100%",
-    background: "linear-gradient(90deg, #10b981 0%, #059669 100%)",
+    background: "#3b82f6",
     borderRadius: 10,
     transition: "width 0.5s ease",
   },
-  progressBadge: {
-    padding: "8px 16px",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: 800,
-    borderRadius: 12,
-  },
-  progressBarLarge: {
-    background: "#e5e7eb",
-    height: 12,
-    borderRadius: 12,
-    overflow: "hidden",
-    marginBottom: 24,
-  },
-  progressFillLarge: {
-    height: "100%",
-    background: "linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)",
-    borderRadius: 12,
-    transition: "width 0.5s ease",
-  },
-  checklistGrid: {
-    display: "grid",
-    gap: 12,
-  },
-  checklistItem: {
+  metricsList: {
     display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: 16,
-    background: "#f9fafb",
-    borderRadius: 12,
-    border: "2px solid #e5e7eb",
-    transition: "all 0.2s",
+    flexDirection: "column",
+    gap: 16,
   },
-  checklistItemCompleted: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: 16,
-    background: "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)",
-    borderRadius: 12,
-    border: "2px solid #86efac",
-    transition: "all 0.2s",
-  },
-  checklistIcon: {
-    fontSize: 24,
-  },
-  checklistContent: {
-    flex: 1,
+  metricRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    padding: 16,
+    background: "#f8fafc",
+    borderRadius: 10,
+    border: "1px solid #e2e8f0",
   },
-  checklistText: {
+  metricLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
+  metricIcon: {
+    width: 20,
+    height: 20,
+    color: "#64748b",
+    strokeWidth: 2,
+  },
+  metricTitle: {
     fontSize: 14,
-    fontWeight: 600,
-    color: "#065f46",
+    fontWeight: 500,
+    color: "#0f172a",
+    marginBottom: 2,
   },
-  checklistEmoji: {
+  metricSubtitle: {
+    fontSize: 12,
+    color: "#94a3b8",
+  },
+  metricValue: {
     fontSize: 18,
-  },
-  setupCTA: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTop: "1px solid #e5e7eb",
-  },
-  ctaButton: {
-    width: "100%",
-    padding: "14px 24px",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    color: "#fff",
-    border: "none",
-    borderRadius: 12,
-    fontSize: 14,
     fontWeight: 700,
-    cursor: "pointer",
-    transition: "transform 0.2s",
+    color: "#0f172a",
   },
   activityList: {
     display: "flex",
@@ -1113,23 +749,22 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    padding: 16,
-    background: "#f9fafb",
-    borderRadius: 12,
-    border: "1px solid #e5e7eb",
-    transition: "all 0.2s",
+    padding: 14,
+    background: "#f8fafc",
+    borderRadius: 10,
+    border: "1px solid #e2e8f0",
   },
   activityAvatar: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    color: "#fff",
-    borderRadius: 12,
-    fontSize: 16,
-    fontWeight: 700,
+    background: "#e2e8f0",
+    color: "#475569",
+    borderRadius: 10,
+    fontSize: 14,
+    fontWeight: 600,
     flexShrink: 0,
   },
   activityContent: {
@@ -1137,70 +772,72 @@ const styles = {
   },
   activityName: {
     fontSize: 14,
-    fontWeight: 600,
-    color: "#111827",
-    marginBottom: 4,
+    fontWeight: 500,
+    color: "#0f172a",
+    marginBottom: 2,
   },
   activityMeta: {
     fontSize: 12,
-    color: "#6b7280",
+    color: "#94a3b8",
   },
-  resolvedBadge: {
-    padding: "6px 12px",
-    background: "#d1fae5",
+  badgeResolved: {
+    fontSize: 11,
+    fontWeight: 600,
     color: "#065f46",
-    fontSize: 11,
-    fontWeight: 700,
-    borderRadius: 8,
-    flexShrink: 0,
+    background: "#d1fae5",
+    padding: "5px 10px",
+    borderRadius: 6,
   },
-  pendingBadge: {
-    padding: "6px 12px",
-    background: "#fef3c7",
-    color: "#92400e",
+  badgePending: {
     fontSize: 11,
-    fontWeight: 700,
-    borderRadius: 8,
-    flexShrink: 0,
+    fontWeight: 600,
+    color: "#92400e",
+    background: "#fef3c7",
+    padding: "5px 10px",
+    borderRadius: 6,
   },
   emptyState: {
     textAlign: "center",
-    padding: 40,
+    padding: 48,
   },
   emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
+    width: 48,
+    height: 48,
+    color: "#cbd5e1",
+    margin: "0 auto 16px",
+    strokeWidth: 1.5,
   },
   emptyText: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: "#6b7280",
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: 500,
+    color: "#64748b",
+    margin: "0 0 4px 0",
   },
   emptySubtext: {
     fontSize: 13,
-    color: "#9ca3af",
+    color: "#94a3b8",
+    margin: 0,
   },
-  featureSection: {
-    marginTop: 32,
-  },
-  addButton: {
-    padding: "10px 20px",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  addBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 16px",
+    background: "#3b82f6",
     color: "#fff",
     border: "none",
-    borderRadius: 10,
-    fontSize: 13,
-    fontWeight: 700,
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 500,
     cursor: "pointer",
-    transition: "transform 0.2s",
+    transition: "background 0.2s",
   },
-  featureForm: {
-    padding: 24,
-    background: "#f9fafb",
-    borderRadius: 16,
-    marginBottom: 24,
-    border: "2px solid #e5e7eb",
+  form: {
+    padding: 20,
+    background: "#f8fafc",
+    borderRadius: 10,
+    marginBottom: 20,
+    border: "1px solid #e2e8f0",
   },
   formGrid: {
     display: "grid",
@@ -1211,146 +848,145 @@ const styles = {
   formGroup: {
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: 6,
   },
   label: {
     fontSize: 12,
-    fontWeight: 700,
-    color: "#374151",
+    fontWeight: 600,
+    color: "#475569",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
   },
   input: {
-    width: "100%",
-    padding: "12px 16px",
-    borderRadius: 10,
-    border: "2px solid #e5e7eb",
+    padding: "10px 14px",
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
     fontSize: 14,
     fontFamily: "inherit",
-    transition: "border-color 0.2s",
     outline: "none",
+    transition: "border-color 0.2s",
   },
   select: {
-    width: "100%",
-    padding: "12px 16px",
-    borderRadius: 10,
-    border: "2px solid #e5e7eb",
+    padding: "10px 14px",
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
     fontSize: 14,
     fontFamily: "inherit",
-    transition: "border-color 0.2s",
     outline: "none",
     background: "#fff",
+    transition: "border-color 0.2s",
   },
   textarea: {
-    width: "100%",
-    padding: "12px 16px",
-    borderRadius: 10,
-    border: "2px solid #e5e7eb",
+    padding: "10px 14px",
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
     fontSize: 14,
     fontFamily: "inherit",
-    transition: "border-color 0.2s",
     outline: "none",
     resize: "vertical",
-    minHeight: 100,
+    minHeight: 80,
+    transition: "border-color 0.2s",
   },
   formActions: {
     display: "flex",
-    gap: 12,
+    gap: 10,
     justifyContent: "flex-end",
   },
-  cancelButton: {
-    padding: "12px 24px",
+  cancelBtn: {
+    padding: "10px 20px",
     background: "#fff",
-    color: "#6b7280",
-    border: "2px solid #e5e7eb",
-    borderRadius: 10,
+    color: "#64748b",
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
     fontSize: 14,
-    fontWeight: 600,
+    fontWeight: 500,
     cursor: "pointer",
-    transition: "all 0.2s",
+    transition: "background 0.2s",
   },
-  submitButton: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "12px 24px",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  submitBtn: {
+    padding: "10px 20px",
+    background: "#3b82f6",
     color: "#fff",
     border: "none",
-    borderRadius: 10,
+    borderRadius: 8,
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 500,
     cursor: "pointer",
-    transition: "transform 0.2s",
-  },
-  buttonIcon: {
-    fontSize: 16,
+    transition: "background 0.2s",
   },
   featureList: {
-    display: "grid",
-    gap: 16,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
   },
   featureCard: {
-    padding: 20,
-    background: "#f9fafb",
-    borderRadius: 12,
-    border: "2px solid #e5e7eb",
-    transition: "all 0.2s",
+    padding: 16,
+    background: "#f8fafc",
+    borderRadius: 10,
+    border: "1px solid #e2e8f0",
   },
-  featureHeader: {
+  featureCardHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  featureTitle: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: "#111827",
+  featureCardTitle: {
+    fontSize: 15,
+    fontWeight: 600,
+    color: "#0f172a",
     margin: 0,
   },
-  deleteButton: {
-    padding: "6px 10px",
+  deleteBtn: {
+    padding: 6,
     background: "transparent",
     border: "none",
-    fontSize: 16,
     cursor: "pointer",
-    opacity: 0.5,
-    transition: "opacity 0.2s",
+    color: "#94a3b8",
+    transition: "color 0.2s",
   },
-  featureDescription: {
+  deleteIcon: {
+    width: 18,
+    height: 18,
+    strokeWidth: 2,
+  },
+  featureCardDesc: {
     fontSize: 14,
-    color: "#6b7280",
-    lineHeight: 1.6,
-    marginBottom: 12,
+    color: "#64748b",
+    lineHeight: 1.5,
+    margin: "0 0 12px 0",
   },
-  featureMeta: {
+  featureCardFooter: {
     display: "flex",
     gap: 8,
     flexWrap: "wrap",
   },
-  categoryBadge: {
-    padding: "4px 12px",
-    borderRadius: 6,
-    fontSize: 11,
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  },
-  priorityBadge: {
-    padding: "4px 12px",
-    borderRadius: 6,
-    fontSize: 11,
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  },
-  dateBadge: {
-    padding: "4px 12px",
-    background: "#e5e7eb",
-    color: "#6b7280",
-    borderRadius: 6,
+  categoryTag: {
     fontSize: 11,
     fontWeight: 600,
+    color: "#3b82f6",
+    background: "#dbeafe",
+    padding: "4px 10px",
+    borderRadius: 6,
+    textTransform: "uppercase",
+    letterSpacing: "0.3px",
+  },
+  priorityTag: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#f59e0b",
+    background: "#fef3c7",
+    padding: "4px 10px",
+    borderRadius: 6,
+    textTransform: "uppercase",
+    letterSpacing: "0.3px",
+  },
+  dateTag: {
+    fontSize: 11,
+    fontWeight: 500,
+    color: "#64748b",
+    background: "#e2e8f0",
+    padding: "4px 10px",
+    borderRadius: 6,
   },
 };
