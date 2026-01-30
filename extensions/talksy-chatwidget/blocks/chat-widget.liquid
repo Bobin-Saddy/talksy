@@ -116,10 +116,38 @@
         </div>
         
         <div id="faq-categories-list" class="faq-scroll-area">
-          <!-- FAQs will be loaded here dynamically -->
           <div class="faq-loading">
             <div class="loading-spinner"></div>
             <p>Loading FAQs...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ✅ NEW SEARCH TAB -->
+    <div id="tab-search" class="tab-content" style="display:none;">
+      <div class="search-container">
+        <div class="search-header">
+          <h2>Search Store</h2>
+          <p>Find products, pages, orders & more</p>
+        </div>
+        
+        <div class="search-box">
+          <input type="text" id="store-search-input" placeholder="🔍 Search anything..." />
+          <select id="search-type-filter">
+            <option value="all">All</option>
+            <option value="products">Products</option>
+            <option value="orders">Orders</option>
+            <option value="pages">Pages</option>
+            <option value="collections">Collections</option>
+          </select>
+        </div>
+        
+        <div id="search-results" class="search-scroll-area">
+          <div class="search-empty">
+            <div class="search-empty-icon">🔍</div>
+            <div class="search-empty-text">Start typing to search</div>
+            <p class="search-empty-subtext">Search for products, orders, pages or collections</p>
           </div>
         </div>
       </div>
@@ -143,6 +171,13 @@
       </svg>
       <span>Messages</span>
     </div>
+    <div class="nav-item" data-tab="search">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <circle cx="10" cy="10" r="7" stroke="black" stroke-width="1.5"/>
+        <path d="M15 15L19 19" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>Search</span>
+    </div>
     <div class="nav-item" data-tab="faq">
       <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22" fill="none">
         <path d="M11 16.5V16.5083M11 14.2083V7.79167M19.25 11C19.25 15.5563 15.5563 19.25 11 19.25C6.44365 19.25 2.75 15.5563 2.75 11C2.75 6.44365 6.44365 2.75 11 2.75C15.5563 2.75 19.25 6.44365 19.25 11Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -155,6 +190,7 @@
 {{ 'font-styles.css' | asset_url | stylesheet_tag }}
 
 <style>
+/* Previous styles remain the same... */
 div#image-preview-wrapper {
     position: relative;
 }
@@ -280,8 +316,16 @@ button#remove-image-btn {
 .hidden-picker { display: none !important; }
 #emoji-picker { position: absolute; bottom: 85px; left: 15px; right: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
 
-/* FAQ STYLES */
-.faq-container {
+/* FAQ STYLES (previous styles remain) */
+.faq-container, .faq-header, .faq-search, .faq-scroll-area, .faq-loading, .loading-spinner,
+.faq-category, .faq-category-title, .faq-category-badge, .faq-item, .faq-question,
+.faq-question-text, .faq-toggle-icon, .faq-answer, .faq-answer-text, .faq-empty,
+.faq-empty-icon, .faq-empty-text, .faq-empty-subtext {
+  /* Keep previous FAQ styles */
+}
+
+/* ✅ NEW SEARCH STYLES */
+.search-container {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -289,177 +333,148 @@ button#remove-image-btn {
   overflow: hidden;
 }
 
-.faq-header {
+.search-header {
   padding: 25px 20px;
   background: var(--chat-primary);
   color: white;
   flex-shrink: 0;
 }
 
-.faq-header h2 {
+.search-header h2 {
   font-size: 22px;
   font-weight: 700;
   margin-bottom: 6px;
 }
 
-.faq-header p {
+.search-header p {
   font-size: 14px;
   opacity: 0.9;
 }
 
-.faq-search {
+.search-box {
   padding: 15px 20px;
   background: white;
   border-bottom: 1px solid #e2e8f0;
   flex-shrink: 0;
+  display: flex;
+  gap: 10px;
 }
 
-.faq-search input {
-  width: 100%;
+.search-box input {
+  flex: 1;
   padding: 12px 16px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   font-size: 14px;
   outline: none;
-  transition: border-color 0.2s;
 }
 
-.faq-search input:focus {
-  border-color: var(--chat-primary);
+.search-box select {
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
 }
 
-.faq-scroll-area {
+.search-scroll-area {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
 }
 
-.faq-loading {
-  text-align: center;
-  padding: 40px 20px;
-  color: #64748b;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  margin: 0 auto 15px;
-  border: 3px solid #e2e8f0;
-  border-top-color: var(--chat-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.faq-category {
-  margin-bottom: 25px;
-}
-
-.faq-category-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.faq-category-badge {
-  display: inline-block;
-  background: var(--chat-primary);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.faq-item {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  margin-bottom: 10px;
-  overflow: hidden;
-  transition: all 0.2s;
-}
-
-.faq-item:hover {
-  border-color: var(--chat-primary);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-.faq-question {
-  padding: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  user-select: none;
-}
-
-.faq-question-text {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1e293b;
-  flex: 1;
-}
-
-.faq-toggle-icon {
-  width: 20px;
-  height: 20px;
-  transition: transform 0.3s;
-  color: var(--chat-primary);
-  flex-shrink: 0;
-}
-
-.faq-toggle-icon.open {
-  transform: rotate(180deg);
-}
-
-.faq-answer {
-  padding: 0 16px;
-  max-height: 0;
-  overflow: hidden;
-  transition: all 0.3s;
-}
-
-.faq-answer.open {
-  padding: 0 16px 16px 16px;
-  max-height: 500px;
-}
-
-.faq-answer-text {
-  font-size: 14px;
-  line-height: 1.6;
-  color: #64748b;
-}
-
-.faq-empty {
+.search-empty {
   text-align: center;
   padding: 40px 20px;
 }
 
-.faq-empty-icon {
+.search-empty-icon {
   font-size: 48px;
   margin-bottom: 15px;
 }
 
-.faq-empty-text {
+.search-empty-text {
   font-size: 16px;
   color: #1e293b;
   font-weight: 600;
   margin-bottom: 8px;
 }
 
-.faq-empty-subtext {
+.search-empty-subtext {
   color: #94a3b8;
   font-size: 14px;
+}
+
+.search-result-item {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.search-result-item:hover {
+  border-color: var(--chat-primary);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.search-result-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.search-result-image {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.search-result-info {
+  flex: 1;
+}
+
+.search-result-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.search-result-type {
+  display: inline-block;
+  background: var(--chat-primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.search-result-description {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.search-result-meta {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.search-loading {
+  text-align: center;
+  padding: 20px;
+  color: #64748b;
 }
 </style>
 
@@ -477,6 +492,7 @@ button#remove-image-btn {
   let currentConfig = {};
   let seenMsgs = new Set();
   let faqData = [];
+  let searchTimeout = null;
 
   try {
     localStorage.setItem("__test", "1");
@@ -556,21 +572,160 @@ button#remove-image-btn {
         document.getElementById("launcher-icon").innerHTML = ICON_SVGS[s.launcherIcon] || ICON_SVGS.bubble;
       }
 
-      const existingSession = localStorage.getItem("chat_session");
-      const existingEmail = localStorage.getItem("chat_user_email");
-
-      if(existingSession && existingEmail) {
-        document.getElementById("chat-onboarding-step").style.display = "none";
-        document.getElementById("chat-chat-step").style.display = "flex";
-        startPolling();
-      }
+      // ✅ FIX: Check localStorage and validate session with backend
+      await checkExistingSession();
 
     } catch (e) { 
       console.error("Setup Error", e); 
     }
   }
 
-  // ✅ FAQ FUNCTIONS
+  // ✅ NEW: Validate session with backend
+  async function checkExistingSession() {
+    const existingSession = localStorage.getItem("chat_session");
+    const existingEmail = localStorage.getItem("chat_user_email");
+
+    if(existingSession && existingEmail) {
+      try {
+        // Verify session is still valid
+        const response = await fetch(`${BASE_URL}/app/chat/validate-session`, {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ 
+            shop, 
+            sessionId: existingSession,
+            email: existingEmail 
+          })
+        });
+
+        if(response.ok) {
+          // Session is valid, go to chat
+          document.getElementById("chat-onboarding-step").style.display = "none";
+          document.getElementById("chat-chat-step").style.display = "flex";
+          startPolling();
+        } else {
+          // Session invalid, clear and show onboarding
+          clearSession();
+        }
+      } catch(e) {
+        console.error("Session validation error:", e);
+        clearSession();
+      }
+    }
+  }
+
+  function clearSession() {
+    localStorage.removeItem("chat_session");
+    localStorage.removeItem("chat_user_email");
+    localStorage.removeItem("chat_user_fname");
+    document.getElementById("chat-onboarding-step").style.display = "flex";
+    document.getElementById("chat-chat-step").style.display = "none";
+  }
+
+  // ✅ SEARCH FUNCTIONALITY
+  async function performSearch(query, type = 'all') {
+    if (!query || query.length < 2) {
+      document.getElementById("search-results").innerHTML = `
+        <div class="search-empty">
+          <div class="search-empty-icon">🔍</div>
+          <div class="search-empty-text">Start typing to search</div>
+          <p class="search-empty-subtext">Search for products, orders, pages or collections</p>
+        </div>
+      `;
+      return;
+    }
+
+    document.getElementById("search-results").innerHTML = '<div class="search-loading"><div class="loading-spinner"></div><p>Searching...</p></div>';
+
+    try {
+      const response = await fetch(`${BASE_URL}/app/chat/search?shop=${shop}&query=${encodeURIComponent(query)}&type=${type}`);
+      const data = await response.json();
+
+      if (!data.success) throw new Error("Search failed");
+
+      renderSearchResults(data.results);
+    } catch (error) {
+      document.getElementById("search-results").innerHTML = `
+        <div class="search-empty">
+          <div class="search-empty-icon">❌</div>
+          <div class="search-empty-text">Search failed</div>
+          <p class="search-empty-subtext">Please try again</p>
+        </div>
+      `;
+    }
+  }
+
+  function renderSearchResults(results) {
+    const container = document.getElementById("search-results");
+    const allResults = [
+      ...results.products || [],
+      ...results.pages || [],
+      ...results.orders || [],
+      ...results.collections || []
+    ];
+
+    if (allResults.length === 0) {
+      container.innerHTML = `
+        <div class="search-empty">
+          <div class="search-empty-icon">🔍</div>
+          <div class="search-empty-text">No results found</div>
+          <p class="search-empty-subtext">Try different keywords</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = allResults.map(item => {
+      let content = '';
+      
+      if (item.type === 'product' || item.type === 'collection') {
+        content = `
+          <div class="search-result-item" onclick="window.open('${item.url}', '_blank')">
+            <div class="search-result-header">
+              ${item.image ? `<img src="${item.image}" class="search-result-image" />` : ''}
+              <div class="search-result-info">
+                <span class="search-result-type">${item.type}</span>
+                <div class="search-result-title">${item.title}</div>
+                ${item.price ? `<div class="search-result-meta">Price: $${item.price}</div>` : ''}
+              </div>
+            </div>
+            ${item.description ? `<div class="search-result-description">${item.description}</div>` : ''}
+          </div>
+        `;
+      } else if (item.type === 'page') {
+        content = `
+          <div class="search-result-item" onclick="window.open('${item.url}', '_blank')">
+            <div class="search-result-header">
+              <div class="search-result-info">
+                <span class="search-result-type">${item.type}</span>
+                <div class="search-result-title">${item.title}</div>
+              </div>
+            </div>
+            ${item.description ? `<div class="search-result-description">${item.description}</div>` : ''}
+          </div>
+        `;
+      } else if (item.type === 'order') {
+        content = `
+          <div class="search-result-item">
+            <div class="search-result-header">
+              <div class="search-result-info">
+                <span class="search-result-type">${item.type}</span>
+                <div class="search-result-title">Order ${item.orderNumber}</div>
+                <div class="search-result-meta">
+                  ${item.email} • $${item.total} • ${item.status}
+                  ${item.fulfillment ? ` • ${item.fulfillment}` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      
+      return content;
+    }).join('');
+  }
+
+  // ✅ FAQ FUNCTIONS (keep existing)
   async function loadFAQs() {
     try {
       const response = await fetch(`${BASE_URL}/api/faq/categories?shop=${shop}`);
@@ -675,6 +830,30 @@ button#remove-image-btn {
         });
       });
     }
+
+    // ✅ Store Search Listener
+    const storeSearchInput = document.getElementById("store-search-input");
+    const searchTypeFilter = document.getElementById("search-type-filter");
+    
+    if (storeSearchInput) {
+      storeSearchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value;
+        const type = searchTypeFilter.value;
+        
+        searchTimeout = setTimeout(() => {
+          performSearch(query, type);
+        }, 500);
+      });
+    }
+
+    if (searchTypeFilter) {
+      searchTypeFilter.addEventListener('change', () => {
+        const query = storeSearchInput.value;
+        const type = searchTypeFilter.value;
+        performSearch(query, type);
+      });
+    }
   });
 
   async function fetchMessages() {
@@ -759,7 +938,7 @@ button#remove-image-btn {
     const res = await fetch(`${BASE_URL}/app/chat/register`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ shop, fname: f, email: e, sessionId: sId })
+      body: JSON.stringify({ shop, firstName: f, email: e, sessionId: sId })
     });
 
     if(res.ok) {
@@ -822,7 +1001,7 @@ button#remove-image-btn {
   document.getElementById("start-chat-trigger").onclick = () => document.querySelector('[data-tab="chat"]').click();
 
   loadSettings();
-  loadFAQs(); // Load FAQs on init
+  loadFAQs();
 })();
 </script>
 
