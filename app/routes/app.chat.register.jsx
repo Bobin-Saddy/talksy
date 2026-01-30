@@ -1,3 +1,4 @@
+// app/routes/app.chat.register.jsx
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 
@@ -10,19 +11,22 @@ const headers = {
 export const loader = () => json({}, { headers });
 
 export const action = async ({ request }) => {
-  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers });
+  }
 
   try {
     const { shop, firstName, lastName, email, sessionId } = await request.json();
+    
+    console.log("Registration request:", { shop, firstName, email, sessionId });
 
-    if (!email) {
-      return json({ error: "Email is required" }, { status: 400, headers });
+    if (!email || !sessionId) {
+      return json({ error: "Email and sessionId are required" }, { status: 400, headers });
     }
 
-    // ✅ Check user by email
+    // ✅ Check if user already exists (by email only, not shop)
     const existing = await prisma.chatSession.findFirst({
       where: {
-        shop: shop,
         email: email
       }
     });
@@ -30,16 +34,22 @@ export const action = async ({ request }) => {
     let session;
 
     if (existing) {
-      // ✅ User already exists → just update sessionId
+      console.log("✅ User exists, updating sessionId:", existing.id);
+      
+      // ✅ User already exists → update sessionId and shop
       session = await prisma.chatSession.update({
         where: { id: existing.id },
         data: {
           sessionId: sessionId,
+          shop: shop,
           firstName: firstName || existing.firstName,
           lastName: lastName || existing.lastName,
+          updatedAt: new Date()
         }
       });
     } else {
+      console.log("🆕 Creating new user");
+      
       // 🆕 New user
       session = await prisma.chatSession.create({
         data: {
@@ -52,7 +62,18 @@ export const action = async ({ request }) => {
       });
     }
 
-    return json({ success: true, session }, { headers });
+    console.log("✅ Session saved:", session.id);
+
+    return json({ 
+      success: true, 
+      session: {
+        id: session.id,
+        firstName: session.firstName,
+        email: session.email,
+        sessionId: session.sessionId
+      }
+    }, { headers });
+
   } catch (e) { 
     console.error("Register/Login error:", e);
     return json({ error: e.message }, { status: 500, headers }); 
