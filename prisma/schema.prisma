@@ -35,31 +35,38 @@ model Session {
 
 
 model ChatSession {
-  id        String        @id @default(cuid())
+  id        String   @id @default(cuid())
   shop      String
-  sessionId String        @unique
+  sessionId String
+  email     String
   firstName String?
   lastName  String?
-  email     String?
+
   messages  ChatMessage[]
 
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  isResolved Boolean       @default(false)
+  isResolved Boolean  @default(false)
   resolvedAt DateTime?
   resolvedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, email])
+  @@index([sessionId])
 }
+
 
 model ChatMessage {
   id            Int         @id @default(autoincrement())
   chatSessionId String
-  session       ChatSession @relation(fields: [chatSessionId], references: [sessionId])
+  session       ChatSession @relation(fields: [chatSessionId], references: [id])
   message       String
-  sender        String      // "user" or "admin"
-  fileUrl       String?     // URL to the uploaded file
-  fileType      String?     // e.g., "image/png", "application/pdf"
+  sender        String
+  fileUrl       String?
+  fileType      String?
   createdAt     DateTime    @default(now())
 }
+
 
 model ChatSettings {
   id                    String   @id @default(uuid())
