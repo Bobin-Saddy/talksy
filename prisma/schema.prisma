@@ -201,3 +201,19 @@ model AssistedOrder {
   chatSessionId String
   createdAt     DateTime @default(now())
 }
+
+model FeatureSuggestion {
+  id          String   @id @default(cuid())
+  shop        String
+  title       String
+  description String   
+  category    String   @default("general")
+  priority    String   @default("medium")
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([shop])
+  @@index([status])
+  @@index([createdAt])
+}
