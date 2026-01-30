@@ -70,7 +70,7 @@
             <input id="chat-fname" type="text" placeholder="First Name" autocomplete="off" />
             <input id="chat-lname" type="text" placeholder="Last Name" autocomplete="off" />
             <input id="chat-email" type="email" placeholder="Email Address" autocomplete="off" />
-            <button id="chat-submit-info">Start Chatting</button>
+            <button id="chat-submit-info" disabled>Start Chatting</button>
           </div>
         </div>
       </div>
@@ -261,7 +261,10 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 .registration-form { padding: 30px !important; }
 .input-group { display: flex; flex-direction: column; gap: 12px; }
 .input-group input { padding: 14px !important; border: 1px solid #e2e8f0; border-radius: 12px; outline: none; font-size: 15px; width: 100%; }
-.input-group button { padding: 15px !important; border: none; border-radius: 12px; color: white; font-weight: 700; cursor: pointer; margin-top: 10px; }
+.input-group button { padding: 15px !important; border: none; border-radius: 12px; color: white; font-weight: 700; cursor: pointer; margin-top: 10px; transition: all 0.3s; }
+.input-group button:disabled { opacity: 0.5; cursor: not-allowed; }
+.input-group button:not(:disabled) { background: var(--chat-primary); }
+.input-group button:disabled { background: #94a3b8; }
 
 #chat-footer { padding: 15px; background: #fff; border-top: 1px solid #f1f5f9; flex-shrink: 0; position: relative; }
 .input-wrapper { display: flex; align-items: center; background: #f3f4f6; border-radius: 14px; padding: 6px 12px; gap: 8px; }
@@ -276,9 +279,9 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 .hidden-picker { display: none !important; }
 #emoji-picker { position: absolute; bottom: 85px; left: 15px; right: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
 
-/* ✅ FAQ STYLES - FIXED */
+/* ✅ FAQ STYLES */
 .faq-container { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-.faq-header { padding: 25px 20px; background: var(--chat-primary); color: white; flex-shrink: 0; }
+.faq-header { padding: 25px 20px; color: white; flex-shrink: 0; }
 .faq-header h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
 .faq-header p { font-size: 14px; opacity: 0.9; }
 .faq-search { padding: 15px 20px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
@@ -307,7 +310,7 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 
 /* ✅ SEARCH STYLES */
 .search-container { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-.search-header { padding: 25px 20px; background: var(--chat-primary); color: white; flex-shrink: 0; }
+.search-header { padding: 25px 20px; color: white; flex-shrink: 0; }
 .search-header h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
 .search-header p { font-size: 14px; opacity: 0.9; }
 .search-box { padding: 15px 20px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; display: flex; gap: 10px; }
@@ -328,6 +331,38 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 .search-result-description { font-size: 13px; color: #64748b; line-height: 1.4; margin-bottom: 8px; }
 .search-result-meta { font-size: 12px; color: #94a3b8; }
 .search-loading { text-align: center; padding: 20px; color: #64748b; }
+
+/* ✅ RESPONSIVE DESIGN */
+@media (max-width: 480px) {
+  #chat-widget {
+    width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    bottom: 0;
+    right: 0;
+    border-radius: 0;
+  }
+  
+  #chat-launcher {
+    bottom: 20px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+  }
+  
+  .home-card {
+    margin: 0 10px !important;
+    padding: 18px !important;
+  }
+  
+  .faq-header, .search-header {
+    padding: 20px 15px;
+  }
+  
+  .faq-scroll-area, .search-scroll-area {
+    padding: 15px;
+  }
+}
 </style>
 
 <script>
@@ -338,6 +373,10 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   const launcher = document.getElementById("chat-launcher");
   const chatInput = document.getElementById("chat-input");
   const msgBox = document.getElementById("chat-messages");
+  const submitBtn = document.getElementById("chat-submit-info");
+  const fnameInput = document.getElementById("chat-fname");
+  const lnameInput = document.getElementById("chat-lname");
+  const emailInput = document.getElementById("chat-email");
   
   let selectedImg = null;
   let pollInterval = null; 
@@ -361,6 +400,18 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     }
     return sId;
   }
+
+  // ✅ Submit button validation
+  function validateForm() {
+    const fname = fnameInput.value.trim();
+    const email = emailInput.value.trim();
+    const isValid = fname && email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    submitBtn.disabled = !isValid;
+  }
+
+  fnameInput.addEventListener('input', validateForm);
+  lnameInput.addEventListener('input', validateForm);
+  emailInput.addEventListener('input', validateForm);
 
   const ICON_SVGS = {
     bubble: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
@@ -416,7 +467,11 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 
       document.getElementById("onboarding-form-title").innerText = s.onboardingTitle;
       document.getElementById("onboarding-form-subtitle").innerText = s.onboardingSubtitle;
-      document.getElementById("chat-submit-info").style.background = s.primaryColor;
+
+      // ✅ Apply primary color to FAQ and Search headers
+      document.querySelectorAll('.faq-header, .search-header').forEach(el => {
+        el.style.background = s.primaryColor;
+      });
 
       if (s.launcherIcon === 'custom' && s.customLauncherImg) {
         document.getElementById("launcher-icon").innerHTML = `<img src="${s.customLauncherImg}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>`;
@@ -424,7 +479,7 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
         document.getElementById("launcher-icon").innerHTML = ICON_SVGS[s.launcherIcon] || ICON_SVGS.bubble;
       }
 
-      // ✅ FIX: Check localStorage and validate session with backend
+      // ✅ Check existing session
       await checkExistingSession();
 
     } catch (e) { 
@@ -436,10 +491,9 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   async function checkExistingSession() {
     const existingSession = localStorage.getItem("chat_session");
     const existingEmail = localStorage.getItem("chat_user_email");
+    const existingFname = localStorage.getItem("chat_user_fname");
 
-    console.log("Checking session:", { existingSession, existingEmail });
-
-    if(existingSession && existingEmail) {
+    if(existingSession && existingEmail && existingFname) {
       try {
         const response = await fetch(`${BASE_URL}/app/chat/validate-session`, {
           method: "POST",
@@ -452,23 +506,20 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
         });
 
         const data = await response.json();
-        console.log("Validation response:", data);
 
         if(response.ok && data.valid) {
-          console.log("Session valid - auto login");
+          // ✅ Session valid - auto login
           document.getElementById("chat-onboarding-step").style.display = "none";
           document.getElementById("chat-chat-step").style.display = "flex";
           startPolling();
         } else {
-          console.log("Session invalid - clear and show login");
+          // ❌ Session invalid - clear and show login
           clearSession();
         }
       } catch(e) {
         console.error("Session validation error:", e);
         clearSession();
       }
-    } else {
-      console.log("No session found - show login");
     }
   }
 
@@ -498,8 +549,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     try {
       const response = await fetch(`${BASE_URL}/app/chat/search?shop=${shop}&query=${encodeURIComponent(query)}&type=${type}`);
       const data = await response.json();
-
-      console.log("Search response:", data);
 
       if (!data.success) throw new Error(data.error || "Search failed");
 
@@ -539,7 +588,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     container.innerHTML = allResults.map(item => {
       let content = '';
       
-      // Product Result
       if (item.type === 'product') {
         const price = item.price !== 'N/A' 
           ? `${item.currency} ${parseFloat(item.price).toFixed(2)}` 
@@ -559,8 +607,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
           </div>
         `;
       }
-      
-      // Collection Result
       else if (item.type === 'collection') {
         content = `
           <div class="search-result-item" onclick="window.open('${item.url}', '_blank')">
@@ -576,8 +622,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
           </div>
         `;
       }
-      
-      // Page Result
       else if (item.type === 'page') {
         content = `
           <div class="search-result-item" onclick="window.open('${item.url}', '_blank')">
@@ -591,8 +635,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
           </div>
         `;
       }
-      
-      // Order Result
       else if (item.type === 'order') {
         const orderDate = new Date(item.date).toLocaleDateString('en-US', {
           year: 'numeric',
@@ -842,26 +884,58 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     };
   });
 
-  document.getElementById("chat-submit-info").onclick = async () => {
-    const f = document.getElementById("chat-fname").value;
-    const e = document.getElementById("chat-email").value;
+  // ✅ FIXED: Register/Login with proper session handling
+  submitBtn.onclick = async () => {
+    const f = fnameInput.value.trim();
+    const l = lnameInput.value.trim();
+    const e = emailInput.value.trim();
+    
     if(!f || !e) return alert("Required fields missing");
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Connecting...";
 
     const sId = getOrCreateSessionId();
 
-    const res = await fetch(`${BASE_URL}/app/chat/register`, {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ shop, firstName: f, email: e, sessionId: sId })
-    });
+    try {
+      const res = await fetch(`${BASE_URL}/app/chat/register`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ 
+          shop, 
+          firstName: f, 
+          lastName: l,
+          email: e, 
+          sessionId: sId 
+        })
+      });
 
-    if(res.ok) {
-      localStorage.setItem("chat_user_fname", f);
-      localStorage.setItem("chat_user_email", e);
+      if(res.ok) {
+        const data = await res.json();
+        
+        // ✅ Save to localStorage
+        localStorage.setItem("chat_session", sId);
+        localStorage.setItem("chat_user_fname", f);
+        localStorage.setItem("chat_user_email", e);
 
-      document.getElementById("chat-onboarding-step").style.display = "none";
-      document.getElementById("chat-chat-step").style.display = "flex";
-      startPolling();
+        // ✅ Switch to chat view
+        document.getElementById("chat-onboarding-step").style.display = "none";
+        document.getElementById("chat-chat-step").style.display = "flex";
+        
+        // ✅ Start polling
+        startPolling();
+        
+        submitBtn.textContent = "Start Chatting";
+      } else {
+        alert("Registration failed. Please try again.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Start Chatting";
+      }
+    } catch(e) {
+      console.error("Registration error:", e);
+      alert("Connection error. Please try again.");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Start Chatting";
     }
   };
 
