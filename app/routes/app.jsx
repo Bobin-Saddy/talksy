@@ -21,6 +21,7 @@ export default function App() {
         <s-app-nav>
           {/* <s-link href="/app">Home</s-link> */}
           <s-link href="/app/chat/admin">Chats</s-link>
+          <s-link href="/app/admin/search">Search</s-link>
           <s-link href="/app/settings">Settings</s-link>
           <s-link href="/app/faq">FAQs</s-link>
           

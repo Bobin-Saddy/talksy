@@ -133,37 +133,62 @@ export default function ChatAnalytics() {
           </div>
         </div>
 
-        {/* METRICS GRID */}
+        {/* METRICS GRID - Updated with colorful icons */}
         <div style={styles.metricsContainer}>
           <MetricCard 
-            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>}
+            icon={
+              <div style={{...styles.colorfulIcon, background: '#10b981'}}>
+                <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.iconSvg}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+            }
             title="Total Conversations" 
             value={data.totalConversations}
-            trend="+12%"
+            trend="+16.45%"
             trendUp={true}
+            subtitle="0% success rate"
           />
           <MetricCard 
-            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+            icon={
+              <div style={{...styles.colorfulIcon, background: '#3b82f6'}}>
+                <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.iconSvg}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            }
             title="Resolved" 
             value={data.resolvedChats}
-            subtitle={`${data.resolutionRate}% success rate`}
-            trend="+8%"
-            trendUp={true}
-          />
-          <MetricCard 
-            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-            title="Pending" 
-            value={data.pendingChats}
-            subtitle="Awaiting response"
-            trend="-3%"
+            subtitle={`0% success rate`}
+            trend="-3.75%"
             trendUp={false}
           />
           <MetricCard 
-            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>}
+            icon={
+              <div style={{...styles.colorfulIcon, background: '#f97316'}}>
+                <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.iconSvg}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            }
+            title="Pending" 
+            value={data.pendingChats}
+            subtitle="Awaiting response"
+            trend="+3%"
+            trendUp={true}
+          />
+          <MetricCard 
+            icon={
+              <div style={{...styles.colorfulIcon, background: '#06b6d4'}}>
+                <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.iconSvg}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+              </div>
+            }
             title="Messages" 
             value={data.totalMessages}
             subtitle="Total exchanged"
-            trend="+15%"
+            trend="+6%"
             trendUp={true}
           />
         </div>
@@ -188,40 +213,40 @@ export default function ChatAnalytics() {
                 <div style={styles.statCard}>
                   <div style={styles.statTop}>
                     <span style={styles.statLabel}>Resolved</span>
-                    <div style={styles.statBadge} data-type="success">
-                      <svg style={styles.badgeIcon} fill="currentColor" viewBox="0 0 20 20">
+                    <div style={{...styles.statBadge, background: '#3b82f6'}}>
+                      <svg style={styles.badgeIcon} fill="white" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     </div>
                   </div>
                   <div style={styles.statNumber}>{data.resolvedChats}</div>
                   <div style={styles.statFooter}>
-                    <span style={styles.statPercent}>{data.resolutionRate}%</span>
-                    <span style={styles.statChange} data-positive="true">↑ 8%</span>
+                    <span style={styles.statPercent}>0%</span>
+                    <span style={styles.statChange} data-positive="true">↑ +16.45%</span>
                   </div>
                 </div>
 
                 <div style={styles.statCard}>
                   <div style={styles.statTop}>
                     <span style={styles.statLabel}>Pending</span>
-                    <div style={styles.statBadge} data-type="warning">
-                      <svg style={styles.badgeIcon} fill="currentColor" viewBox="0 0 20 20">
+                    <div style={{...styles.statBadge, background: '#f97316'}}>
+                      <svg style={styles.badgeIcon} fill="white" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                       </svg>
                     </div>
                   </div>
                   <div style={styles.statNumber}>{data.pendingChats}</div>
                   <div style={styles.statFooter}>
-                    <span style={styles.statPercent}>{100 - data.resolutionRate}%</span>
-                    <span style={styles.statChange} data-positive="false">↓ 3%</span>
+                    <span style={styles.statPercent}>100%</span>
+                    <span style={styles.statChange} data-positive="false">↓ -3.75%</span>
                   </div>
                 </div>
 
                 <div style={styles.statCard}>
                   <div style={styles.statTop}>
                     <span style={styles.statLabel}>Total</span>
-                    <div style={styles.statBadge} data-type="info">
-                      <svg style={styles.badgeIcon} fill="currentColor" viewBox="0 0 20 20">
+                    <div style={{...styles.statBadge, background: '#06b6d4'}}>
+                      <svg style={styles.badgeIcon} fill="white" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                       </svg>
                     </div>
@@ -229,7 +254,23 @@ export default function ChatAnalytics() {
                   <div style={styles.statNumber}>{data.totalConversations}</div>
                   <div style={styles.statFooter}>
                     <span style={styles.statPercent}>100%</span>
-                    <span style={styles.statChange} data-positive="true">↑ 12%</span>
+                    <span style={styles.statChange} data-positive="true">↑ +3%</span>
+                  </div>
+                </div>
+
+                <div style={styles.statCard}>
+                  <div style={styles.statTop}>
+                    <span style={styles.statLabel}>Total Search</span>
+                    <div style={{...styles.statBadge, background: '#a855f7'}}>
+                      <svg style={styles.badgeIcon} fill="white" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div style={styles.statNumber}>34</div>
+                  <div style={styles.statFooter}>
+                    <span style={styles.statPercent}>100%</span>
+                    <span style={styles.statChange} data-positive="true">↑ +3%</span>
                   </div>
                 </div>
               </div>
@@ -268,8 +309,8 @@ export default function ChatAnalytics() {
               <div style={styles.performanceList}>
                 <div style={styles.performanceItem}>
                   <div style={styles.performanceLeft}>
-                    <div style={styles.performanceIconWrapper}>
-                      <svg style={styles.performanceIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div style={{...styles.performanceIconWrapper, background: '#3b82f6'}}>
+                      <svg style={styles.performanceIcon} fill="none" viewBox="0 0 24 24" stroke="white">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
@@ -283,8 +324,8 @@ export default function ChatAnalytics() {
 
                 <div style={styles.performanceItem}>
                   <div style={styles.performanceLeft}>
-                    <div style={styles.performanceIconWrapper}>
-                      <svg style={styles.performanceIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div style={{...styles.performanceIconWrapper, background: '#10b981'}}>
+                      <svg style={styles.performanceIcon} fill="none" viewBox="0 0 24 24" stroke="white">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                     </div>
@@ -298,8 +339,8 @@ export default function ChatAnalytics() {
 
                 <div style={styles.performanceItem}>
                   <div style={styles.performanceLeft}>
-                    <div style={styles.performanceIconWrapper}>
-                      <svg style={styles.performanceIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div style={{...styles.performanceIconWrapper, background: '#06b6d4'}}>
+                      <svg style={styles.performanceIcon} fill="none" viewBox="0 0 24 24" stroke="white">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
                     </div>
@@ -325,39 +366,41 @@ export default function ChatAnalytics() {
                   </svg>
                   <h2 style={styles.cardTitle}>Recent Activity</h2>
                 </div>
-                <span style={styles.activityCount}>{data.recentChats.length}</span>
+                <span style={styles.viewAll}>View All →</span>
               </div>
 
               <div style={styles.activityList}>
                 {data.recentChats.length > 0 ? (
-                  data.recentChats.map((chat, index) => (
-                    <div key={chat.sessionId} style={styles.activityRow}>
-                      <div style={styles.activityAvatar}>
-                        {chat.email ? chat.email.charAt(0).toUpperCase() : (index + 1)}
+                  data.recentChats.map((chat, index) => {
+                    const colors = ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                    const bgColor = colors[index % colors.length];
+                    return (
+                      <div key={chat.sessionId} style={styles.activityRow}>
+                        <div style={{...styles.activityAvatar, background: bgColor}}>
+                          {chat.email ? chat.email.charAt(0).toUpperCase() : (index + 1)}
+                        </div>
+                        <div style={styles.activityInfo}>
+                          <div style={styles.activityName}>
+                            {chat.email || `Customer ${index + 1}`}
+                          </div>
+                          <div style={styles.activityDetails}>
+                            <span>{chat.messages.length} messages</span>
+                          </div>
+                        </div>
+                        {chat.isResolved ? (
+                          <div style={styles.statusBadge} data-status="resolved">
+                            <span style={styles.statusDot}></span>
+                            Resolved
+                          </div>
+                        ) : (
+                          <div style={styles.statusBadge} data-status="pending">
+                            <span style={styles.statusDot}></span>
+                            Pending
+                          </div>
+                        )}
                       </div>
-                      <div style={styles.activityInfo}>
-                        <div style={styles.activityName}>
-                          {chat.email || `Customer ${index + 1}`}
-                        </div>
-                        <div style={styles.activityDetails}>
-                          <span>{chat.messages.length} messages</span>
-                          <span style={styles.activityDot}>•</span>
-                          <span>{new Date(chat.createdAt).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                      {chat.isResolved ? (
-                        <div style={styles.statusBadge} data-status="resolved">
-                          <span style={styles.statusDot}></span>
-                          Resolved
-                        </div>
-                      ) : (
-                        <div style={styles.statusBadge} data-status="pending">
-                          <span style={styles.statusDot}></span>
-                          Pending
-                        </div>
-                      )}
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div style={styles.emptyState}>
                     <div style={styles.emptyIconWrapper}>
@@ -424,10 +467,10 @@ function MetricCard({ icon, title, value, subtitle, trend, trendUp }) {
   return (
     <div style={styles.metricCard}>
       <div style={styles.metricTop}>
-        <div style={styles.metricIconBox}>{icon}</div>
+        {icon}
         {trend && (
-          <span style={{...styles.trendBadge, ...(trendUp ? styles.trendUp : styles.trendDown)}}>
-            {trendUp ? '↑' : '↓'} {trend}
+          <span style={{...styles.trendBadge, color: trendUp ? '#10b981' : '#ef4444'}}>
+            {trend}
           </span>
         )}
       </div>
@@ -562,7 +605,7 @@ function FeatureCard({ feature }) {
 const styles = {
   container: {
     minHeight: "100vh",
-    background: "linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%)",
+    background: "#f9fafb",
     padding: "32px 24px",
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
   },
@@ -587,7 +630,7 @@ const styles = {
     gap: 8,
     padding: "6px 14px",
     background: "#ffffff",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #e5e7eb",
     borderRadius: 20,
     fontSize: 12,
     fontWeight: 600,
@@ -603,16 +646,16 @@ const styles = {
     animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
   },
   pageTitle: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: 700,
-    color: "#0f172a",
+    color: "#111827",
     margin: 0,
     marginBottom: 8,
     letterSpacing: "-0.5px",
   },
   pageSubtitle: {
-    fontSize: 16,
-    color: "#64748b",
+    fontSize: 14,
+    color: "#6b7280",
     margin: 0,
     lineHeight: 1.5,
   },
@@ -627,16 +670,16 @@ const styles = {
     gap: 8,
     padding: "10px 16px",
     background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 10,
+    border: "1px solid #e5e7eb",
+    borderRadius: 8,
     fontSize: 14,
     fontWeight: 500,
-    color: "#475569",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+    color: "#374151",
+    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
   },
   dateIcon: {
-    width: 18,
-    height: 18,
+    width: 16,
+    height: 16,
     strokeWidth: 2,
   },
   refreshButton: {
@@ -646,86 +689,77 @@ const styles = {
     padding: "10px 18px",
     background: "#3b82f6",
     border: "none",
-    borderRadius: 10,
+    borderRadius: 8,
     fontSize: 14,
     fontWeight: 600,
     color: "#ffffff",
     cursor: "pointer",
     transition: "all 0.2s",
-    boxShadow: "0 2px 4px rgba(59, 130, 246, 0.3)",
+    boxShadow: "0 1px 2px rgba(59, 130, 246, 0.5)",
   },
   buttonIcon: {
-    width: 18,
-    height: 18,
+    width: 16,
+    height: 16,
     strokeWidth: 2,
   },
   metricsContainer: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-    gap: 20,
-    marginBottom: 32,
+    gap: 16,
+    marginBottom: 24,
   },
   metricCard: {
     background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 16,
-    padding: 24,
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
-    transition: "all 0.3s ease",
+    border: "1px solid #e5e7eb",
+    borderRadius: 12,
+    padding: 20,
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   },
   metricTop: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  metricIconBox: {
+  colorfulIcon: {
     width: 48,
     height: 48,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)",
     borderRadius: 12,
-    color: "#475569",
+    flexShrink: 0,
+  },
+  iconSvg: {
+    width: 24,
+    height: 24,
+    strokeWidth: 2,
   },
   trendBadge: {
     fontSize: 12,
-    fontWeight: 700,
-    padding: "5px 10px",
-    borderRadius: 8,
-  },
-  trendUp: {
-    color: "#10b981",
-    background: "#d1fae5",
-  },
-  trendDown: {
-    color: "#ef4444",
-    background: "#fee2e2",
+    fontWeight: 600,
   },
   metricTitle: {
     fontSize: 13,
     fontWeight: 500,
-    color: "#64748b",
+    color: "#6b7280",
     marginBottom: 8,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
   },
   metricValue: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 700,
-    color: "#0f172a",
+    color: "#111827",
     marginBottom: 4,
   },
   metricSubtitle: {
     fontSize: 13,
-    color: "#94a3b8",
+    color: "#9ca3af",
   },
   contentGrid: {
     display: "grid",
     gridTemplateColumns: "1.6fr 1fr",
     gap: 24,
-    marginBottom: 32,
+    marginBottom: 24,
   },
   leftSection: {
     display: "flex",
@@ -739,16 +773,16 @@ const styles = {
   },
   analyticsCard: {
     background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 16,
-    padding: 28,
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+    border: "1px solid #e5e7eb",
+    borderRadius: 12,
+    padding: 24,
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   },
   cardHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 28,
+    marginBottom: 24,
   },
   cardTitleRow: {
     display: "flex",
@@ -756,15 +790,15 @@ const styles = {
     gap: 10,
   },
   cardIcon: {
-    width: 22,
-    height: 22,
-    color: "#64748b",
+    width: 20,
+    height: 20,
+    color: "#6b7280",
     strokeWidth: 2,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 600,
-    color: "#0f172a",
+    color: "#111827",
     margin: 0,
   },
   viewAll: {
@@ -775,15 +809,15 @@ const styles = {
   },
   statsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    gap: 16,
-    marginBottom: 28,
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: 12,
+    marginBottom: 24,
   },
   statCard: {
-    padding: 20,
-    background: "#f8fafc",
-    borderRadius: 12,
-    border: "1px solid #e2e8f0",
+    padding: 16,
+    background: "#f9fafb",
+    borderRadius: 10,
+    border: "1px solid #e5e7eb",
   },
   statTop: {
     display: "flex",
@@ -792,28 +826,28 @@ const styles = {
     marginBottom: 12,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 600,
-    color: "#64748b",
+    color: "#6b7280",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
   },
   statBadge: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 8,
   },
   badgeIcon: {
-    width: 16,
-    height: 16,
+    width: 18,
+    height: 18,
   },
   statNumber: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 700,
-    color: "#0f172a",
+    color: "#111827",
     marginBottom: 8,
   },
   statFooter: {
@@ -822,19 +856,19 @@ const styles = {
     alignItems: "center",
   },
   statPercent: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 500,
-    color: "#475569",
+    color: "#6b7280",
   },
   statChange: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 600,
     padding: "3px 8px",
     borderRadius: 6,
   },
   progressSection: {
-    paddingTop: 24,
-    borderTop: "1px solid #e2e8f0",
+    paddingTop: 20,
+    borderTop: "1px solid #e5e7eb",
   },
   progressTop: {
     display: "flex",
@@ -843,19 +877,19 @@ const styles = {
     marginBottom: 12,
   },
   progressLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 500,
-    color: "#64748b",
+    color: "#6b7280",
   },
   progressPercent: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 700,
-    color: "#0f172a",
+    color: "#111827",
   },
   progressTrack: {
-    height: 10,
-    background: "#e2e8f0",
-    borderRadius: 10,
+    height: 8,
+    background: "#e5e7eb",
+    borderRadius: 8,
     overflow: "hidden",
     position: "relative",
     marginBottom: 8,
@@ -863,7 +897,7 @@ const styles = {
   progressBar: {
     height: "100%",
     background: "linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)",
-    borderRadius: 10,
+    borderRadius: 8,
     transition: "width 0.6s ease",
     position: "relative",
     overflow: "hidden",
@@ -883,29 +917,29 @@ const styles = {
   },
   progressMarker: {
     fontSize: 10,
-    color: "#94a3b8",
+    color: "#9ca3af",
     fontWeight: 500,
   },
   performanceCard: {
     background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 16,
-    padding: 28,
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+    border: "1px solid #e5e7eb",
+    borderRadius: 12,
+    padding: 24,
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   },
   performanceList: {
     display: "flex",
     flexDirection: "column",
-    gap: 16,
+    gap: 12,
   },
   performanceItem: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 18,
-    background: "#f8fafc",
-    borderRadius: 12,
-    border: "1px solid #e2e8f0",
+    padding: 16,
+    background: "#f9fafb",
+    borderRadius: 10,
+    border: "1px solid #e5e7eb",
   },
   performanceLeft: {
     display: "flex",
@@ -918,37 +952,34 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "#ffffff",
     borderRadius: 10,
-    border: "1px solid #e2e8f0",
   },
   performanceIcon: {
-    width: 20,
-    height: 20,
-    color: "#64748b",
+    width: 22,
+    height: 22,
     strokeWidth: 2,
   },
   performanceTitle: {
     fontSize: 14,
     fontWeight: 600,
-    color: "#0f172a",
+    color: "#111827",
     marginBottom: 2,
   },
   performanceSubtitle: {
     fontSize: 12,
-    color: "#94a3b8",
+    color: "#9ca3af",
   },
   performanceValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 700,
-    color: "#0f172a",
+    color: "#111827",
   },
   activityCard: {
     background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 16,
-    padding: 28,
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+    border: "1px solid #e5e7eb",
+    borderRadius: 12,
+    padding: 24,
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   },
   activityCount: {
     width: 32,
@@ -956,37 +987,35 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "#f1f5f9",
-    color: "#475569",
+    background: "#f3f4f6",
+    color: "#6b7280",
     borderRadius: 8,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 700,
   },
   activityList: {
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: 10,
   },
   activityRow: {
     display: "flex",
     alignItems: "center",
-    gap: 14,
-    padding: 16,
-    background: "#f8fafc",
-    borderRadius: 12,
-    border: "1px solid #e2e8f0",
-    transition: "all 0.2s",
+    gap: 12,
+    padding: 14,
+    background: "#f9fafb",
+    borderRadius: 10,
+    border: "1px solid #e5e7eb",
   },
   activityAvatar: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
     color: "#ffffff",
     borderRadius: 10,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 700,
     flexShrink: 0,
   },
@@ -994,28 +1023,22 @@ const styles = {
     flex: 1,
   },
   activityName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 600,
-    color: "#0f172a",
+    color: "#111827",
     marginBottom: 4,
   },
   activityDetails: {
     fontSize: 12,
-    color: "#94a3b8",
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-  },
-  activityDot: {
-    fontSize: 8,
+    color: "#9ca3af",
   },
   statusBadge: {
     display: "flex",
     alignItems: "center",
     gap: 6,
-    padding: "6px 12px",
-    borderRadius: 8,
-    fontSize: 12,
+    padding: "5px 10px",
+    borderRadius: 6,
+    fontSize: 11,
     fontWeight: 600,
   },
   statusDot: {
@@ -1033,39 +1056,39 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "#f8fafc",
+    background: "#f9fafb",
     borderRadius: 16,
     margin: "0 auto 20px",
   },
   emptyIcon: {
     width: 32,
     height: 32,
-    color: "#cbd5e1",
+    color: "#d1d5db",
     strokeWidth: 1.5,
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: 600,
-    color: "#64748b",
+    color: "#6b7280",
     margin: "0 0 8px 0",
   },
   emptyText: {
     fontSize: 14,
-    color: "#94a3b8",
+    color: "#9ca3af",
     margin: 0,
   },
   featureSection: {
     background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 16,
-    padding: 28,
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+    border: "1px solid #e5e7eb",
+    borderRadius: 12,
+    padding: 24,
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   },
   featureHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 28,
+    marginBottom: 24,
   },
   addFeatureBtn: {
     display: "flex",
@@ -1074,43 +1097,43 @@ const styles = {
     padding: "10px 18px",
     background: "#3b82f6",
     border: "none",
-    borderRadius: 10,
+    borderRadius: 8,
     fontSize: 14,
     fontWeight: 600,
     color: "#ffffff",
     cursor: "pointer",
     transition: "all 0.2s",
-    boxShadow: "0 2px 4px rgba(59, 130, 246, 0.3)",
+    boxShadow: "0 1px 2px rgba(59, 130, 246, 0.5)",
   },
   featureForm: {
-    padding: 24,
-    background: "#f8fafc",
-    borderRadius: 12,
-    border: "1px solid #e2e8f0",
-    marginBottom: 24,
+    padding: 20,
+    background: "#f9fafb",
+    borderRadius: 10,
+    border: "1px solid #e5e7eb",
+    marginBottom: 20,
   },
   formRow: {
     display: "grid",
     gridTemplateColumns: "2fr 1fr 1fr",
-    gap: 16,
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 12,
   },
   formField: {
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: 6,
   },
   formLabel: {
     fontSize: 12,
-    fontWeight: 700,
-    color: "#475569",
+    fontWeight: 600,
+    color: "#374151",
     textTransform: "uppercase",
-    letterSpacing: "0.5px",
+    letterSpacing: "0.3px",
   },
   formInput: {
-    padding: "12px 16px",
-    borderRadius: 10,
-    border: "1px solid #e2e8f0",
+    padding: "10px 14px",
+    borderRadius: 8,
+    border: "1px solid #e5e7eb",
     fontSize: 14,
     fontFamily: "inherit",
     outline: "none",
@@ -1118,9 +1141,9 @@ const styles = {
     background: "#ffffff",
   },
   formSelect: {
-    padding: "12px 16px",
-    borderRadius: 10,
-    border: "1px solid #e2e8f0",
+    padding: "10px 14px",
+    borderRadius: 8,
+    border: "1px solid #e5e7eb",
     fontSize: 14,
     fontFamily: "inherit",
     outline: "none",
@@ -1128,9 +1151,9 @@ const styles = {
     cursor: "pointer",
   },
   formTextarea: {
-    padding: "12px 16px",
-    borderRadius: 10,
-    border: "1px solid #e2e8f0",
+    padding: "10px 14px",
+    borderRadius: 8,
+    border: "1px solid #e5e7eb",
     fontSize: 14,
     fontFamily: "inherit",
     outline: "none",
@@ -1140,54 +1163,53 @@ const styles = {
   },
   formActions: {
     display: "flex",
-    gap: 12,
+    gap: 10,
     justifyContent: "flex-end",
   },
   formCancelBtn: {
-    padding: "10px 24px",
+    padding: "9px 20px",
     background: "#ffffff",
-    color: "#64748b",
-    border: "1px solid #e2e8f0",
-    borderRadius: 10,
+    color: "#6b7280",
+    border: "1px solid #e5e7eb",
+    borderRadius: 8,
     fontSize: 14,
     fontWeight: 500,
     cursor: "pointer",
     transition: "all 0.2s",
   },
   formSubmitBtn: {
-    padding: "10px 24px",
+    padding: "9px 20px",
     background: "#3b82f6",
     color: "#ffffff",
     border: "none",
-    borderRadius: 10,
+    borderRadius: 8,
     fontSize: 14,
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.2s",
-    boxShadow: "0 2px 4px rgba(59, 130, 246, 0.3)",
+    boxShadow: "0 1px 2px rgba(59, 130, 246, 0.5)",
   },
   featureGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-    gap: 16,
+    gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+    gap: 12,
   },
   featureCard: {
-    padding: 20,
-    background: "#f8fafc",
-    borderRadius: 12,
-    border: "1px solid #e2e8f0",
-    transition: "all 0.2s",
+    padding: 16,
+    background: "#f9fafb",
+    borderRadius: 10,
+    border: "1px solid #e5e7eb",
   },
   featureCardHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   featureCardTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 600,
-    color: "#0f172a",
+    color: "#111827",
     margin: 0,
     flex: 1,
   },
@@ -1196,30 +1218,30 @@ const styles = {
     background: "transparent",
     border: "none",
     cursor: "pointer",
-    color: "#94a3b8",
+    color: "#9ca3af",
     transition: "color 0.2s",
   },
   deleteIcon: {
-    width: 18,
-    height: 18,
+    width: 16,
+    height: 16,
     strokeWidth: 2,
   },
   featureCardDesc: {
     fontSize: 13,
-    color: "#64748b",
-    lineHeight: 1.6,
-    margin: "0 0 14px 0",
+    color: "#6b7280",
+    lineHeight: 1.5,
+    margin: "0 0 12px 0",
   },
   featureCardFooter: {
     display: "flex",
-    gap: 8,
+    gap: 6,
     flexWrap: "wrap",
   },
   featureTag: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: 600,
-    padding: "5px 12px",
-    borderRadius: 8,
+    padding: "4px 10px",
+    borderRadius: 6,
     textTransform: "uppercase",
     letterSpacing: "0.3px",
   },
@@ -1241,25 +1263,11 @@ const statusStyles = `
   [data-status="pending"] .statusDot {
     background: #f59e0b;
   }
-  [data-type="success"] {
-    background: #d1fae5;
-    color: #065f46;
-  }
-  [data-type="warning"] {
-    background: #fef3c7;
-    color: #92400e;
-  }
-  [data-type="info"] {
-    background: #dbeafe;
-    color: #1e40af;
-  }
   [data-positive="true"] {
     color: #10b981;
-    background: #d1fae5;
   }
   [data-positive="false"] {
     color: #ef4444;
-    background: #fee2e2;
   }
   [data-type="category"] {
     background: #dbeafe;
@@ -1270,8 +1278,8 @@ const statusStyles = `
     color: #92400e;
   }
   [data-type="date"] {
-    background: #e2e8f0;
-    color: #64748b;
+    background: #e5e7eb;
+    color: #6b7280;
   }
   @keyframes pulse {
     0%, 100% { opacity: 1; }
