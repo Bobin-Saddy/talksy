@@ -15,7 +15,6 @@ const ICON_MAP = (customImg) => ({
 const FONT_OPTIONS = [
   { 
     label: "Euclid Circular A (Medium)", 
-    // Updated value to prioritize the Medium variant
     value: "'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, BlinkMacSystemFont, sans-serif" 
   },
   { label: "Inter", value: "'Inter', sans-serif" },
@@ -52,8 +51,7 @@ export const loader = async ({ request }) => {
     onboardingSubtitle: "Please provide your details to begin.",
     launcherIcon: "bubble",
     customLauncherImg: "", 
-fontFamily: "'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-baseFontSize: "15px",
+    fontFamily: "'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     baseFontSize: "15px"
   };
 
@@ -125,27 +123,24 @@ export default function UltimateSettings() {
   const icons = ICON_MAP(formState.customLauncherImg);
 
   return (
-    <div style={{ background: '#F3F4F6', minHeight: '100vh', display: 'flex', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ background: '#F3F4F6', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, sans-serif' }}>
       
-      <div style={{ width: '100px', background: '#F3F4F6', borderRight: '1px solid #E5E7EB', padding: '30px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <NavIcon active={activeTab === 'style'} onClick={() => setActiveTab('style')} icon="🎨" title="Style" />
-          <NavIcon active={activeTab === 'content'} onClick={() => setActiveTab('content')} icon="🌐" title="Content" />
-          <NavIcon active={activeTab === 'typography'} onClick={() => setActiveTab('typography')} icon="Aa" title="Fonts" />
-        </nav>
-      </div>
-
-      <div style={{ flex: 1, padding: '40px 50px', maxWidth: '750px', overflowY: 'auto', height: '100vh' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#111827' }}>
-            {activeTab === 'style' && 'Appearance'}
-            {activeTab === 'content' && 'Content Settings'}
-            {activeTab === 'typography' && 'Typography'}
-          </h1>
-          <button onClick={handleSave} style={{ padding: '10px 24px', background: '#111827', color: '#FFF', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', border: 'none' }}>
+      {/* Top Navigation Tabs */}
+      <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '0 40px', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: '1400px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', gap: '0' }}>
+            <TabNav active={activeTab === 'style'} onClick={() => setActiveTab('style')} label="Appearance" />
+            <TabNav active={activeTab === 'content'} onClick={() => setActiveTab('content')} label="Content" />
+            <TabNav active={activeTab === 'typography'} onClick={() => setActiveTab('typography')} label="Typography" />
+          </div>
+          <button onClick={handleSave} style={{ padding: '10px 24px', background: '#111827', color: '#FFF', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', border: 'none', margin: '16px 0' }}>
             {navigation.state === "submitting" ? "Syncing..." : "Save & Publish"}
           </button>
-        </header>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flex: 1 }}>
+        <div style={{ flex: 1, padding: '40px 50px', maxWidth: '750px', overflowY: 'auto', height: 'calc(100vh - 73px)' }}>
 
         {activeTab === 'style' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -206,7 +201,6 @@ export default function UltimateSettings() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <Card title="Messaging Content">
                <Field label="Header Title" value={formState.headerTitle} onChange={(v) => handleChange('headerTitle', v)} />
-               {/* <Field label="Header Subtitle" value={formState.headerSubtitle} onChange={(v) => handleChange('headerSubtitle', v)} /> */}
                <Field label="Hero Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
                <AreaField label="Hero Description" value={formState.welcomeSubtext} onChange={(v) => handleChange('welcomeSubtext', v)} />
                <hr style={{ margin: '20px 0', border: '0', borderTop: '1px solid #F3F4F6' }} />
@@ -252,14 +246,14 @@ export default function UltimateSettings() {
                         <img src={formState.welcomeImg} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} alt="avatar" />
                         <div style={{ position: 'absolute', bottom: 0, right: 0, width: '9px', height: '9px', background: '#4ADE80', borderRadius: '50%', border: '2px solid #FFF' }}></div>
                     </div>
-<div style={{ 
-    fontWeight: formState.fontFamily.includes('Euclid') ? '500' : '600', 
-    fontSize: '17px', 
-    color: formState.headerTextColor,
-    fontFamily: formState.fontFamily 
-}}>
-    {formState.headerTitle}
-</div>
+                    <div style={{ 
+                        fontWeight: formState.fontFamily.includes('Euclid') ? '500' : '600', 
+                        fontSize: '17px', 
+                        color: formState.headerTextColor,
+                        fontFamily: formState.fontFamily 
+                    }}>
+                        {formState.headerTitle}
+                    </div>
                 </div>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5"><path d="m6 9 6 6 6-6"/></svg>
             </div>
@@ -332,16 +326,28 @@ export default function UltimateSettings() {
               </div>
           </div>
       </div>
+      </div>
 
       {toast && <Toast message="Settings Saved Successfully!" />}
     </div>
   );
 }
 
-const NavIcon = ({ active, icon, title, onClick }) => (
-    <div onClick={onClick} style={{ textAlign: 'center', cursor: 'pointer', marginBottom: '25px' }}>
-        <div style={{ fontSize: '22px', background: active ? '#FFF' : 'transparent', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '14px', border: active ? '1px solid #E5E7EB' : '1px solid transparent', opacity: active ? 1 : 0.5 }}>{icon}</div>
-        <div style={{ fontSize: '10px', fontWeight: '600', marginTop: '6px', color: active ? '#111827' : '#9CA3AF', textTransform: 'uppercase' }}>{title}</div>
+const TabNav = ({ active, label, onClick }) => (
+    <div 
+        onClick={onClick} 
+        style={{ 
+            padding: '20px 24px', 
+            cursor: 'pointer', 
+            borderBottom: active ? '3px solid #111827' : '3px solid transparent',
+            fontWeight: active ? '700' : '500',
+            fontSize: '15px',
+            color: active ? '#111827' : '#6B7280',
+            transition: 'all 0.2s',
+            position: 'relative'
+        }}
+    >
+        {label}
     </div>
 );
 
