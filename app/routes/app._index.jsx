@@ -36,9 +36,13 @@ export async function loader({ request }) {
     include: { messages: true },
   });
 
-  // Count total searches from frontend
-  const totalSearches = await prisma.searchLog.count({
-    where: { shop, createdAt: { gte: fromDate } },
+  // Count FRONTEND searches only (widget searches from customers)
+  const totalFrontendSearches = await prisma.searchLog.count({
+    where: { 
+      shop, 
+      searchType: "frontend",  // Only count frontend widget searches
+      createdAt: { gte: fromDate } 
+    },
   });
 
   const assistedRevenue = 0;
@@ -55,7 +59,7 @@ export async function loader({ request }) {
     chatToSalesRate,
     recentChats,
     avgResponseTime,
-    totalSearches,
+    totalFrontendSearches,
   });
 }
 
@@ -92,7 +96,7 @@ export default function ChatAnalytics() {
           </div>
         </div>
 
-        {/* METRICS GRID - CORRECTED LAYOUT */}
+        {/* METRICS GRID - FIXED RESPONSIVE LAYOUT */}
         <div style={styles.metricsContainer}>
           <MetricCard 
             icon={
@@ -106,7 +110,7 @@ export default function ChatAnalytics() {
             value={data.totalConversations}
             trend="+16.45%"
             trendUp={true}
-            subtitle="0% success rate"
+            subtitle="Last 3 days"
           />
           <MetricCard 
             icon={
@@ -118,7 +122,7 @@ export default function ChatAnalytics() {
             }
             title="Resolved" 
             value={data.resolvedChats}
-            subtitle="0% success rate"
+            subtitle={`${data.resolutionRate}% success rate`}
             trend="-3.75%"
             trendUp={false}
           />
@@ -152,7 +156,7 @@ export default function ChatAnalytics() {
           />
         </div>
 
-        {/* MAIN CONTENT GRID */}
+        {/* MAIN CONTENT GRID - FIXED FOR LAPTOP SCREENS */}
         <div style={styles.contentGrid}>
           {/* LEFT SIDE */}
           <div style={styles.leftSection}>
@@ -176,7 +180,7 @@ export default function ChatAnalytics() {
                   </div>
                   <div style={styles.statNumber}>{data.resolvedChats}</div>
                   <div style={styles.statFooter}>
-                    <span style={styles.statPercent}>0%</span>
+                    <span style={styles.statPercent}>{data.resolutionRate}%</span>
                     <div style={{...styles.statBadge, background: '#3b82f6'}}>
                       <svg style={styles.badgeIcon} fill="white" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -192,7 +196,7 @@ export default function ChatAnalytics() {
                   </div>
                   <div style={styles.statNumber}>{data.pendingChats}</div>
                   <div style={styles.statFooter}>
-                    <span style={styles.statPercent}>100%</span>
+                    <span style={styles.statPercent}>{100 - data.resolutionRate}%</span>
                     <div style={{...styles.statBadge, background: '#f97316'}}>
                       <svg style={styles.badgeIcon} fill="white" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
@@ -219,12 +223,12 @@ export default function ChatAnalytics() {
 
                 <div style={styles.statCard}>
                   <div style={styles.statTop}>
-                    <span style={styles.statLabel}>Total Search</span>
-                    <span style={styles.statTrend} data-positive="true">↑ +3%</span>
+                    <span style={styles.statLabel}>Widget Searches</span>
+                    <span style={styles.statTrend} data-positive="true">↑ +8%</span>
                   </div>
-                  <div style={styles.statNumber}>{data.totalSearches || 0}</div>
+                  <div style={styles.statNumber}>{data.totalFrontendSearches || 0}</div>
                   <div style={styles.statFooter}>
-                    <span style={styles.statPercent}>100%</span>
+                    <span style={styles.statPercent}>Frontend</span>
                     <div style={{...styles.statBadge, background: '#a855f7'}}>
                       <svg style={styles.badgeIcon} fill="white" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
@@ -408,19 +412,20 @@ const styles = {
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
   },
   wrapper: {
-    maxWidth: "1440px",
+    maxWidth: "1600px",
     margin: "0 auto",
   },
   headerSection: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 40,
+    marginBottom: 32,
     flexWrap: "wrap",
-    gap: 24,
+    gap: 20,
   },
   headerLeft: {
     flex: 1,
+    minWidth: "280px",
   },
   headerBadge: {
     display: "inline-flex",
@@ -461,6 +466,7 @@ const styles = {
     display: "flex",
     gap: 12,
     alignItems: "center",
+    flexWrap: "wrap",
   },
   dateRange: {
     display: "flex",
@@ -502,7 +508,7 @@ const styles = {
   },
   metricsContainer: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
     gap: 16,
     marginBottom: 24,
   },
@@ -513,6 +519,7 @@ const styles = {
     padding: 20,
     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
     position: "relative",
+    minHeight: "140px",
   },
   metricHeader: {
     display: "flex",
@@ -561,7 +568,7 @@ const styles = {
   },
   contentGrid: {
     display: "grid",
-    gridTemplateColumns: "1.6fr 1fr",
+    gridTemplateColumns: "minmax(600px, 1.5fr) minmax(400px, 1fr)",
     gap: 24,
     marginBottom: 24,
   },
@@ -613,7 +620,7 @@ const styles = {
   },
   statsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
+    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
     gap: 12,
     marginBottom: 24,
   },
@@ -869,7 +876,7 @@ const styles = {
   },
 };
 
-// Add CSS for status badge colors
+// Add CSS for status badge colors and responsive layout
 const statusStyles = `
   [data-status="resolved"] {
     background: #d1fae5;
@@ -898,6 +905,21 @@ const statusStyles = `
   @keyframes shimmer {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(100%); }
+  }
+  
+  @media (max-width: 1440px) {
+    .contentGrid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .statsGrid {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .metricsContainer {
+      grid-template-columns: 1fr !important;
+    }
   }
 `;
 
