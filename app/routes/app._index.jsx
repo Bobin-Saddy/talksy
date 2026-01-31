@@ -1,8 +1,7 @@
 import { json } from "@remix-run/node";
-import { useLoaderData, useFetcher } from "react-router";
+import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
-import { useState } from "react";
 
 /* ---------------- LOADER ---------------- */
 export async function loader({ request }) {
@@ -37,10 +36,9 @@ export async function loader({ request }) {
     include: { messages: true },
   });
 
-  const featureSuggestions = await prisma.featureSuggestion.findMany({
-    where: { shop },
-    orderBy: { createdAt: "desc" },
-    take: 10,
+  // Count total searches from frontend
+  const totalSearches = await prisma.searchLog.count({
+    where: { shop, createdAt: { gte: fromDate } },
   });
 
   const assistedRevenue = 0;
@@ -57,52 +55,13 @@ export async function loader({ request }) {
     chatToSalesRate,
     recentChats,
     avgResponseTime,
-    featureSuggestions,
+    totalSearches,
   });
-}
-
-/* ---------------- ACTION ---------------- */
-export async function action({ request }) {
-  const { session } = await authenticate.admin(request);
-  const shop = session.shop;
-  const formData = await request.formData();
-  const actionType = formData.get("_action");
-
-  if (actionType === "addFeature") {
-    const title = formData.get("title");
-    const description = formData.get("description");
-    const category = formData.get("category");
-    const priority = formData.get("priority");
-
-    await prisma.featureSuggestion.create({
-      data: {
-        shop,
-        title,
-        description,
-        category,
-        priority,
-        status: "pending",
-      },
-    });
-
-    return json({ success: true, message: "Feature suggestion submitted!" });
-  }
-
-  if (actionType === "deleteFeature") {
-    const id = formData.get("id");
-    await prisma.featureSuggestion.delete({
-      where: { id },
-    });
-    return json({ success: true, message: "Feature deleted!" });
-  }
-
-  return json({ success: false });
 }
 
 /* ---------------- PAGE ---------------- */
 export default function ChatAnalytics() {
   const data = useLoaderData();
-  const [showFeatureForm, setShowFeatureForm] = useState(false);
 
   return (
     <div style={styles.container}>
@@ -133,7 +92,7 @@ export default function ChatAnalytics() {
           </div>
         </div>
 
-        {/* METRICS GRID - Updated with colorful icons */}
+        {/* METRICS GRID - CORRECTED LAYOUT */}
         <div style={styles.metricsContainer}>
           <MetricCard 
             icon={
@@ -159,7 +118,7 @@ export default function ChatAnalytics() {
             }
             title="Resolved" 
             value={data.resolvedChats}
-            subtitle={`0% success rate`}
+            subtitle="0% success rate"
             trend="-3.75%"
             trendUp={false}
           />
@@ -213,64 +172,64 @@ export default function ChatAnalytics() {
                 <div style={styles.statCard}>
                   <div style={styles.statTop}>
                     <span style={styles.statLabel}>Resolved</span>
+                    <span style={styles.statTrend} data-positive="true">↑ +16.45%</span>
+                  </div>
+                  <div style={styles.statNumber}>{data.resolvedChats}</div>
+                  <div style={styles.statFooter}>
+                    <span style={styles.statPercent}>0%</span>
                     <div style={{...styles.statBadge, background: '#3b82f6'}}>
                       <svg style={styles.badgeIcon} fill="white" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     </div>
                   </div>
-                  <div style={styles.statNumber}>{data.resolvedChats}</div>
-                  <div style={styles.statFooter}>
-                    <span style={styles.statPercent}>0%</span>
-                    <span style={styles.statChange} data-positive="true">↑ +16.45%</span>
-                  </div>
                 </div>
 
                 <div style={styles.statCard}>
                   <div style={styles.statTop}>
                     <span style={styles.statLabel}>Pending</span>
+                    <span style={styles.statTrend} data-positive="false">↓ -3.75%</span>
+                  </div>
+                  <div style={styles.statNumber}>{data.pendingChats}</div>
+                  <div style={styles.statFooter}>
+                    <span style={styles.statPercent}>100%</span>
                     <div style={{...styles.statBadge, background: '#f97316'}}>
                       <svg style={styles.badgeIcon} fill="white" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                       </svg>
                     </div>
                   </div>
-                  <div style={styles.statNumber}>{data.pendingChats}</div>
-                  <div style={styles.statFooter}>
-                    <span style={styles.statPercent}>100%</span>
-                    <span style={styles.statChange} data-positive="false">↓ -3.75%</span>
-                  </div>
                 </div>
 
                 <div style={styles.statCard}>
                   <div style={styles.statTop}>
                     <span style={styles.statLabel}>Total</span>
+                    <span style={styles.statTrend} data-positive="true">↑ +3%</span>
+                  </div>
+                  <div style={styles.statNumber}>{data.totalConversations}</div>
+                  <div style={styles.statFooter}>
+                    <span style={styles.statPercent}>100%</span>
                     <div style={{...styles.statBadge, background: '#06b6d4'}}>
                       <svg style={styles.badgeIcon} fill="white" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                       </svg>
                     </div>
                   </div>
-                  <div style={styles.statNumber}>{data.totalConversations}</div>
-                  <div style={styles.statFooter}>
-                    <span style={styles.statPercent}>100%</span>
-                    <span style={styles.statChange} data-positive="true">↑ +3%</span>
-                  </div>
                 </div>
 
                 <div style={styles.statCard}>
                   <div style={styles.statTop}>
                     <span style={styles.statLabel}>Total Search</span>
+                    <span style={styles.statTrend} data-positive="true">↑ +3%</span>
+                  </div>
+                  <div style={styles.statNumber}>{data.totalSearches || 0}</div>
+                  <div style={styles.statFooter}>
+                    <span style={styles.statPercent}>100%</span>
                     <div style={{...styles.statBadge, background: '#a855f7'}}>
                       <svg style={styles.badgeIcon} fill="white" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                       </svg>
                     </div>
-                  </div>
-                  <div style={styles.statNumber}>34</div>
-                  <div style={styles.statFooter}>
-                    <span style={styles.statPercent}>100%</span>
-                    <span style={styles.statChange} data-positive="true">↑ +3%</span>
                   </div>
                 </div>
               </div>
@@ -416,47 +375,6 @@ export default function ChatAnalytics() {
             </div>
           </div>
         </div>
-
-        {/* FEATURE SUGGESTIONS */}
-        <div style={styles.featureSection}>
-          <div style={styles.featureHeader}>
-            <div style={styles.cardTitleRow}>
-              <svg style={styles.cardIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-              <h2 style={styles.cardTitle}>Feature Suggestions</h2>
-            </div>
-            <button 
-              style={styles.addFeatureBtn}
-              onClick={() => setShowFeatureForm(!showFeatureForm)}
-            >
-              <svg style={styles.buttonIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              {showFeatureForm ? "Close Form" : "New Suggestion"}
-            </button>
-          </div>
-
-          {showFeatureForm && <FeatureForm onClose={() => setShowFeatureForm(false)} />}
-
-          {data.featureSuggestions && data.featureSuggestions.length > 0 ? (
-            <div style={styles.featureGrid}>
-              {data.featureSuggestions.map((feature) => (
-                <FeatureCard key={feature.id} feature={feature} />
-              ))}
-            </div>
-          ) : !showFeatureForm ? (
-            <div style={styles.emptyState}>
-              <div style={styles.emptyIconWrapper}>
-                <svg style={styles.emptyIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-              </div>
-              <p style={styles.emptyTitle}>No Suggestions Yet</p>
-              <p style={styles.emptyText}>Share your ideas to help us improve the platform</p>
-            </div>
-          ) : null}
-        </div>
       </div>
     </div>
   );
@@ -466,137 +384,17 @@ export default function ChatAnalytics() {
 function MetricCard({ icon, title, value, subtitle, trend, trendUp }) {
   return (
     <div style={styles.metricCard}>
-      <div style={styles.metricTop}>
-        {icon}
+      <div style={styles.metricHeader}>
+        <div style={styles.metricTitle}>{title}</div>
         {trend && (
           <span style={{...styles.trendBadge, color: trendUp ? '#10b981' : '#ef4444'}}>
             {trend}
           </span>
         )}
       </div>
-      <div style={styles.metricTitle}>{title}</div>
       <div style={styles.metricValue}>{value}</div>
       {subtitle && <div style={styles.metricSubtitle}>{subtitle}</div>}
-    </div>
-  );
-}
-
-function FeatureForm({ onClose }) {
-  const fetcher = useFetcher();
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category: "general",
-    priority: "medium"
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const form = new FormData();
-    form.append("_action", "addFeature");
-    form.append("title", formData.title);
-    form.append("description", formData.description);
-    form.append("category", formData.category);
-    form.append("priority", formData.priority);
-    
-    fetcher.submit(form, { method: "post" });
-    setFormData({ title: "", description: "", category: "general", priority: "medium" });
-    setTimeout(onClose, 500);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} style={styles.featureForm}>
-      <div style={styles.formRow}>
-        <div style={styles.formField}>
-          <label style={styles.formLabel}>Title</label>
-          <input 
-            type="text"
-            name="title" 
-            placeholder="Enter feature title"
-            style={styles.formInput}
-            value={formData.title}
-            onChange={(e) => setFormData({...formData, title: e.target.value})}
-            required
-          />
-        </div>
-        <div style={styles.formField}>
-          <label style={styles.formLabel}>Category</label>
-          <select 
-            name="category" 
-            style={styles.formSelect}
-            value={formData.category}
-            onChange={(e) => setFormData({...formData, category: e.target.value})}
-          >
-            <option value="general">General</option>
-            <option value="chat">Chat Features</option>
-            <option value="analytics">Analytics</option>
-            <option value="integration">Integration</option>
-            <option value="ui">UI/UX</option>
-            <option value="performance">Performance</option>
-          </select>
-        </div>
-        <div style={styles.formField}>
-          <label style={styles.formLabel}>Priority</label>
-          <select 
-            name="priority" 
-            style={styles.formSelect}
-            value={formData.priority}
-            onChange={(e) => setFormData({...formData, priority: e.target.value})}
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
-          </select>
-        </div>
-      </div>
-      <div style={styles.formField}>
-        <label style={styles.formLabel}>Description</label>
-        <textarea 
-          name="description" 
-          placeholder="Describe your feature idea in detail..."
-          style={styles.formTextarea}
-          value={formData.description}
-          onChange={(e) => setFormData({...formData, description: e.target.value})}
-          required
-        />
-      </div>
-      <div style={styles.formActions}>
-        <button type="button" style={styles.formCancelBtn} onClick={onClose}>Cancel</button>
-        <button type="submit" style={styles.formSubmitBtn}>Submit Suggestion</button>
-      </div>
-    </form>
-  );
-}
-
-function FeatureCard({ feature }) {
-  const fetcher = useFetcher();
-
-  const handleDelete = () => {
-    if (confirm("Delete this suggestion?")) {
-      const form = new FormData();
-      form.append("_action", "deleteFeature");
-      form.append("id", feature.id);
-      fetcher.submit(form, { method: "post" });
-    }
-  };
-
-  return (
-    <div style={styles.featureCard}>
-      <div style={styles.featureCardHeader}>
-        <h3 style={styles.featureCardTitle}>{feature.title}</h3>
-        <button style={styles.featureDeleteBtn} onClick={handleDelete}>
-          <svg style={styles.deleteIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      </div>
-      <p style={styles.featureCardDesc}>{feature.description}</p>
-      <div style={styles.featureCardFooter}>
-        <span style={styles.featureTag} data-type="category">{feature.category}</span>
-        <span style={styles.featureTag} data-type="priority">{feature.priority}</span>
-        <span style={styles.featureTag} data-type="date">{new Date(feature.createdAt).toLocaleDateString()}</span>
-      </div>
+      <div style={styles.metricIconBottom}>{icon}</div>
     </div>
   );
 }
@@ -714,12 +512,38 @@ const styles = {
     borderRadius: 12,
     padding: 20,
     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+    position: "relative",
   },
-  metricTop: {
+  metricHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  trendBadge: {
+    fontSize: 12,
+    fontWeight: 600,
+  },
+  metricTitle: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: "#6b7280",
+  },
+  metricValue: {
+    fontSize: 32,
+    fontWeight: 700,
+    color: "#111827",
+    marginBottom: 4,
+  },
+  metricSubtitle: {
+    fontSize: 13,
+    color: "#9ca3af",
+    marginBottom: 12,
+  },
+  metricIconBottom: {
+    display: "flex",
+    justifyContent: "flex-end",
+    marginTop: 8,
   },
   colorfulIcon: {
     width: 48,
@@ -734,26 +558,6 @@ const styles = {
     width: 24,
     height: 24,
     strokeWidth: 2,
-  },
-  trendBadge: {
-    fontSize: 12,
-    fontWeight: 600,
-  },
-  metricTitle: {
-    fontSize: 13,
-    fontWeight: 500,
-    color: "#6b7280",
-    marginBottom: 8,
-  },
-  metricValue: {
-    fontSize: 32,
-    fontWeight: 700,
-    color: "#111827",
-    marginBottom: 4,
-  },
-  metricSubtitle: {
-    fontSize: 13,
-    color: "#9ca3af",
   },
   contentGrid: {
     display: "grid",
@@ -832,17 +636,9 @@ const styles = {
     textTransform: "uppercase",
     letterSpacing: "0.5px",
   },
-  statBadge: {
-    width: 32,
-    height: 32,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-  },
-  badgeIcon: {
-    width: 18,
-    height: 18,
+  statTrend: {
+    fontSize: 11,
+    fontWeight: 600,
   },
   statNumber: {
     fontSize: 28,
@@ -860,11 +656,17 @@ const styles = {
     fontWeight: 500,
     color: "#6b7280",
   },
-  statChange: {
-    fontSize: 11,
-    fontWeight: 600,
-    padding: "3px 8px",
-    borderRadius: 6,
+  statBadge: {
+    width: 32,
+    height: 32,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+  },
+  badgeIcon: {
+    width: 18,
+    height: 18,
   },
   progressSection: {
     paddingTop: 20,
@@ -981,18 +783,6 @@ const styles = {
     padding: 24,
     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   },
-  activityCount: {
-    width: 32,
-    height: 32,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "#f3f4f6",
-    color: "#6b7280",
-    borderRadius: 8,
-    fontSize: 13,
-    fontWeight: 700,
-  },
   activityList: {
     display: "flex",
     flexDirection: "column",
@@ -1077,174 +867,6 @@ const styles = {
     color: "#9ca3af",
     margin: 0,
   },
-  featureSection: {
-    background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 12,
-    padding: 24,
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-  },
-  featureHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  addFeatureBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "10px 18px",
-    background: "#3b82f6",
-    border: "none",
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#ffffff",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 1px 2px rgba(59, 130, 246, 0.5)",
-  },
-  featureForm: {
-    padding: 20,
-    background: "#f9fafb",
-    borderRadius: 10,
-    border: "1px solid #e5e7eb",
-    marginBottom: 20,
-  },
-  formRow: {
-    display: "grid",
-    gridTemplateColumns: "2fr 1fr 1fr",
-    gap: 12,
-    marginBottom: 12,
-  },
-  formField: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  },
-  formLabel: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: "#374151",
-    textTransform: "uppercase",
-    letterSpacing: "0.3px",
-  },
-  formInput: {
-    padding: "10px 14px",
-    borderRadius: 8,
-    border: "1px solid #e5e7eb",
-    fontSize: 14,
-    fontFamily: "inherit",
-    outline: "none",
-    transition: "border-color 0.2s",
-    background: "#ffffff",
-  },
-  formSelect: {
-    padding: "10px 14px",
-    borderRadius: 8,
-    border: "1px solid #e5e7eb",
-    fontSize: 14,
-    fontFamily: "inherit",
-    outline: "none",
-    background: "#ffffff",
-    cursor: "pointer",
-  },
-  formTextarea: {
-    padding: "10px 14px",
-    borderRadius: 8,
-    border: "1px solid #e5e7eb",
-    fontSize: 14,
-    fontFamily: "inherit",
-    outline: "none",
-    resize: "vertical",
-    minHeight: 100,
-    background: "#ffffff",
-  },
-  formActions: {
-    display: "flex",
-    gap: 10,
-    justifyContent: "flex-end",
-  },
-  formCancelBtn: {
-    padding: "9px 20px",
-    background: "#ffffff",
-    color: "#6b7280",
-    border: "1px solid #e5e7eb",
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 500,
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  formSubmitBtn: {
-    padding: "9px 20px",
-    background: "#3b82f6",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 1px 2px rgba(59, 130, 246, 0.5)",
-  },
-  featureGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-    gap: 12,
-  },
-  featureCard: {
-    padding: 16,
-    background: "#f9fafb",
-    borderRadius: 10,
-    border: "1px solid #e5e7eb",
-  },
-  featureCardHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 10,
-  },
-  featureCardTitle: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#111827",
-    margin: 0,
-    flex: 1,
-  },
-  featureDeleteBtn: {
-    padding: 6,
-    background: "transparent",
-    border: "none",
-    cursor: "pointer",
-    color: "#9ca3af",
-    transition: "color 0.2s",
-  },
-  deleteIcon: {
-    width: 16,
-    height: 16,
-    strokeWidth: 2,
-  },
-  featureCardDesc: {
-    fontSize: 13,
-    color: "#6b7280",
-    lineHeight: 1.5,
-    margin: "0 0 12px 0",
-  },
-  featureCardFooter: {
-    display: "flex",
-    gap: 6,
-    flexWrap: "wrap",
-  },
-  featureTag: {
-    fontSize: 10,
-    fontWeight: 600,
-    padding: "4px 10px",
-    borderRadius: 6,
-    textTransform: "uppercase",
-    letterSpacing: "0.3px",
-  },
 };
 
 // Add CSS for status badge colors
@@ -1268,18 +890,6 @@ const statusStyles = `
   }
   [data-positive="false"] {
     color: #ef4444;
-  }
-  [data-type="category"] {
-    background: #dbeafe;
-    color: #1e40af;
-  }
-  [data-type="priority"] {
-    background: #fef3c7;
-    color: #92400e;
-  }
-  [data-type="date"] {
-    background: #e5e7eb;
-    color: #6b7280;
   }
   @keyframes pulse {
     0%, 100% { opacity: 1; }

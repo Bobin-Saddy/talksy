@@ -218,3 +218,13 @@ model FeatureSuggestion {
   @@index([createdAt])
 }
 
+model SearchLog {
+  id          String   @id @default(cuid())
+  shop        String
+  query       String
+  searchType  String   // "admin" or "frontend"
+  createdAt   DateTime @default(now())
+
+  @@index([shop])
+  @@index([createdAt])
+}

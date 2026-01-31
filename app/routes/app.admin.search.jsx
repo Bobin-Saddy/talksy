@@ -14,6 +14,22 @@ export async function loader({ request }) {
   const filterStatus = url.searchParams.get("status") || "all";
   const filterDate = url.searchParams.get("date") || "all";
 
+  // Track search if query exists
+  if (searchQuery) {
+    try {
+      await prisma.searchLog.create({
+        data: {
+          shop,
+          query: searchQuery,
+          searchType: "admin",
+          createdAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error("Error logging search:", error);
+    }
+  }
+
   let whereCondition = { shop };
 
   // Apply status filter
@@ -170,7 +186,7 @@ export default function AdminSearch() {
                   style={styles.clearBtn}
                   onClick={() => {
                     setSearchInput("");
-                    window.location.href = "/admin/search";
+                    window.location.href = window.location.pathname;
                   }}
                 >
                   <svg style={styles.clearIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -565,9 +581,6 @@ const styles = {
     borderBottom: "1px solid #e5e7eb",
     cursor: "pointer",
     transition: "background 0.2s",
-    ":hover": {
-      background: "#f9fafb",
-    },
   },
   sessionCardActive: {
     background: "#eff6ff",
