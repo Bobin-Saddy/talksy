@@ -389,7 +389,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     USER_LNAME: `chat_lname_${shop}`
   };
 
-  // ✅ TEST LOCALSTORAGE
   try {
     localStorage.setItem("__test", "1");
     localStorage.removeItem("__test");
@@ -397,7 +396,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     console.warn("LocalStorage blocked");
   }
 
-  // ✅ GET OR CREATE SESSION ID
   function getOrCreateSessionId() {
     let sId = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
     if (!sId || sId === "null" || sId === "undefined") {
@@ -407,7 +405,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     return sId;
   }
 
-  // ✅ VALIDATE FORM
   function validateForm() {
     const fname = fnameInput.value.trim();
     const email = emailInput.value.trim();
@@ -419,14 +416,12 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   lnameInput.addEventListener('input', validateForm);
   emailInput.addEventListener('input', validateForm);
 
-  // ✅ ICON SVGs
   const ICON_SVGS = {
     bubble: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
     send: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
     defaultCustom: '<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:30px;height:30px;object-fit:contain;"/>'
   };
 
-  // ✅ LOAD SETTINGS
   async function loadSettings() {
     try {
       const r = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
@@ -490,7 +485,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     }
   }
 
-  // ✅ CHECK EXISTING SESSION (FIXED - runs independently)
   async function checkExistingSession() {
     const existingSession = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
     const existingEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
@@ -534,21 +528,21 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     }
   }
 
-  // ✅ CLEAR SESSION
   function clearSession() {
     Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
     document.getElementById("chat-onboarding-step").style.display = "flex";
     document.getElementById("chat-chat-step").style.display = "none";
   }
 
-  // ✅ SHOW CHAT INTERFACE
   function showChatInterface() {
     document.getElementById("chat-onboarding-step").style.display = "none";
     document.getElementById("chat-chat-step").style.display = "flex";
   }
 
-  // ✅ SEARCH FUNCTION (unchanged)
+  // ✅ FIXED SEARCH FUNCTION
   async function performSearch(query, type = 'all') {
+    console.log("🔍 Search initiated:", { query, type });
+    
     if (!query || query.length < 2) {
       document.getElementById("search-results").innerHTML = `
         <div class="search-empty">
@@ -564,12 +558,18 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 
     try {
       const response = await fetch(`${BASE_URL}/app/chat/search?shop=${shop}&query=${encodeURIComponent(query)}&type=${type}`);
+      console.log("📡 Search response status:", response.status);
+      
       const data = await response.json();
+      console.log("📦 Search data:", data);
 
-      if (!data.success) throw new Error(data.error || "Search failed");
+      if (!data.success) {
+        throw new Error(data.error || "Search failed");
+      }
+      
       renderSearchResults(data.results);
     } catch (error) {
-      console.error("Search error:", error);
+      console.error("❌ Search error:", error);
       document.getElementById("search-results").innerHTML = `
         <div class="search-empty">
           <div class="search-empty-icon">❌</div>
@@ -580,48 +580,272 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     }
   }
 
-  // ✅ RENDER SEARCH RESULTS (unchanged, kept for brevity)
+  // ✅ FIXED RENDER SEARCH RESULTS
   function renderSearchResults(results) {
-    // Same implementation as before...
+    console.log("🎨 Rendering search results:", results);
+    
     const container = document.getElementById("search-results");
     const allResults = [
-      ...results.products || [],
-      ...results.pages || [],
-      ...results.orders || [],
-      ...results.collections || []
+      ...(results.products || []),
+      ...(results.pages || []),
+      ...(results.orders || []),
+      ...(results.collections || [])
     ];
 
+    console.log("📊 Total results:", allResults.length);
+
     if (allResults.length === 0) {
-      container.innerHTML = `<div class="search-empty"><div class="search-empty-icon">🔍</div><div class="search-empty-text">No results found</div><p class="search-empty-subtext">Try different keywords</p></div>`;
+      container.innerHTML = `
+        <div class="search-empty">
+          <div class="search-empty-icon">🔍</div>
+          <div class="search-empty-text">No results found</div>
+          <p class="search-empty-subtext">Try different keywords</p>
+        </div>
+      `;
       return;
     }
-    // ... rest of implementation
+
+    container.innerHTML = allResults.map(item => {
+      let content = '';
+      
+      if (item.type === 'product') {
+        const price = item.price !== 'N/A' 
+          ? `${item.currency} ${parseFloat(item.price).toFixed(2)}` 
+          : 'Price not available';
+        
+        content = `
+          <div class="search-result-item" onclick="window.open('${item.url}', '_blank')">
+            <div class="search-result-header">
+              ${item.image ? `<img src="${item.image}" class="search-result-image" alt="${item.title}" />` : ''}
+              <div class="search-result-info">
+                <span class="search-result-type">🛍️ Product</span>
+                <div class="search-result-title">${item.title}</div>
+                <div class="search-result-meta" style="color: var(--chat-primary); font-weight: 600; margin-top: 4px;">${price}</div>
+              </div>
+            </div>
+            ${item.description ? `<div class="search-result-description">${item.description}...</div>` : ''}
+          </div>
+        `;
+      }
+      else if (item.type === 'collection') {
+        content = `
+          <div class="search-result-item" onclick="window.open('${item.url}', '_blank')">
+            <div class="search-result-header">
+              ${item.image ? `<img src="${item.image}" class="search-result-image" alt="${item.title}" />` : ''}
+              <div class="search-result-info">
+                <span class="search-result-type">📁 Collection</span>
+                <div class="search-result-title">${item.title}</div>
+                ${item.productCount ? `<div class="search-result-meta">${item.productCount} products</div>` : ''}
+              </div>
+            </div>
+            ${item.description ? `<div class="search-result-description">${item.description}...</div>` : ''}
+          </div>
+        `;
+      }
+      else if (item.type === 'page') {
+        content = `
+          <div class="search-result-item" onclick="window.open('${item.url}', '_blank')">
+            <div class="search-result-header">
+              <div class="search-result-info">
+                <span class="search-result-type">📄 Page</span>
+                <div class="search-result-title">${item.title}</div>
+              </div>
+            </div>
+            ${item.description ? `<div class="search-result-description">${item.description}...</div>` : ''}
+          </div>
+        `;
+      }
+      else if (item.type === 'order') {
+        const orderDate = new Date(item.date).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+        
+        const totalPrice = `${item.currency} ${parseFloat(item.total).toFixed(2)}`;
+        
+        content = `
+          <div class="search-result-item">
+            <div class="search-result-header">
+              <div class="search-result-info">
+                <span class="search-result-type">📦 Order</span>
+                <div class="search-result-title">Order ${item.orderNumber}</div>
+                <div class="search-result-meta" style="margin-top: 6px;">
+                  <div style="margin-bottom: 4px;">📧 ${item.email}</div>
+                  <div style="margin-bottom: 4px;">💰 ${totalPrice}</div>
+                  <div style="margin-bottom: 4px;">📅 ${orderDate}</div>
+                  <div>
+                    <span style="background: ${item.status === 'PAID' ? '#22c55e' : '#f59e0b'}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-right: 4px;">${item.status}</span>
+                    ${item.fulfillment ? `<span style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">${item.fulfillment}</span>` : ''}
+                  </div>
+                </div>
+              </div>
+            </div>
+            ${item.items && item.items.length > 0 ? `
+              <div class="search-result-description" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                <strong>Items:</strong>
+                <div style="margin-top: 6px;">
+                  ${item.items.map(lineItem => `
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                      ${lineItem.image ? `<img src="${lineItem.image}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;" />` : ''}
+                      <span style="font-size: 13px;">${lineItem.quantity}x ${lineItem.title}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+      
+      return content;
+    }).join('');
   }
 
-  // ✅ LOAD FAQs (unchanged)
+  // ✅ FIXED LOAD FAQs
   async function loadFAQs() {
+    console.log("📚 Loading FAQs for shop:", shop);
+    
     try {
       const response = await fetch(`${BASE_URL}/api/faq/categories?shop=${shop}`);
+      console.log("📡 FAQ response status:", response.status);
+      
       const data = await response.json();
+      console.log("📦 FAQ data:", data);
+      
       faqData = data.categories || [];
       renderFAQs();
     } catch (error) {
-      console.error("Error loading FAQs:", error);
+      console.error("❌ Error loading FAQs:", error);
+      document.getElementById("faq-categories-list").innerHTML = `
+        <div class="faq-empty">
+          <div class="faq-empty-icon">❌</div>
+          <div class="faq-empty-text">Failed to load FAQs</div>
+          <p class="faq-empty-subtext">Please try again later</p>
+        </div>
+      `;
     }
   }
 
+  // ✅ FIXED RENDER FAQs
   function renderFAQs() {
-    // Same implementation as before
+    console.log("🎨 Rendering FAQs:", faqData);
+    
+    const container = document.getElementById("faq-categories-list");
+    
+    if (!faqData.length || !faqData.some(cat => cat.isActive && cat.faqs && cat.faqs.length > 0)) {
+      container.innerHTML = `
+        <div class="faq-empty">
+          <div class="faq-empty-icon">❓</div>
+          <div class="faq-empty-text">No FAQs Available</div>
+          <p class="faq-empty-subtext">Check back later for helpful information</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+
+    faqData.forEach(category => {
+      if (!category.isActive || !category.faqs || !category.faqs.length) return;
+
+      const categoryDiv = document.createElement('div');
+      categoryDiv.className = 'faq-category';
+      
+      const activeFaqs = category.faqs.filter(f => f.isActive);
+      
+      let categoryHTML = `
+        <div class="faq-category-title">
+          <span>${category.title}</span>
+          <span class="faq-category-badge">${activeFaqs.length}</span>
+        </div>
+      `;
+
+      activeFaqs.forEach(faq => {
+        const faqId = `faq-${faq.id}`;
+        categoryHTML += `
+          <div class="faq-item" data-faq-id="${faqId}">
+            <div class="faq-question" onclick="toggleFaq('${faqId}')">
+              <span class="faq-question-text">${faq.question}</span>
+              <svg class="faq-toggle-icon" id="${faqId}-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </div>
+            <div class="faq-answer" id="${faqId}-answer">
+              <div class="faq-answer-text">${faq.answer}</div>
+            </div>
+          </div>
+        `;
+      });
+
+      categoryDiv.innerHTML = categoryHTML;
+      container.appendChild(categoryDiv);
+    });
+    
+    console.log("✅ FAQs rendered successfully");
   }
 
   window.toggleFaq = function(faqId) {
     const answer = document.getElementById(`${faqId}-answer`);
     const icon = document.getElementById(`${faqId}-icon`);
-    answer.classList.toggle('open');
-    icon.classList.toggle('open');
+    
+    if (answer && icon) {
+      answer.classList.toggle('open');
+      icon.classList.toggle('open');
+    }
   };
 
-  // ✅ FETCH MESSAGES
+  // ✅ EVENT LISTENERS FOR SEARCH
+  document.addEventListener('DOMContentLoaded', () => {
+    const storeSearchInput = document.getElementById("store-search-input");
+    const searchTypeFilter = document.getElementById("search-type-filter");
+    const faqSearchInput = document.getElementById("faq-search-input");
+    
+    if (storeSearchInput) {
+      storeSearchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value;
+        const type = searchTypeFilter ? searchTypeFilter.value : 'all';
+        
+        searchTimeout = setTimeout(() => {
+          performSearch(query, type);
+        }, 500);
+      });
+    }
+
+    if (searchTypeFilter) {
+      searchTypeFilter.addEventListener('change', () => {
+        const query = storeSearchInput ? storeSearchInput.value : '';
+        const type = searchTypeFilter.value;
+        performSearch(query, type);
+      });
+    }
+
+    // ✅ FAQ SEARCH
+    if (faqSearchInput) {
+      faqSearchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const faqItems = document.querySelectorAll('.faq-item');
+
+        faqItems.forEach(item => {
+          const question = item.querySelector('.faq-question-text')?.textContent.toLowerCase() || '';
+          const answer = item.querySelector('.faq-answer-text')?.textContent.toLowerCase() || '';
+          
+          if (question.includes(searchTerm) || answer.includes(searchTerm)) {
+            item.style.display = '';
+          } else {
+            item.style.display = 'none';
+          }
+        });
+
+        document.querySelectorAll('.faq-category').forEach(category => {
+          const visibleItems = category.querySelectorAll('.faq-item:not([style*="display: none"])');
+          category.style.display = visibleItems.length > 0 ? '' : 'none';
+        });
+      });
+    }
+  });
+
   async function fetchMessages() {
     const sId = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
     if (!sId) return;
@@ -632,7 +856,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     } catch (e) {}
   }
 
-  // ✅ RENDER MESSAGE
   function renderMsg(m) {
     if (seenMsgs.has(m.id)) return;
     seenMsgs.add(m.id);
@@ -647,7 +870,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     msgBox.scrollTop = msgBox.scrollHeight;
   }
 
-  // ✅ POST MESSAGE
   async function postMessage(txt = "", file = null) {
     const sId = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
     const message = txt || chatInput.value.trim();
@@ -670,7 +892,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     } catch (e) {}
   }
 
-  // ✅ LAUNCHER TOGGLE
   launcher.onclick = () => {
     const open = widget.classList.toggle("chat-visible");
     widget.classList.toggle("chat-hidden", !open);
@@ -678,7 +899,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     document.getElementById("close-launcher-icon").style.display = open ? "flex" : "none";
   };
 
-  // ✅ NAVIGATION
   document.querySelectorAll('.nav-item').forEach(nav => {
     nav.onclick = () => {
       const tab = nav.dataset.tab;
@@ -687,18 +907,24 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
       nav.classList.add('active');
       
+      console.log("🔄 Switched to tab:", tab);
+      
       if(tab === 'chat') { 
         fetchMessages(); 
         setTimeout(() => msgBox.scrollTop = msgBox.scrollHeight, 100); 
       }
       
       if(tab === 'faq' && faqData.length === 0) {
+        console.log("📚 Loading FAQs on tab switch");
         loadFAQs();
+      }
+      
+      if(tab === 'search') {
+        console.log("🔍 Search tab opened");
       }
     };
   });
 
-  // ✅ SUBMIT REGISTRATION
   submitBtn.onclick = async () => {
     const f = fnameInput.value.trim();
     const l = lnameInput.value.trim();
@@ -752,7 +978,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     }
   };
 
-  // ✅ FILE UPLOAD
   const fInput = document.getElementById("chat-file-input");
   document.getElementById("file-btn").onclick = () => fInput.click();
   fInput.onchange = (e) => {
@@ -776,7 +1001,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     document.getElementById("image-preview-container").style.display = "none";
   };
 
-  // ✅ EMOJI PICKER
   const picker = document.getElementById("emoji-picker");
   const ems = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏"];
   picker.innerHTML = ems.map(em => `<span class="e-item" style="cursor:pointer; font-size:22px;">${em}</span>`).join("");
@@ -792,27 +1016,24 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     }
   };
 
-  // ✅ START POLLING
   function startPolling() {
     fetchMessages();
     if(pollInterval) clearInterval(pollInterval);
     pollInterval = setInterval(fetchMessages, 3500);
   }
 
-  // ✅ CHAT INPUT
   chatInput.onkeydown = (e) => { if(e.key === 'Enter') postMessage(); };
   document.getElementById("chat-send").onclick = () => postMessage();
   document.getElementById("chat-close").onclick = () => launcher.click();
   document.getElementById("start-chat-trigger").onclick = () => document.querySelector('[data-tab="chat"]').click();
 
-  // ✅ INITIALIZE - Load settings first, then check session
   async function initialize() {
+    console.log("🚀 Initializing chat widget");
     await loadSettings();
     await checkExistingSession();
-    loadFAQs();
+    console.log("✅ Initialization complete");
   }
 
-  // ✅ RUN ON PAGE LOAD
   initialize();
 })();
 </script>
