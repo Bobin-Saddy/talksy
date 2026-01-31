@@ -124,14 +124,14 @@
       </div>
     </div>
 
-    <!-- SEARCH TAB - COMPLETELY REDESIGNED -->
+    <!-- SEARCH TAB - REDESIGNED -->
     <div id="tab-search" class="tab-content" style="display:none;">
       <div class="search-container-new">
         
-        <!-- Results Section (Shows above search when available) -->
+        <!-- Results Section -->
         <div id="search-results-wrapper" class="search-results-wrapper" style="display:none;">
           <div class="results-header">
-            <h3>✨ Here's what we found for you</h3>
+            <h3>✨ Search Results</h3>
           </div>
           
           <!-- Products Results -->
@@ -141,8 +141,18 @@
               <span class="section-title">Products</span>
               <span class="section-count" id="products-count">0</span>
             </div>
-            <div class="horizontal-scroll" id="products-scroll">
-              <!-- Products will be inserted here -->
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('products', 'left')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+              <div class="horizontal-scroll" id="products-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('products', 'right')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -153,8 +163,18 @@
               <span class="section-title">Collections</span>
               <span class="section-count" id="collections-count">0</span>
             </div>
-            <div class="horizontal-scroll" id="collections-scroll">
-              <!-- Collections will be inserted here -->
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('collections', 'left')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+              <div class="horizontal-scroll" id="collections-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('collections', 'right')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -165,8 +185,18 @@
               <span class="section-title">Pages</span>
               <span class="section-count" id="pages-count">0</span>
             </div>
-            <div class="horizontal-scroll" id="pages-scroll">
-              <!-- Pages will be inserted here -->
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('pages', 'left')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+              <div class="horizontal-scroll" id="pages-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('pages', 'right')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -177,8 +207,18 @@
               <span class="section-title">Orders</span>
               <span class="section-count" id="orders-count">0</span>
             </div>
-            <div class="horizontal-scroll" id="orders-scroll">
-              <!-- Orders will be inserted here -->
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('orders', 'left')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+              <div class="horizontal-scroll" id="orders-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('orders', 'right')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -191,35 +231,36 @@
             <p id="search-subtitle">Search products, collections, pages & orders</p>
           </div>
           
-          <div class="search-input-container">
-            <svg class="search-input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <circle cx="11" cy="11" r="8" stroke-width="2"/>
-              <path d="M21 21l-4.35-4.35" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            <input 
-              type="text" 
-              id="store-search-input-new" 
-              placeholder="Type to search anything..." 
-              autocomplete="off"
-            />
-            <div id="search-loading-indicator" class="search-loading-indicator" style="display:none;">
-              <div class="mini-spinner"></div>
+          <div class="search-input-wrapper">
+            <div class="search-input-container">
+              <svg class="search-input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="11" cy="11" r="8" stroke-width="2"/>
+                <path d="M21 21l-4.35-4.35" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <input 
+                type="text" 
+                id="store-search-input-new" 
+                placeholder="Type your search query..." 
+                autocomplete="off"
+              />
+              <div id="search-loading-indicator" class="search-loading-indicator" style="display:none;">
+                <div class="mini-spinner"></div>
+              </div>
             </div>
-          </div>
-
-          <!-- Quick Search Suggestions -->
-          <div class="quick-suggestions">
-            <span class="suggestion-label">Popular:</span>
-            <button class="suggestion-chip" data-query="new arrivals">New Arrivals</button>
-            <button class="suggestion-chip" data-query="best sellers">Best Sellers</button>
-            <button class="suggestion-chip" data-query="sale">Sale</button>
+            <button id="search-button" class="search-button">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
+              </svg>
+              Search
+            </button>
           </div>
         </div>
 
         <!-- Empty State -->
         <div id="search-empty-state" class="search-empty-new">
           <div class="empty-icon">🎯</div>
-          <p class="empty-text">Start typing to discover products, pages, and more!</p>
+          <p class="empty-text">Enter your search query and click Search</p>
         </div>
 
         <!-- No Results State -->
@@ -386,7 +427,7 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 .faq-empty-text { font-size: 16px; color: #1e293b; font-weight: 600; margin-bottom: 8px; }
 .faq-empty-subtext { color: #94a3b8; font-size: 14px; }
 
-/* ========== NEW SEARCH STYLES ========== */
+/* ========== IMPROVED SEARCH STYLES ========== */
 .search-container-new {
   flex: 1;
   display: flex;
@@ -441,6 +482,43 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   font-weight: 600;
 }
 
+/* Scroll wrapper with arrows */
+.scroll-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scroll-btn {
+  background: white;
+  border: 2px solid var(--chat-primary);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  z-index: 2;
+}
+
+.scroll-btn:hover {
+  background: var(--chat-primary);
+  transform: scale(1.1);
+}
+
+.scroll-btn:hover svg {
+  stroke: white;
+}
+
+.scroll-btn svg {
+  stroke: var(--chat-primary);
+  transition: stroke 0.2s;
+}
+
 .horizontal-scroll {
   display: flex;
   gap: 12px;
@@ -448,20 +526,13 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   padding: 8px 4px;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
+  flex: 1;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .horizontal-scroll::-webkit-scrollbar {
-  height: 6px;
-}
-
-.horizontal-scroll::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 10px;
-}
-
-.horizontal-scroll::-webkit-scrollbar-thumb {
-  background: var(--chat-primary);
-  border-radius: 10px;
+  display: none;
 }
 
 .result-card {
@@ -527,6 +598,11 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   color: #64748b;
 }
 
+/* Few results centering */
+.horizontal-scroll.few-results {
+  justify-content: center;
+}
+
 /* Centered Search Area */
 .search-center-wrapper {
   display: flex;
@@ -566,11 +642,17 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   margin: 0;
 }
 
-.search-input-container {
-  position: relative;
+.search-input-wrapper {
   width: 100%;
   max-width: 340px;
-  margin-bottom: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.search-input-container {
+  position: relative;
+  flex: 1;
 }
 
 .search-input-icon {
@@ -616,37 +698,30 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   animation: spin 0.6s linear infinite;
 }
 
-.quick-suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-}
-
-.suggestion-label {
-  font-size: 13px;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.suggestion-chip {
-  padding: 6px 14px;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.suggestion-chip:hover {
+.search-button {
+  padding: 16px 24px;
   background: var(--chat-primary);
+  border: none;
+  border-radius: 16px;
   color: white;
-  border-color: var(--chat-primary);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.search-button:hover {
+  background: var(--chat-primary);
   transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+}
+
+.search-button:active {
+  transform: translateY(0);
 }
 
 .search-empty-new {
@@ -714,6 +789,15 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     min-width: 160px;
     max-width: 160px;
   }
+
+  .search-input-wrapper {
+    flex-direction: column;
+  }
+
+  .search-button {
+    width: 100%;
+    justify-content: center;
+  }
 }
 </style>
 
@@ -735,7 +819,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   let currentConfig = {};
   let seenMsgs = new Set();
   let faqData = [];
-  let searchTimeout = null;
 
   const STORAGE_KEYS = {
     SESSION_ID: `chat_session_${shop}`,
@@ -894,7 +977,7 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     document.getElementById("chat-chat-step").style.display = "flex";
   }
 
-  // ✅ NEW IMPROVED SEARCH FUNCTION
+  // ✅ IMPROVED SEARCH FUNCTION - Button Click Only
   async function performSearchNew(query) {
     console.log("🔍 Search initiated:", query);
     
@@ -905,20 +988,24 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       return;
     }
 
-    // Show loading
     document.getElementById("search-loading-indicator").style.display = "flex";
     document.getElementById("search-empty-state").style.display = "none";
     document.getElementById("no-results-state").style.display = "none";
 
-    // 🔥 LOG SEARCH TO DATABASE (Frontend search tracking)
+    // Log search to database
     try {
+      const userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL) || 'anonymous';
+      const sessionId = localStorage.getItem(STORAGE_KEYS.SESSION_ID) || 'no-session';
+      
       await fetch(`${BASE_URL}/app/chat/search-log`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           shop: shop,
           query: query,
-          searchType: "frontend",  // Important: marks as widget search
+          searchType: "frontend",
+          userEmail: userEmail,
+          sessionId: sessionId,
           createdAt: new Date()
         })
       });
@@ -944,7 +1031,7 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     }
   }
 
-  // ✅ NEW RENDER FUNCTION WITH HORIZONTAL SCROLL
+  // ✅ IMPROVED RENDER FUNCTION WITH CENTERING
   function renderSearchResultsNew(results) {
     console.log("🎨 Rendering search results:", results);
     
@@ -981,7 +1068,15 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
         </div>
       `).join('');
       
-      document.getElementById("products-scroll").innerHTML = productsHTML;
+      const productsScroll = document.getElementById("products-scroll");
+      productsScroll.innerHTML = productsHTML;
+      
+      // Add centering class if few results
+      if (results.products.length <= 2) {
+        productsScroll.classList.add('few-results');
+      } else {
+        productsScroll.classList.remove('few-results');
+      }
     } else {
       document.getElementById("products-results-section").style.display = "none";
     }
@@ -1001,7 +1096,14 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
         </div>
       `).join('');
       
-      document.getElementById("collections-scroll").innerHTML = collectionsHTML;
+      const collectionsScroll = document.getElementById("collections-scroll");
+      collectionsScroll.innerHTML = collectionsHTML;
+      
+      if (results.collections.length <= 2) {
+        collectionsScroll.classList.add('few-results');
+      } else {
+        collectionsScroll.classList.remove('few-results');
+      }
     } else {
       document.getElementById("collections-results-section").style.display = "none";
     }
@@ -1022,7 +1124,14 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
         </div>
       `).join('');
       
-      document.getElementById("pages-scroll").innerHTML = pagesHTML;
+      const pagesScroll = document.getElementById("pages-scroll");
+      pagesScroll.innerHTML = pagesHTML;
+      
+      if (results.pages.length <= 2) {
+        pagesScroll.classList.add('few-results');
+      } else {
+        pagesScroll.classList.remove('few-results');
+      }
     } else {
       document.getElementById("pages-results-section").style.display = "none";
     }
@@ -1044,13 +1153,32 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
         </div>
       `).join('');
       
-      document.getElementById("orders-scroll").innerHTML = ordersHTML;
+      const ordersScroll = document.getElementById("orders-scroll");
+      ordersScroll.innerHTML = ordersHTML;
+      
+      if (results.orders.length <= 2) {
+        ordersScroll.classList.add('few-results');
+      } else {
+        ordersScroll.classList.remove('few-results');
+      }
     } else {
       document.getElementById("orders-results-section").style.display = "none";
     }
   }
 
-  // ✅ FIXED LOAD FAQs
+  // ✅ SCROLL SECTION FUNCTION
+  window.scrollSection = function(section, direction) {
+    const scrollContainer = document.getElementById(`${section}-scroll`);
+    const scrollAmount = 220;
+    
+    if (direction === 'left') {
+      scrollContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    } else {
+      scrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  // ✅ LOAD FAQs
   async function loadFAQs() {
     console.log("📚 Loading FAQs for shop:", shop);
     
@@ -1075,7 +1203,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     }
   }
 
-  // ✅ FIXED RENDER FAQs
   function renderFAQs() {
     console.log("🎨 Rendering FAQs:", faqData);
     
@@ -1146,28 +1273,26 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   // ✅ EVENT LISTENERS
   document.addEventListener('DOMContentLoaded', () => {
     const storeSearchInputNew = document.getElementById("store-search-input-new");
+    const searchButton = document.getElementById("search-button");
     const faqSearchInput = document.getElementById("faq-search-input");
     
-    // New Search Input
-    if (storeSearchInputNew) {
-      storeSearchInputNew.addEventListener('input', (e) => {
-        clearTimeout(searchTimeout);
-        const query = e.target.value;
-        
-        searchTimeout = setTimeout(() => {
-          performSearchNew(query);
-        }, 500);
+    // Search button click
+    if (searchButton) {
+      searchButton.addEventListener('click', () => {
+        const query = storeSearchInputNew.value.trim();
+        performSearchNew(query);
       });
     }
 
-    // Quick Suggestions
-    document.querySelectorAll('.suggestion-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const query = chip.dataset.query;
-        document.getElementById("store-search-input-new").value = query;
-        performSearchNew(query);
+    // Enter key on search input
+    if (storeSearchInputNew) {
+      storeSearchInputNew.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const query = storeSearchInputNew.value.trim();
+          performSearchNew(query);
+        }
       });
-    });
+    }
 
     // FAQ Search
     if (faqSearchInput) {
@@ -1269,7 +1394,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       
       if(tab === 'search') {
         console.log("🔍 Search tab opened");
-        // Reset search state
         document.getElementById("store-search-input-new").value = "";
         document.getElementById("search-results-wrapper").style.display = "none";
         document.getElementById("search-empty-state").style.display = "block";
