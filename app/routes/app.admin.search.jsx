@@ -282,7 +282,7 @@ export default function AdminSearch() {
                           {log.searchType === 'frontend' ? (
                             <div style={{...styles.logIcon, background: '#dbeafe', color: '#3b82f6'}}>
                               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.logIconSvg}>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                               </svg>
                             </div>
                           ) : (
@@ -304,7 +304,7 @@ export default function AdminSearch() {
                             {log.userEmail && log.userEmail !== 'anonymous' && (
                               <>
                                 <span style={styles.metaDot}>•</span>
-                                <span>{log.userEmail}</span>
+                                <span>{log.firstName || ''} {log.lastName || ''}</span>
                               </>
                             )}
                           </div>
@@ -374,6 +374,15 @@ export default function AdminSearch() {
                       <div style={styles.detailValue}>"{selectedLog.query}"</div>
                     </div>
 
+                    {(selectedLog.firstName || selectedLog.lastName) && (
+                      <div style={styles.detailSection}>
+                        <div style={styles.detailLabel}>User Name</div>
+                        <div style={styles.detailValue}>
+                          {selectedLog.firstName || ''} {selectedLog.lastName || ''}
+                        </div>
+                      </div>
+                    )}
+
                     {selectedLog.userEmail && (
                       <div style={styles.detailSection}>
                         <div style={styles.detailLabel}>User Email</div>
@@ -399,7 +408,7 @@ export default function AdminSearch() {
                     <div style={styles.detailSection}>
                       <div style={styles.detailLabel}>Search Type</div>
                       <div style={styles.detailValue}>
-                        {selectedLog.searchType === 'frontend' ? '📱 Widget Search' : '🖥️ Admin Dashboard Search'}
+                        {selectedLog.searchType === 'frontend' ? '📱 Widget Search (Customer)' : '🖥️ Admin Dashboard Search'}
                       </div>
                     </div>
 

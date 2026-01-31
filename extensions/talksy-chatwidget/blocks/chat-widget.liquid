@@ -231,36 +231,29 @@
             <p id="search-subtitle">Search products, collections, pages & orders</p>
           </div>
           
-          <div class="search-input-wrapper">
-            <div class="search-input-container">
-              <svg class="search-input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="11" cy="11" r="8" stroke-width="2"/>
-                <path d="M21 21l-4.35-4.35" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-              <input 
-                type="text" 
-                id="store-search-input-new" 
-                placeholder="Type your search query..." 
-                autocomplete="off"
-              />
-              <div id="search-loading-indicator" class="search-loading-indicator" style="display:none;">
-                <div class="mini-spinner"></div>
-              </div>
-            </div>
-            <button id="search-button" class="search-button">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <div class="search-textarea-wrapper">
+            <textarea 
+              id="store-search-input-new" 
+              placeholder="Type your search query and press Enter or click the search icon..." 
+              rows="3"
+              autocomplete="off"
+            ></textarea>
+            <button id="search-icon-btn" class="search-icon-btn" title="Search">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <circle cx="11" cy="11" r="8"/>
                 <path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
               </svg>
-              Search
             </button>
+            <div id="search-loading-indicator" class="search-loading-indicator" style="display:none;">
+              <div class="mini-spinner"></div>
+            </div>
           </div>
         </div>
 
         <!-- Empty State -->
         <div id="search-empty-state" class="search-empty-new">
           <div class="empty-icon">🎯</div>
-          <p class="empty-text">Enter your search query and click Search</p>
+          <p class="empty-text">Type your query and press Enter to search</p>
         </div>
 
         <!-- No Results State -->
@@ -642,31 +635,15 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   margin: 0;
 }
 
-.search-input-wrapper {
+.search-textarea-wrapper {
   width: 100%;
-  max-width: 340px;
-  display: flex;
-  gap: 12px;
-  align-items: stretch;
-}
-
-.search-input-container {
+  max-width: 400px;
   position: relative;
-  flex: 1;
-}
-
-.search-input-icon {
-  position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #94a3b8;
-  pointer-events: none;
 }
 
 #store-search-input-new {
   width: 100%;
-  padding: 16px 52px 16px 48px;
+  padding: 16px 60px 16px 16px;
   border: 2px solid #e2e8f0;
   border-radius: 16px;
   font-size: 15px;
@@ -675,6 +652,9 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   transition: all 0.3s;
   background: white;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  resize: none;
+  min-height: 80px;
+  line-height: 1.5;
 }
 
 #store-search-input-new:focus {
@@ -682,11 +662,37 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15);
 }
 
+.search-icon-btn {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 44px;
+  height: 44px;
+  background: var(--chat-primary);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.search-icon-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+}
+
+.search-icon-btn:active {
+  transform: scale(0.95);
+}
+
 .search-loading-indicator {
   position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 66px;
+  bottom: 22px;
 }
 
 .mini-spinner {
@@ -696,32 +702,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   border-top-color: var(--chat-primary);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
-}
-
-.search-button {
-  padding: 16px 24px;
-  background: var(--chat-primary);
-  border: none;
-  border-radius: 16px;
-  color: white;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.3s;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-.search-button:hover {
-  background: var(--chat-primary);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
-}
-
-.search-button:active {
-  transform: translateY(0);
 }
 
 .search-empty-new {
@@ -790,13 +770,13 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     max-width: 160px;
   }
 
-  .search-input-wrapper {
-    flex-direction: column;
+  .search-textarea-wrapper {
+    max-width: 100%;
   }
 
-  .search-button {
-    width: 100%;
-    justify-content: center;
+  #store-search-input-new {
+    padding: 14px 60px 14px 14px;
+    min-height: 70px;
   }
 }
 </style>
@@ -985,17 +965,21 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       document.getElementById("search-results-wrapper").style.display = "none";
       document.getElementById("search-empty-state").style.display = "block";
       document.getElementById("no-results-state").style.display = "none";
+      document.querySelector(".search-hero").style.display = "block";
       return;
     }
 
     document.getElementById("search-loading-indicator").style.display = "flex";
     document.getElementById("search-empty-state").style.display = "none";
     document.getElementById("no-results-state").style.display = "none";
+    document.querySelector(".search-hero").style.display = "block";
 
     // Log search to database
     try {
       const userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL) || 'anonymous';
       const sessionId = localStorage.getItem(STORAGE_KEYS.SESSION_ID) || 'no-session';
+      const firstName = localStorage.getItem(STORAGE_KEYS.USER_FNAME) || '';
+      const lastName = localStorage.getItem(STORAGE_KEYS.USER_LNAME) || '';
       
       await fetch(`${BASE_URL}/app/chat/search-log`, {
         method: "POST",
@@ -1006,6 +990,8 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
           searchType: "frontend",
           userEmail: userEmail,
           sessionId: sessionId,
+          firstName: firstName,
+          lastName: lastName,
           createdAt: new Date()
         })
       });
@@ -1023,15 +1009,19 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
         throw new Error(data.error || "Search failed");
       }
       
+      // Hide hero text when results appear
+      document.querySelector(".search-hero").style.display = "none";
+      
       renderSearchResultsNew(data.results);
     } catch (error) {
       console.error("❌ Search error:", error);
       document.getElementById("search-loading-indicator").style.display = "none";
       document.getElementById("no-results-state").style.display = "block";
+      document.querySelector(".search-hero").style.display = "none";
     }
   }
 
-  // ✅ IMPROVED RENDER FUNCTION WITH CENTERING
+  // ✅ IMPROVED RENDER FUNCTION WITH CENTERING AND ARROW CONTROL
   function renderSearchResultsNew(results) {
     console.log("🎨 Rendering search results:", results);
     
@@ -1052,6 +1042,20 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     document.getElementById("search-results-wrapper").style.display = "block";
     document.getElementById("search-empty-state").style.display = "none";
     document.getElementById("no-results-state").style.display = "none";
+
+    // Helper function to control arrow visibility
+    function updateScrollButtons(section, count) {
+      const leftBtn = document.querySelector(`#${section}-results-section .scroll-left`);
+      const rightBtn = document.querySelector(`#${section}-results-section .scroll-right`);
+      
+      if (count <= 1) {
+        if (leftBtn) leftBtn.style.display = 'none';
+        if (rightBtn) rightBtn.style.display = 'none';
+      } else {
+        if (leftBtn) leftBtn.style.display = 'flex';
+        if (rightBtn) rightBtn.style.display = 'flex';
+      }
+    }
 
     // Render Products
     if (results.products && results.products.length > 0) {
@@ -1077,6 +1081,9 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       } else {
         productsScroll.classList.remove('few-results');
       }
+      
+      // Update arrow visibility
+      updateScrollButtons('products', results.products.length);
     } else {
       document.getElementById("products-results-section").style.display = "none";
     }
@@ -1104,6 +1111,8 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       } else {
         collectionsScroll.classList.remove('few-results');
       }
+      
+      updateScrollButtons('collections', results.collections.length);
     } else {
       document.getElementById("collections-results-section").style.display = "none";
     }
@@ -1132,6 +1141,8 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       } else {
         pagesScroll.classList.remove('few-results');
       }
+      
+      updateScrollButtons('pages', results.pages.length);
     } else {
       document.getElementById("pages-results-section").style.display = "none";
     }
@@ -1161,6 +1172,8 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       } else {
         ordersScroll.classList.remove('few-results');
       }
+      
+      updateScrollButtons('orders', results.orders.length);
     } else {
       document.getElementById("orders-results-section").style.display = "none";
     }
@@ -1273,21 +1286,22 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   // ✅ EVENT LISTENERS
   document.addEventListener('DOMContentLoaded', () => {
     const storeSearchInputNew = document.getElementById("store-search-input-new");
-    const searchButton = document.getElementById("search-button");
+    const searchIconBtn = document.getElementById("search-icon-btn");
     const faqSearchInput = document.getElementById("faq-search-input");
     
-    // Search button click
-    if (searchButton) {
-      searchButton.addEventListener('click', () => {
+    // Search icon button click
+    if (searchIconBtn) {
+      searchIconBtn.addEventListener('click', () => {
         const query = storeSearchInputNew.value.trim();
         performSearchNew(query);
       });
     }
 
-    // Enter key on search input
+    // Enter key on search textarea (Ctrl+Enter or just Enter)
     if (storeSearchInputNew) {
-      storeSearchInputNew.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
+      storeSearchInputNew.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault(); // Prevent new line
           const query = storeSearchInputNew.value.trim();
           performSearchNew(query);
         }
@@ -1398,6 +1412,7 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
         document.getElementById("search-results-wrapper").style.display = "none";
         document.getElementById("search-empty-state").style.display = "block";
         document.getElementById("no-results-state").style.display = "none";
+        document.querySelector(".search-hero").style.display = "block";
       }
     };
   });
