@@ -1,4 +1,4 @@
-// app/routes/app.chat.search.jsx - UPDATED WITH PROPER CORS AND FIXED URLs
+// app/routes/app.chat.search.jsx - FIXED WITH BETTER ERROR HANDLING
 
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
@@ -11,14 +11,26 @@ const headers = {
 
 // Helper function to get Shopify access token from database
 async function getShopifyCredentials(shop) {
+  console.log("🔍 Looking for session for shop:", shop);
+  
   const session = await prisma.session.findFirst({
     where: { shop: shop },
     orderBy: { expires: 'desc' }
   });
   
   if (!session) {
+    console.error("❌ No session found for shop:", shop);
+    
+    // Let's check what shops we have
+    const allSessions = await prisma.session.findMany({
+      select: { shop: true }
+    });
+    console.log("📋 Available shops in database:", allSessions.map(s => s.shop));
+    
     throw new Error("Shop not authenticated");
   }
+  
+  console.log("✅ Session found for shop:", shop);
   
   return {
     accessToken: session.accessToken,
@@ -48,8 +60,6 @@ async function shopifyGraphQL(shop, accessToken, query, variables = {}) {
 
 // Helper function to get proper store URL
 function getStoreUrl(shop, path) {
-  // If shop is like "mystore.myshopify.com", we need to use it as is or get custom domain
-  // For now, we'll keep the myshopify.com domain for admin links
   return `https://${shop}${path}`;
 }
 
@@ -302,12 +312,16 @@ export const loader = async ({ request }) => {
       }
     }
 
+    console.log("✅ Search completed successfully");
     return json({ success: true, results }, { headers });
   } catch (error) {
     console.error("Search Error:", error);
+    
+    // Better error response
     return json({ 
       success: false,
       error: error.message,
+      hint: "Make sure your Shopify app is installed and authenticated. Check the logs for available shops.",
       results: {
         products: [],
         pages: [],
