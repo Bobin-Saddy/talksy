@@ -1,4 +1,4 @@
-// app/routes/app.chat.search.jsx - UPDATED WITH PROPER CORS
+// app/routes/app.chat.search.jsx - FIXED WITH BETTER ERROR HANDLING
 
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
@@ -11,14 +11,26 @@ const headers = {
 
 // Helper function to get Shopify access token from database
 async function getShopifyCredentials(shop) {
+  console.log("🔍 Looking for session for shop:", shop);
+  
   const session = await prisma.session.findFirst({
     where: { shop: shop },
     orderBy: { expires: 'desc' }
   });
   
   if (!session) {
+    console.error("❌ No session found for shop:", shop);
+    
+    // Let's check what shops we have
+    const allSessions = await prisma.session.findMany({
+      select: { shop: true }
+    });
+    console.log("📋 Available shops in database:", allSessions.map(s => s.shop));
+    
     throw new Error("Shop not authenticated");
   }
+  
+  console.log("✅ Session found for shop:", shop);
   
   return {
     accessToken: session.accessToken,
@@ -44,6 +56,11 @@ async function shopifyGraphQL(shop, accessToken, query, variables = {}) {
   }
 
   return response.json();
+}
+
+// Helper function to get proper store URL
+function getStoreUrl(shop, path) {
+  return `https://${shop}${path}`;
 }
 
 export const loader = async ({ request }) => {
@@ -118,16 +135,24 @@ export const loader = async ({ request }) => {
         );
         
         if (productData.data?.products?.edges) {
-          results.products = productData.data.products.edges.map(({ node }) => ({
-            id: node.id,
-            title: node.title,
-            description: node.description?.substring(0, 150) || '',
-            image: node.featuredImage?.url || null,
-            price: node.variants?.edges?.[0]?.node?.price || node.priceRangeV2?.minVariantPrice?.amount || "N/A",
-            currency: node.priceRangeV2?.minVariantPrice?.currencyCode || "USD",
-            url: node.onlineStoreUrl || `https://${shop.replace('.myshopify.com', '')}/products/${node.handle}`,
-            type: "product"
-          }));
+          results.products = productData.data.products.edges.map(({ node }) => {
+            // Use onlineStoreUrl if available, otherwise construct URL with myshopify.com
+            let productUrl = node.onlineStoreUrl;
+            if (!productUrl) {
+              productUrl = getStoreUrl(shop, `/products/${node.handle}`);
+            }
+            
+            return {
+              id: node.id,
+              title: node.title,
+              description: node.description?.substring(0, 150) || '',
+              image: node.featuredImage?.url || null,
+              price: node.variants?.edges?.[0]?.node?.price || node.priceRangeV2?.minVariantPrice?.amount || "N/A",
+              currency: node.priceRangeV2?.minVariantPrice?.currencyCode || "USD",
+              url: productUrl,
+              type: "product"
+            };
+          });
         }
       } catch (error) {
         console.error("Product search error:", error);
@@ -165,7 +190,7 @@ export const loader = async ({ request }) => {
             id: node.id,
             title: node.title,
             description: node.bodySummary?.substring(0, 150) || node.body?.replace(/<[^>]*>/g, '').substring(0, 150) || '',
-            url: `https://${shop.replace('.myshopify.com', '')}/pages/${node.handle}`,
+            url: getStoreUrl(shop, `/pages/${node.handle}`),
             type: "page"
           }));
         }
@@ -278,7 +303,7 @@ export const loader = async ({ request }) => {
             description: node.description?.substring(0, 150) || '',
             image: node.image?.url || null,
             productCount: node.productsCount || 0,
-            url: `https://${shop.replace('.myshopify.com', '')}/collections/${node.handle}`,
+            url: getStoreUrl(shop, `/collections/${node.handle}`),
             type: "collection"
           }));
         }
@@ -287,12 +312,16 @@ export const loader = async ({ request }) => {
       }
     }
 
+    console.log("✅ Search completed successfully");
     return json({ success: true, results }, { headers });
   } catch (error) {
     console.error("Search Error:", error);
+    
+    // Better error response
     return json({ 
       success: false,
       error: error.message,
+      hint: "Make sure your Shopify app is installed and authenticated. Check the logs for available shops.",
       results: {
         products: [],
         pages: [],
