@@ -1,4 +1,4 @@
-// app/routes/app.chat.search.jsx  ← IMPORTANT: Correct file path
+// app/routes/app.chat.search.jsx - UPDATED WITH PROPER CORS
 
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
@@ -7,14 +7,6 @@ const headers = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
-// ✅ Handle OPTIONS preflight request
-export const action = async ({ request }) => {
-  if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers });
-  }
-  return loader({ request });
 };
 
 // Helper function to get Shopify access token from database
@@ -55,6 +47,11 @@ async function shopifyGraphQL(shop, accessToken, query, variables = {}) {
 }
 
 export const loader = async ({ request }) => {
+  // Handle OPTIONS preflight
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers });
+  }
+
   const url = new URL(request.url);
   const shop = url.searchParams.get("shop");
   const query = url.searchParams.get("query");
@@ -304,4 +301,14 @@ export const loader = async ({ request }) => {
       }
     }, { status: 500, headers });
   }
+};
+
+// Also export action to handle POST if needed
+export const action = async ({ request }) => {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers });
+  }
+  
+  // Redirect POST requests to use GET
+  return loader({ request });
 };

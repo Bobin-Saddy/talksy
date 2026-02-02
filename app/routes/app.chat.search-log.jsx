@@ -5,12 +5,25 @@ import prisma from "../db.server";
 
 const headers = { 
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-// Handle OPTIONS preflight
+// Export loader to handle OPTIONS preflight via GET
+export const loader = async ({ request }) => {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers });
+  }
+  
+  // Return CORS headers for GET requests too
+  return json({ 
+    message: "Use POST to log searches" 
+  }, { status: 200, headers });
+};
+
+// Handle POST requests
 export const action = async ({ request }) => {
+  // Handle OPTIONS in action as well
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers });
   }
