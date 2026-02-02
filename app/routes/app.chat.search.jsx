@@ -1,4 +1,4 @@
-// app/routes/app.chat.search.jsx - UPDATED WITH PROPER CORS
+// app/routes/app.chat.search.jsx - UPDATED WITH PROPER CORS AND FIXED URLs
 
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
@@ -44,6 +44,13 @@ async function shopifyGraphQL(shop, accessToken, query, variables = {}) {
   }
 
   return response.json();
+}
+
+// Helper function to get proper store URL
+function getStoreUrl(shop, path) {
+  // If shop is like "mystore.myshopify.com", we need to use it as is or get custom domain
+  // For now, we'll keep the myshopify.com domain for admin links
+  return `https://${shop}${path}`;
 }
 
 export const loader = async ({ request }) => {
@@ -118,16 +125,24 @@ export const loader = async ({ request }) => {
         );
         
         if (productData.data?.products?.edges) {
-          results.products = productData.data.products.edges.map(({ node }) => ({
-            id: node.id,
-            title: node.title,
-            description: node.description?.substring(0, 150) || '',
-            image: node.featuredImage?.url || null,
-            price: node.variants?.edges?.[0]?.node?.price || node.priceRangeV2?.minVariantPrice?.amount || "N/A",
-            currency: node.priceRangeV2?.minVariantPrice?.currencyCode || "USD",
-            url: node.onlineStoreUrl || `https://${storeUrl}.myshopify.com/collections/${node.handle}`,
-            type: "product"
-          }));
+          results.products = productData.data.products.edges.map(({ node }) => {
+            // Use onlineStoreUrl if available, otherwise construct URL with myshopify.com
+            let productUrl = node.onlineStoreUrl;
+            if (!productUrl) {
+              productUrl = getStoreUrl(shop, `/products/${node.handle}`);
+            }
+            
+            return {
+              id: node.id,
+              title: node.title,
+              description: node.description?.substring(0, 150) || '',
+              image: node.featuredImage?.url || null,
+              price: node.variants?.edges?.[0]?.node?.price || node.priceRangeV2?.minVariantPrice?.amount || "N/A",
+              currency: node.priceRangeV2?.minVariantPrice?.currencyCode || "USD",
+              url: productUrl,
+              type: "product"
+            };
+          });
         }
       } catch (error) {
         console.error("Product search error:", error);
@@ -165,7 +180,7 @@ export const loader = async ({ request }) => {
             id: node.id,
             title: node.title,
             description: node.bodySummary?.substring(0, 150) || node.body?.replace(/<[^>]*>/g, '').substring(0, 150) || '',
-            url: `https://${storeUrl}.myshopify.com/pages/${node.handle}`,
+            url: getStoreUrl(shop, `/pages/${node.handle}`),
             type: "page"
           }));
         }
@@ -278,7 +293,7 @@ export const loader = async ({ request }) => {
             description: node.description?.substring(0, 150) || '',
             image: node.image?.url || null,
             productCount: node.productsCount || 0,
-            url: `https://${storeUrl}.myshopify.com/collections/${node.handle}`,
+            url: getStoreUrl(shop, `/collections/${node.handle}`),
             type: "collection"
           }));
         }
