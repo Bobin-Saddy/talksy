@@ -222,9 +222,14 @@ model SearchLog {
   id          String   @id @default(cuid())
   shop        String
   query       String
-  searchType  String   // "admin" or "frontend"
+  searchType  String   // "frontend" or "admin"
+  userEmail   String?
+  sessionId   String?
+  firstName   String?
+  lastName    String?
   createdAt   DateTime @default(now())
 
   @@index([shop])
   @@index([createdAt])
+  @@index([searchType])
 }

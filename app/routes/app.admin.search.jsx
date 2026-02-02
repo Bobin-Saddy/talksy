@@ -1,3 +1,5 @@
+// app/routes/app.search-analytics.jsx - SIMPLIFIED SEARCH-ONLY PAGE
+
 import { json } from "@remix-run/node";
 import { useLoaderData, useSearchParams, Form } from "react-router";
 import { authenticate } from "../shopify.server";
@@ -11,11 +13,10 @@ export async function loader({ request }) {
   const url = new URL(request.url);
   
   const searchQuery = url.searchParams.get("q") || "";
-  const filterStatus = url.searchParams.get("status") || "all";
   const filterDate = url.searchParams.get("date") || "all";
   const filterSearchType = url.searchParams.get("searchType") || "all";
 
-  // Get all search logs with enhanced details
+  // Get all search logs
   let searchWhereCondition = { shop };
 
   // Apply search type filter
@@ -23,7 +24,7 @@ export async function loader({ request }) {
     searchWhereCondition.searchType = filterSearchType;
   }
 
-  // Apply date filter for search logs
+  // Apply date filter
   if (filterDate !== "all") {
     const now = new Date();
     let fromDate = new Date();
@@ -47,7 +48,7 @@ export async function loader({ request }) {
   let searchLogs = await prisma.searchLog.findMany({
     where: searchWhereCondition,
     orderBy: { createdAt: "desc" },
-    take: 100, // Limit to recent 100 searches
+    take: 200, // Increased limit
   });
 
   // Apply query filter if exists
@@ -56,55 +57,49 @@ export async function loader({ request }) {
       const queryMatch = log.query?.toLowerCase().includes(searchQuery.toLowerCase());
       const emailMatch = log.userEmail?.toLowerCase().includes(searchQuery.toLowerCase());
       const sessionMatch = log.sessionId?.toLowerCase().includes(searchQuery.toLowerCase());
-      return queryMatch || emailMatch || sessionMatch;
+      const nameMatch = (log.firstName + " " + log.lastName)?.toLowerCase().includes(searchQuery.toLowerCase());
+      return queryMatch || emailMatch || sessionMatch || nameMatch;
     });
   }
-
-  // Get chat sessions for additional context
-  let chatWhereCondition = { shop };
-  if (filterStatus !== "all") {
-    chatWhereCondition.isResolved = filterStatus === "resolved";
-  }
-
-  const chatSessions = await prisma.chatSession.findMany({
-    where: chatWhereCondition,
-    orderBy: { createdAt: "desc" },
-    include: { 
-      messages: {
-        orderBy: { createdAt: "asc" }
-      } 
-    },
-  });
 
   const stats = {
     totalSearches: searchLogs.length,
     frontendSearches: searchLogs.filter(s => s.searchType === "frontend").length,
     adminSearches: searchLogs.filter(s => s.searchType === "admin").length,
     uniqueUsers: [...new Set(searchLogs.filter(s => s.userEmail && s.userEmail !== 'anonymous').map(s => s.userEmail))].length,
-    totalConversations: chatSessions.length,
-    resolved: chatSessions.filter(s => s.isResolved).length,
-    pending: chatSessions.filter(s => !s.isResolved).length,
+    topSearches: getTopSearches(searchLogs),
   };
 
   return json({
     searchLogs,
-    chatSessions,
     stats,
     searchQuery,
-    filterStatus,
     filterDate,
     filterSearchType,
   });
 }
 
+function getTopSearches(logs) {
+  const searchCounts = {};
+  logs.forEach(log => {
+    const query = log.query?.toLowerCase();
+    if (query) {
+      searchCounts[query] = (searchCounts[query] || 0) + 1;
+    }
+  });
+  
+  return Object.entries(searchCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([query, count]) => ({ query, count }));
+}
+
 /* ---------------- PAGE ---------------- */
-export default function AdminSearch() {
+export default function SearchAnalytics() {
   const data = useLoaderData();
   const [searchParams] = useSearchParams();
-  const [selectedSession, setSelectedSession] = useState(null);
   const [selectedLog, setSelectedLog] = useState(null);
   const [searchInput, setSearchInput] = useState(data.searchQuery || "");
-  const [activeView, setActiveView] = useState("searches"); // "searches" or "conversations"
 
   return (
     <div style={styles.container}>
@@ -112,8 +107,8 @@ export default function AdminSearch() {
         {/* HEADER */}
         <div style={styles.header}>
           <div>
-            <h1 style={styles.title}>Search & Message Analytics</h1>
-            <p style={styles.subtitle}>Track user searches and view all conversations</p>
+            <h1 style={styles.title}>🔍 Search Analytics</h1>
+            <p style={styles.subtitle}>Track all user searches from the widget</p>
           </div>
         </div>
 
@@ -158,37 +153,31 @@ export default function AdminSearch() {
           <div style={styles.statCard}>
             <div style={{...styles.statIcon, background: '#e0e7ff'}}>
               <svg fill="none" viewBox="0 0 24 24" stroke="#6366f1" style={styles.statIconSvg}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
             <div>
-              <div style={styles.statLabel}>Conversations</div>
-              <div style={styles.statValue}>{data.stats.totalConversations}</div>
+              <div style={styles.statLabel}>Admin Searches</div>
+              <div style={styles.statValue}>{data.stats.adminSearches}</div>
             </div>
           </div>
         </div>
 
-        {/* VIEW TABS */}
-        <div style={styles.viewTabs}>
-          <button
-            style={{...styles.viewTab, ...(activeView === "searches" ? styles.viewTabActive : {})}}
-            onClick={() => setActiveView("searches")}
-          >
-            <svg style={styles.tabIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            Search Logs
-          </button>
-          <button
-            style={{...styles.viewTab, ...(activeView === "conversations" ? styles.viewTabActive : {})}}
-            onClick={() => setActiveView("conversations")}
-          >
-            <svg style={styles.tabIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            Conversations
-          </button>
-        </div>
+        {/* TOP SEARCHES */}
+        {data.stats.topSearches.length > 0 && (
+          <div style={styles.topSearchesCard}>
+            <h3 style={styles.topSearchesTitle}>📊 Top Search Queries</h3>
+            <div style={styles.topSearchesList}>
+              {data.stats.topSearches.map((item, idx) => (
+                <div key={idx} style={styles.topSearchItem}>
+                  <div style={styles.topSearchRank}>{idx + 1}</div>
+                  <div style={styles.topSearchQuery}>"{item.query}"</div>
+                  <div style={styles.topSearchCount}>{item.count} searches</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* SEARCH AND FILTERS */}
         <div style={styles.searchSection}>
@@ -200,7 +189,7 @@ export default function AdminSearch() {
               <input
                 type="text"
                 name="q"
-                placeholder={activeView === "searches" ? "Search by query, user email, or session ID..." : "Search by email, session ID, or message content..."}
+                placeholder="Search by query, user email, name, or session ID..."
                 style={styles.searchInput}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
@@ -222,21 +211,11 @@ export default function AdminSearch() {
             </div>
 
             <div style={styles.filters}>
-              {activeView === "searches" && (
-                <select name="searchType" defaultValue={data.filterSearchType} style={styles.filterSelect}>
-                  <option value="all">All Sources</option>
-                  <option value="frontend">Widget Searches</option>
-                  <option value="admin">Admin Searches</option>
-                </select>
-              )}
-              
-              {activeView === "conversations" && (
-                <select name="status" defaultValue={data.filterStatus} style={styles.filterSelect}>
-                  <option value="all">All Status</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="pending">Pending</option>
-                </select>
-              )}
+              <select name="searchType" defaultValue={data.filterSearchType} style={styles.filterSelect}>
+                <option value="all">All Sources</option>
+                <option value="frontend">Widget Searches</option>
+                <option value="admin">Admin Searches</option>
+              </select>
 
               <select name="date" defaultValue={data.filterDate} style={styles.filterSelect}>
                 <option value="all">All Time</option>
@@ -255,358 +234,193 @@ export default function AdminSearch() {
           </Form>
         </div>
 
-        {/* CONTENT - CONDITIONAL RENDERING */}
-        {activeView === "searches" ? (
-          /* SEARCH LOGS VIEW */
-          <div style={styles.contentGrid}>
-            <div style={styles.searchLogsList}>
-              <div style={styles.sessionListHeader}>
-                <h2 style={styles.sectionTitle}>
-                  Search Logs ({data.searchLogs.length})
-                </h2>
-              </div>
-
-              {data.searchLogs.length > 0 ? (
-                <div style={styles.sessions}>
-                  {data.searchLogs.map((log, index) => (
-                    <div
-                      key={log.id}
-                      style={{
-                        ...styles.searchLogCard,
-                        ...(selectedLog?.id === log.id ? styles.sessionCardActive : {})
-                      }}
-                      onClick={() => setSelectedLog(log)}
-                    >
-                      <div style={styles.logHeader}>
-                        <div style={styles.logIconWrapper}>
-                          {log.searchType === 'frontend' ? (
-                            <div style={{...styles.logIcon, background: '#dbeafe', color: '#3b82f6'}}>
-                              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.logIconSvg}>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                              </svg>
-                            </div>
-                          ) : (
-                            <div style={{...styles.logIcon, background: '#fef3c7', color: '#f59e0b'}}>
-                              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.logIconSvg}>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-                        <div style={styles.logInfo}>
-                          <div style={styles.logQuery}>
-                            "{log.query}"
-                          </div>
-                          <div style={styles.logMeta}>
-                            <span style={styles.logType}>
-                              {log.searchType === 'frontend' ? '📱 Widget' : '🖥️ Admin'}
-                            </span>
-                            {log.userEmail && log.userEmail !== 'anonymous' && (
-                              <>
-                                <span style={styles.metaDot}>•</span>
-                                <span>{log.firstName || ''} {log.lastName || ''}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={styles.logDate}>
-                        {new Date(log.createdAt).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={styles.emptyState}>
-                  <div style={styles.emptyIcon}>
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.emptyIconSvg}>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                  <h3 style={styles.emptyTitle}>No search logs found</h3>
-                  <p style={styles.emptyText}>Try adjusting your filters</p>
-                </div>
-              )}
+        {/* SEARCH LOGS LIST */}
+        <div style={styles.contentGrid}>
+          <div style={styles.searchLogsList}>
+            <div style={styles.sessionListHeader}>
+              <h2 style={styles.sectionTitle}>
+                Search Logs ({data.searchLogs.length})
+              </h2>
             </div>
 
-            {/* SEARCH LOG DETAILS */}
-            <div style={styles.messagePanel}>
-              {selectedLog ? (
-                <>
-                  <div style={styles.messagePanelHeader}>
-                    <div style={styles.panelHeaderLeft}>
-                      <div style={{...styles.panelAvatar, background: '#3b82f6'}}>
-                        <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.panelAvatarIcon}>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <div style={styles.panelTitle}>
-                          Search Details
-                        </div>
-                        <div style={styles.panelSubtitle}>
-                          {new Date(selectedLog.createdAt).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      {selectedLog.searchType === 'frontend' ? (
-                        <div style={{...styles.statusBadgeLarge, background: '#dbeafe', color: '#1e40af'}}>
-                          <svg style={styles.badgeIconLarge} fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                          </svg>
-                          Widget Search
-                        </div>
-                      ) : (
-                        <div style={{...styles.statusBadgeLarge, background: '#fef3c7', color: '#92400e'}}>
-                          <svg style={styles.badgeIconLarge} fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                          Admin Search
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={styles.detailsContainer}>
-                    <div style={styles.detailSection}>
-                      <div style={styles.detailLabel}>Search Query</div>
-                      <div style={styles.detailValue}>"{selectedLog.query}"</div>
-                    </div>
-
-                    {(selectedLog.firstName || selectedLog.lastName) && (
-                      <div style={styles.detailSection}>
-                        <div style={styles.detailLabel}>User Name</div>
-                        <div style={styles.detailValue}>
-                          {selectedLog.firstName || ''} {selectedLog.lastName || ''}
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedLog.userEmail && (
-                      <div style={styles.detailSection}>
-                        <div style={styles.detailLabel}>User Email</div>
-                        <div style={styles.detailValue}>
-                          {selectedLog.userEmail === 'anonymous' ? (
-                            <span style={{color: '#9ca3af'}}>Anonymous User</span>
-                          ) : (
-                            selectedLog.userEmail
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedLog.sessionId && (
-                      <div style={styles.detailSection}>
-                        <div style={styles.detailLabel}>Session ID</div>
-                        <div style={{...styles.detailValue, fontFamily: 'monospace', fontSize: 13}}>
-                          {selectedLog.sessionId}
-                        </div>
-                      </div>
-                    )}
-
-                    <div style={styles.detailSection}>
-                      <div style={styles.detailLabel}>Search Type</div>
-                      <div style={styles.detailValue}>
-                        {selectedLog.searchType === 'frontend' ? '📱 Widget Search (Customer)' : '🖥️ Admin Dashboard Search'}
-                      </div>
-                    </div>
-
-                    <div style={styles.detailSection}>
-                      <div style={styles.detailLabel}>Timestamp</div>
-                      <div style={styles.detailValue}>
-                        {new Date(selectedLog.createdAt).toLocaleString('en-US', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit'
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div style={styles.emptyPanel}>
-                  <div style={styles.emptyPanelIcon}>
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.emptyPanelIconSvg}>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                  <h3 style={styles.emptyPanelTitle}>Select a search log</h3>
-                  <p style={styles.emptyPanelText}>Choose a search from the list to view details</p>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          /* CONVERSATIONS VIEW */
-          <div style={styles.contentGrid}>
-            <div style={styles.sessionList}>
-              <div style={styles.sessionListHeader}>
-                <h2 style={styles.sectionTitle}>
-                  Conversations ({data.chatSessions.length})
-                </h2>
-              </div>
-
-              {data.chatSessions.length > 0 ? (
-                <div style={styles.sessions}>
-                  {data.chatSessions.map((session, index) => (
-                    <div
-                      key={session.sessionId}
-                      style={{
-                        ...styles.sessionCard,
-                        ...(selectedSession?.sessionId === session.sessionId ? styles.sessionCardActive : {})
-                      }}
-                      onClick={() => setSelectedSession(session)}
-                    >
-                      <div style={styles.sessionHeader}>
-                        <div style={{...styles.sessionAvatar, background: getAvatarColor(index)}}>
-                          {session.email ? session.email.charAt(0).toUpperCase() : '?'}
-                        </div>
-                        <div style={styles.sessionInfo}>
-                          <div style={styles.sessionEmail}>
-                            {session.email || `Anonymous User`}
-                          </div>
-                          <div style={styles.sessionMeta}>
-                            <span style={styles.sessionId}>ID: {session.sessionId.substring(0, 8)}...</span>
-                            <span style={styles.metaDot}>•</span>
-                            <span>{session.messages.length} messages</span>
-                          </div>
-                        </div>
-                        {session.isResolved ? (
-                          <div style={{...styles.badge, background: '#d1fae5', color: '#065f46'}}>
-                            Resolved
+            {data.searchLogs.length > 0 ? (
+              <div style={styles.sessions}>
+                {data.searchLogs.map((log, index) => (
+                  <div
+                    key={log.id}
+                    style={{
+                      ...styles.searchLogCard,
+                      ...(selectedLog?.id === log.id ? styles.sessionCardActive : {})
+                    }}
+                    onClick={() => setSelectedLog(log)}
+                  >
+                    <div style={styles.logHeader}>
+                      <div style={styles.logIconWrapper}>
+                        {log.searchType === 'frontend' ? (
+                          <div style={{...styles.logIcon, background: '#dbeafe', color: '#3b82f6'}}>
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.logIconSvg}>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
                           </div>
                         ) : (
-                          <div style={{...styles.badge, background: '#fed7aa', color: '#9a3412'}}>
-                            Pending
+                          <div style={{...styles.logIcon, background: '#fef3c7', color: '#f59e0b'}}>
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.logIconSvg}>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
                           </div>
                         )}
                       </div>
-                      <div style={styles.sessionDate}>
-                        {new Date(session.createdAt).toLocaleString()}
+                      <div style={styles.logInfo}>
+                        <div style={styles.logQuery}>
+                          "{log.query}"
+                        </div>
+                        <div style={styles.logMeta}>
+                          <span style={styles.logType}>
+                            {log.searchType === 'frontend' ? '📱 Widget' : '🖥️ Admin'}
+                          </span>
+                          {log.userEmail && log.userEmail !== 'anonymous' && (
+                            <>
+                              <span style={styles.metaDot}>•</span>
+                              <span>{log.firstName || ''} {log.lastName || ''}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={styles.emptyState}>
-                  <div style={styles.emptyIcon}>
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.emptyIconSvg}>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
+                    <div style={styles.logDate}>
+                      {new Date(log.createdAt).toLocaleString()}
+                    </div>
                   </div>
-                  <h3 style={styles.emptyTitle}>No conversations found</h3>
-                  <p style={styles.emptyText}>Try adjusting your search or filters</p>
+                ))}
+              </div>
+            ) : (
+              <div style={styles.emptyState}>
+                <div style={styles.emptyIcon}>
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.emptyIconSvg}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
                 </div>
-              )}
-            </div>
+                <h3 style={styles.emptyTitle}>No search logs found</h3>
+                <p style={styles.emptyText}>Try adjusting your filters or wait for users to search</p>
+              </div>
+            )}
+          </div>
 
-            {/* MESSAGE DETAILS */}
-            <div style={styles.messagePanel}>
-              {selectedSession ? (
-                <>
-                  <div style={styles.messagePanelHeader}>
-                    <div style={styles.panelHeaderLeft}>
-                      <div style={{...styles.panelAvatar, background: getAvatarColor(0)}}>
-                        {selectedSession.email ? selectedSession.email.charAt(0).toUpperCase() : '?'}
-                      </div>
-                      <div>
-                        <div style={styles.panelTitle}>
-                          {selectedSession.email || 'Anonymous User'}
-                        </div>
-                        <div style={styles.panelSubtitle}>
-                          Session: {selectedSession.sessionId}
-                        </div>
-                      </div>
+          {/* SEARCH LOG DETAILS */}
+          <div style={styles.messagePanel}>
+            {selectedLog ? (
+              <>
+                <div style={styles.messagePanelHeader}>
+                  <div style={styles.panelHeaderLeft}>
+                    <div style={{...styles.panelAvatar, background: '#3b82f6'}}>
+                      <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.panelAvatarIcon}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
                     </div>
                     <div>
-                      {selectedSession.isResolved ? (
-                        <div style={{...styles.statusBadgeLarge, background: '#d1fae5', color: '#065f46'}}>
-                          <svg style={styles.badgeIconLarge} fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          Resolved
-                        </div>
-                      ) : (
-                        <div style={{...styles.statusBadgeLarge, background: '#fed7aa', color: '#9a3412'}}>
-                          <svg style={styles.badgeIconLarge} fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                          </svg>
-                          Pending
-                        </div>
-                      )}
+                      <div style={styles.panelTitle}>
+                        Search Details
+                      </div>
+                      <div style={styles.panelSubtitle}>
+                        {new Date(selectedLog.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    {selectedLog.searchType === 'frontend' ? (
+                      <div style={{...styles.statusBadgeLarge, background: '#dbeafe', color: '#1e40af'}}>
+                        <svg style={styles.badgeIconLarge} fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                        </svg>
+                        Widget Search
+                      </div>
+                    ) : (
+                      <div style={{...styles.statusBadgeLarge, background: '#fef3c7', color: '#92400e'}}>
+                        <svg style={styles.badgeIconLarge} fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        Admin Search
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.detailsContainer}>
+                  <div style={styles.detailSection}>
+                    <div style={styles.detailLabel}>Search Query</div>
+                    <div style={styles.detailValue}>"{selectedLog.query}"</div>
+                  </div>
+
+                  {(selectedLog.firstName || selectedLog.lastName) && (
+                    <div style={styles.detailSection}>
+                      <div style={styles.detailLabel}>User Name</div>
+                      <div style={styles.detailValue}>
+                        {selectedLog.firstName || ''} {selectedLog.lastName || ''}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedLog.userEmail && (
+                    <div style={styles.detailSection}>
+                      <div style={styles.detailLabel}>User Email</div>
+                      <div style={styles.detailValue}>
+                        {selectedLog.userEmail === 'anonymous' ? (
+                          <span style={{color: '#9ca3af'}}>Anonymous User</span>
+                        ) : (
+                          selectedLog.userEmail
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedLog.sessionId && (
+                    <div style={styles.detailSection}>
+                      <div style={styles.detailLabel}>Session ID</div>
+                      <div style={{...styles.detailValue, fontFamily: 'monospace', fontSize: 13}}>
+                        {selectedLog.sessionId}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={styles.detailSection}>
+                    <div style={styles.detailLabel}>Search Type</div>
+                    <div style={styles.detailValue}>
+                      {selectedLog.searchType === 'frontend' ? '📱 Widget Search (Customer)' : '🖥️ Admin Dashboard Search'}
                     </div>
                   </div>
 
-                  <div style={styles.messagesContainer}>
-                    {selectedSession.messages.map((message, idx) => {
-                      const isUser = message.sender === 'user';
-                      
-                      return (
-                        <div
-                          key={idx}
-                          style={{
-                            ...styles.messageItem,
-                            ...(isUser ? styles.messageUser : styles.messageAdmin)
-                          }}
-                        >
-                          <div style={styles.messageHeader}>
-                            <div style={styles.messageRole}>
-                              {isUser ? (
-                                <>
-                                  <svg style={styles.roleIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                  </svg>
-                                  User
-                                </>
-                              ) : (
-                                <>
-                                  <svg style={styles.roleIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-                                  </svg>
-                                  Admin
-                                </>
-                              )}
-                            </div>
-                            <div style={styles.messageTime}>
-                              {new Date(message.createdAt).toLocaleString()}
-                            </div>
-                          </div>
-                          <div style={styles.messageContent}>
-                            {message.message || message.content}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div style={styles.detailSection}>
+                    <div style={styles.detailLabel}>Timestamp</div>
+                    <div style={styles.detailValue}>
+                      {new Date(selectedLog.createdAt).toLocaleString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                      })}
+                    </div>
                   </div>
-                </>
-              ) : (
-                <div style={styles.emptyPanel}>
-                  <div style={styles.emptyPanelIcon}>
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.emptyPanelIconSvg}>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                  </div>
-                  <h3 style={styles.emptyPanelTitle}>Select a conversation</h3>
-                  <p style={styles.emptyPanelText}>Choose a conversation from the list to view messages</p>
                 </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <div style={styles.emptyPanel}>
+                <div style={styles.emptyPanelIcon}>
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.emptyPanelIconSvg}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <h3 style={styles.emptyPanelTitle}>Select a search log</h3>
+                <p style={styles.emptyPanelText}>Choose a search from the list to view details</p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
-}
-
-/* ---------------- HELPER FUNCTIONS ---------------- */
-function getAvatarColor(index) {
-  const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
-  return colors[index % colors.length];
 }
 
 /* ---------------- STYLES ---------------- */
@@ -677,39 +491,58 @@ const styles = {
     fontWeight: 700,
     color: "#111827",
   },
-  viewTabs: {
-    display: "flex",
-    gap: 12,
-    marginBottom: 24,
+  topSearchesCard: {
     background: "#ffffff",
     border: "1px solid #e5e7eb",
     borderRadius: 12,
-    padding: 8,
+    padding: 24,
+    marginBottom: 24,
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   },
-  viewTab: {
-    flex: 1,
-    padding: "12px 20px",
-    background: "transparent",
-    border: "none",
+  topSearchesTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#111827",
+    marginBottom: 16,
+    margin: 0,
+  },
+  topSearchesList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  topSearchItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    background: "#f9fafb",
     borderRadius: 8,
-    fontSize: 15,
-    fontWeight: 600,
-    color: "#6b7280",
-    cursor: "pointer",
+    border: "1px solid #e5e7eb",
+  },
+  topSearchRank: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    background: "#3b82f6",
+    color: "#ffffff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    transition: "all 0.2s",
+    fontWeight: 700,
+    fontSize: 14,
+    flexShrink: 0,
   },
-  viewTabActive: {
-    background: "#3b82f6",
-    color: "#ffffff",
+  topSearchQuery: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: 600,
+    color: "#111827",
   },
-  tabIcon: {
-    width: 20,
-    height: 20,
-    strokeWidth: 2,
+  topSearchCount: {
+    fontSize: 13,
+    color: "#6b7280",
+    fontWeight: 500,
   },
   searchSection: {
     background: "#ffffff",
@@ -811,23 +644,13 @@ const styles = {
     gap: 24,
     alignItems: "start",
   },
-  sessionList: {
-    background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 12,
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-    overflow: "hidden",
-    maxHeight: "calc(100vh - 450px)",
-    display: "flex",
-    flexDirection: "column",
-  },
   searchLogsList: {
     background: "#ffffff",
     border: "1px solid #e5e7eb",
     borderRadius: 12,
     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
     overflow: "hidden",
-    maxHeight: "calc(100vh - 450px)",
+    maxHeight: "calc(100vh - 600px)",
     display: "flex",
     flexDirection: "column",
   },
@@ -847,12 +670,6 @@ const styles = {
     flex: 1,
   },
   searchLogCard: {
-    padding: 16,
-    borderBottom: "1px solid #e5e7eb",
-    cursor: "pointer",
-    transition: "background 0.2s",
-  },
-  sessionCard: {
     padding: 16,
     borderBottom: "1px solid #e5e7eb",
     cursor: "pointer",
@@ -912,68 +729,15 @@ const styles = {
     color: "#9ca3af",
     marginLeft: 52,
   },
-  sessionHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 8,
-  },
-  sessionAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: 700,
-    flexShrink: 0,
-  },
-  sessionInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  sessionEmail: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#111827",
-    marginBottom: 2,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  sessionMeta: {
-    fontSize: 12,
-    color: "#9ca3af",
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-  },
-  sessionId: {
-    fontFamily: "monospace",
-  },
   metaDot: {
     fontSize: 10,
-  },
-  badge: {
-    padding: "4px 10px",
-    borderRadius: 6,
-    fontSize: 11,
-    fontWeight: 600,
-    flexShrink: 0,
-  },
-  sessionDate: {
-    fontSize: 12,
-    color: "#9ca3af",
-    marginLeft: 52,
   },
   messagePanel: {
     background: "#ffffff",
     border: "1px solid #e5e7eb",
     borderRadius: 12,
     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-    minHeight: "calc(100vh - 450px)",
+    minHeight: "calc(100vh - 600px)",
     display: "flex",
     flexDirection: "column",
   },
@@ -1052,59 +816,6 @@ const styles = {
     fontSize: 15,
     color: "#111827",
     lineHeight: 1.6,
-  },
-  messagesContainer: {
-    padding: 24,
-    overflowY: "auto",
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-  },
-  messageItem: {
-    padding: 16,
-    borderRadius: 10,
-    border: "1px solid #e5e7eb",
-  },
-  messageUser: {
-    background: "#eff6ff",
-    borderColor: "#bfdbfe",
-  },
-  messageAdmin: {
-    background: "#f0fdf4",
-    borderColor: "#bbf7d0",
-  },
-  messageHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  messageRole: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    fontSize: 12,
-    fontWeight: 600,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    color: "#374151",
-  },
-  roleIcon: {
-    width: 14,
-    height: 14,
-    strokeWidth: 2,
-  },
-  messageTime: {
-    fontSize: 11,
-    color: "#9ca3af",
-  },
-  messageContent: {
-    fontSize: 14,
-    color: "#1f2937",
-    lineHeight: 1.6,
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
   },
   emptyState: {
     padding: 60,

@@ -17,27 +17,44 @@ export const action = async ({ request }) => {
 
   try {
     const body = await request.json();
-    const { shop, query, searchType } = body;
+    const { 
+      shop, 
+      query, 
+      searchType, 
+      userEmail, 
+      sessionId, 
+      firstName, 
+      lastName 
+    } = body;
+    
+    console.log("📝 Logging search:", { shop, query, searchType, userEmail });
     
     if (!shop || !query || !searchType) {
       return json({ 
         success: false, 
-        error: "Missing required fields" 
+        error: "Missing required fields (shop, query, searchType)" 
       }, { status: 400, headers });
     }
 
-    await prisma.searchLog.create({
+    // Create the search log entry
+    const searchLog = await prisma.searchLog.create({
       data: {
         shop,
         query,
         searchType, // "frontend" for widget searches, "admin" for admin searches
+        userEmail: userEmail || 'anonymous',
+        sessionId: sessionId || null,
+        firstName: firstName || null,
+        lastName: lastName || null,
         createdAt: new Date()
       }
     });
     
-    return json({ success: true }, { headers });
+    console.log("✅ Search log created:", searchLog.id);
+    
+    return json({ success: true, logId: searchLog.id }, { headers });
   } catch (error) {
-    console.error("Search log error:", error);
+    console.error("❌ Search log error:", error);
     return json({ 
       success: false, 
       error: error.message 

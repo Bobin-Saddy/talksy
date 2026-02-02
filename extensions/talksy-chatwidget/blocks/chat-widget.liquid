@@ -958,68 +958,92 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
   }
 
   // ✅ IMPROVED SEARCH FUNCTION - Button Click Only
-  async function performSearchNew(query) {
-    console.log("🔍 Search initiated:", query);
-    
-    if (!query || query.length < 2) {
-      document.getElementById("search-results-wrapper").style.display = "none";
-      document.getElementById("search-empty-state").style.display = "block";
-      document.getElementById("no-results-state").style.display = "none";
-      document.querySelector(".search-hero").style.display = "block";
-      return;
-    }
-
-    document.getElementById("search-loading-indicator").style.display = "flex";
-    document.getElementById("search-empty-state").style.display = "none";
+async function performSearchNew(query) {
+  console.log("🔍 Search initiated:", query);
+  
+  if (!query || query.length < 2) {
+    document.getElementById("search-results-wrapper").style.display = "none";
+    document.getElementById("search-empty-state").style.display = "block";
     document.getElementById("no-results-state").style.display = "none";
     document.querySelector(".search-hero").style.display = "block";
-
-    // Log search to database
-    try {
-      const userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL) || 'anonymous';
-      const sessionId = localStorage.getItem(STORAGE_KEYS.SESSION_ID) || 'no-session';
-      const firstName = localStorage.getItem(STORAGE_KEYS.USER_FNAME) || '';
-      const lastName = localStorage.getItem(STORAGE_KEYS.USER_LNAME) || '';
-      
-      await fetch(`${BASE_URL}/app/chat/search-log`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          shop: shop,
-          query: query,
-          searchType: "frontend",
-          userEmail: userEmail,
-          sessionId: sessionId,
-          firstName: firstName,
-          lastName: lastName,
-          createdAt: new Date()
-        })
-      });
-    } catch(e) {
-      console.log("Search logging failed:", e);
-    }
-
-    try {
-      const response = await fetch(`${BASE_URL}/app/chat/search?shop=${shop}&query=${encodeURIComponent(query)}&type=all`);
-      const data = await response.json();
-
-      document.getElementById("search-loading-indicator").style.display = "none";
-
-      if (!data.success) {
-        throw new Error(data.error || "Search failed");
-      }
-      
-      // Hide hero text when results appear
-      document.querySelector(".search-hero").style.display = "none";
-      
-      renderSearchResultsNew(data.results);
-    } catch (error) {
-      console.error("❌ Search error:", error);
-      document.getElementById("search-loading-indicator").style.display = "none";
-      document.getElementById("no-results-state").style.display = "block";
-      document.querySelector(".search-hero").style.display = "none";
-    }
+    return;
   }
+
+  document.getElementById("search-loading-indicator").style.display = "flex";
+  document.getElementById("search-empty-state").style.display = "none";
+  document.getElementById("no-results-state").style.display = "none";
+  document.querySelector(".search-hero").style.display = "block";
+
+  // ✅ Log search to database BEFORE performing search
+  try {
+    const userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL) || 'anonymous';
+    const sessionId = localStorage.getItem(STORAGE_KEYS.SESSION_ID) || 'no-session';
+    const firstName = localStorage.getItem(STORAGE_KEYS.USER_FNAME) || '';
+    const lastName = localStorage.getItem(STORAGE_KEYS.USER_LNAME) || '';
+    
+    console.log("📝 Sending search log:", {
+      shop,
+      query,
+      searchType: "frontend",
+      userEmail,
+      sessionId,
+      firstName,
+      lastName
+    });
+    
+    // Log the search
+    const logResponse = await fetch(`${BASE_URL}/app/chat/search-log`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        shop: shop,
+        query: query,
+        searchType: "frontend",
+        userEmail: userEmail,
+        sessionId: sessionId,
+        firstName: firstName,
+        lastName: lastName,
+        createdAt: new Date()
+      })
+    });
+    
+    const logData = await logResponse.json();
+    console.log("📊 Search logged:", logData);
+    
+  } catch(e) {
+    console.error("❌ Search logging failed:", e);
+    // Continue with search even if logging fails
+  }
+
+  // Perform the actual search
+  try {
+    const response = await fetch(`${BASE_URL}/app/chat/search?shop=${shop}&query=${encodeURIComponent(query)}&type=all`);
+    const data = await response.json();
+
+    document.getElementById("search-loading-indicator").style.display = "none";
+
+    if (!data.success) {
+      throw new Error(data.error || "Search failed");
+    }
+    
+    // Hide hero text when results appear
+    document.querySelector(".search-hero").style.display = "none";
+    
+    renderSearchResultsNew(data.results);
+  } catch (error) {
+    console.error("❌ Search error:", error);
+    document.getElementById("search-loading-indicator").style.display = "none";
+    document.getElementById("no-results-state").style.display = "block";
+    document.querySelector(".search-hero").style.display = "none";
+  }
+}
+
+
+
+
+
+
+
 
   // ✅ IMPROVED RENDER FUNCTION WITH CENTERING AND ARROW CONTROL
   function renderSearchResultsNew(results) {
