@@ -962,86 +962,97 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     document.getElementById("chat-chat-step").style.display = "flex";
   }
 
-  // ✅ FIXED SEARCH FUNCTION
-  async function performSearchNew(query) {
-    console.log("🔍 Search initiated:", query);
-    
-    if (!query || query.length < 2) {
-      document.getElementById("search-results-wrapper").style.display = "none";
-      document.getElementById("search-empty-state").style.display = "block";
-      document.getElementById("no-results-state").style.display = "none";
-      document.querySelector(".search-hero").style.display = "block";
-      return;
-    }
-
-    document.getElementById("search-loading-indicator").style.display = "flex";
-    document.getElementById("search-empty-state").style.display = "none";
+  // ✅ IMPROVED SEARCH FUNCTION - Button Click Only
+async function performSearchNew(query) {
+  console.log("🔍 Search initiated:", query);
+  
+  if (!query || query.length < 2) {
+    document.getElementById("search-results-wrapper").style.display = "none";
+    document.getElementById("search-empty-state").style.display = "block";
     document.getElementById("no-results-state").style.display = "none";
     document.querySelector(".search-hero").style.display = "block";
-
-    // ✅ Log search to database
-    try {
-      const userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL) || 'anonymous';
-      const sessionId = localStorage.getItem(STORAGE_KEYS.SESSION_ID) || 'no-session';
-      const firstName = localStorage.getItem(STORAGE_KEYS.USER_FNAME) || '';
-      const lastName = localStorage.getItem(STORAGE_KEYS.USER_LNAME) || '';
-      
-      console.log("📝 Logging search:", { shop, query, userEmail });
-      
-      await fetch(`${BASE_URL}/app/chat/search-log`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          shop: shop,
-          query: query,
-          searchType: "frontend",
-          userEmail: userEmail,
-          sessionId: sessionId,
-          firstName: firstName,
-          lastName: lastName,
-          createdAt: new Date()
-        })
-      });
-      
-    } catch(e) {
-      console.error("❌ Search logging failed:", e);
-    }
-
-    // ✅ Perform search
-    try {
-      const searchUrl = `${BASE_URL}/app/chat/search?shop=${encodeURIComponent(shop)}&query=${encodeURIComponent(query)}&type=all`;
-      console.log("🌐 Search URL:", searchUrl);
-      
-      const response = await fetch(searchUrl);
-      console.log("📡 Response status:", response.status);
-      
-      const data = await response.json();
-      console.log("📦 Search results:", data);
-
-      document.getElementById("search-loading-indicator").style.display = "none";
-
-      if (!data.success) {
-        console.error("❌ Search failed:", data.error);
-        document.getElementById("no-results-state").style.display = "block";
-        document.querySelector(".search-hero").style.display = "none";
-        return;
-      }
-      
-      // Hide hero text when results appear
-      document.querySelector(".search-hero").style.display = "none";
-      
-      renderSearchResultsNew(data.results);
-    } catch (error) {
-      console.error("❌ Search error:", error);
-      document.getElementById("search-loading-indicator").style.display = "none";
-      document.getElementById("no-results-state").style.display = "block";
-      document.querySelector(".search-hero").style.display = "none";
-    }
+    return;
   }
 
-  // ✅ FIXED RENDER FUNCTION
+  document.getElementById("search-loading-indicator").style.display = "flex";
+  document.getElementById("search-empty-state").style.display = "none";
+  document.getElementById("no-results-state").style.display = "none";
+  document.querySelector(".search-hero").style.display = "block";
+
+  // ✅ Log search to database BEFORE performing search
+  try {
+    const userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL) || 'anonymous';
+    const sessionId = localStorage.getItem(STORAGE_KEYS.SESSION_ID) || 'no-session';
+    const firstName = localStorage.getItem(STORAGE_KEYS.USER_FNAME) || '';
+    const lastName = localStorage.getItem(STORAGE_KEYS.USER_LNAME) || '';
+    
+    console.log("📝 Sending search log:", {
+      shop,
+      query,
+      searchType: "frontend",
+      userEmail,
+      sessionId,
+      firstName,
+      lastName
+    });
+    
+    // Log the search
+    const logResponse = await fetch(`${BASE_URL}/app/chat/search-log`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        shop: shop,
+        query: query,
+        searchType: "frontend",
+        userEmail: userEmail,
+        sessionId: sessionId,
+        firstName: firstName,
+        lastName: lastName,
+        createdAt: new Date()
+      })
+    });
+    
+    const logData = await logResponse.json();
+    console.log("📊 Search logged:", logData);
+    
+  } catch(e) {
+    console.error("❌ Search logging failed:", e);
+    // Continue with search even if logging fails
+  }
+
+  // Perform the actual search
+  try {
+    const response = await fetch(`${BASE_URL}/app/chat/search?shop=${shop}&query=${encodeURIComponent(query)}&type=all`);
+    const data = await response.json();
+
+    document.getElementById("search-loading-indicator").style.display = "none";
+
+    if (!data.success) {
+      throw new Error(data.error || "Search failed");
+    }
+    
+    // Hide hero text when results appear
+    document.querySelector(".search-hero").style.display = "none";
+    
+    renderSearchResultsNew(data.results);
+  } catch (error) {
+    console.error("❌ Search error:", error);
+    document.getElementById("search-loading-indicator").style.display = "none";
+    document.getElementById("no-results-state").style.display = "block";
+    document.querySelector(".search-hero").style.display = "none";
+  }
+}
+
+
+
+
+
+
+
+
+  // ✅ IMPROVED RENDER FUNCTION WITH CENTERING AND ARROW CONTROL
   function renderSearchResultsNew(results) {
-    console.log("🎨 Rendering results:", results);
+    console.log("🎨 Rendering search results:", results);
     
     const hasResults = (
       (results.products && results.products.length > 0) ||
@@ -1051,19 +1062,17 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     );
 
     if (!hasResults) {
-      console.log("😕 No results found");
       document.getElementById("search-results-wrapper").style.display = "none";
       document.getElementById("no-results-state").style.display = "block";
       document.getElementById("search-empty-state").style.display = "none";
       return;
     }
 
-    console.log("✅ Showing results");
     document.getElementById("search-results-wrapper").style.display = "block";
     document.getElementById("search-empty-state").style.display = "none";
     document.getElementById("no-results-state").style.display = "none";
 
-    // Helper function
+    // Helper function to control arrow visibility
     function updateScrollButtons(section, count) {
       const leftBtn = document.querySelector(`#${section}-results-section .scroll-left`);
       const rightBtn = document.querySelector(`#${section}-results-section .scroll-right`);
@@ -1079,7 +1088,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 
     // Render Products
     if (results.products && results.products.length > 0) {
-      console.log("🛍️ Rendering products:", results.products.length);
       document.getElementById("products-results-section").style.display = "block";
       document.getElementById("products-count").textContent = results.products.length;
       
@@ -1096,12 +1104,14 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       const productsScroll = document.getElementById("products-scroll");
       productsScroll.innerHTML = productsHTML;
       
+      // Add centering class if few results
       if (results.products.length <= 2) {
         productsScroll.classList.add('few-results');
       } else {
         productsScroll.classList.remove('few-results');
       }
       
+      // Update arrow visibility
       updateScrollButtons('products', results.products.length);
     } else {
       document.getElementById("products-results-section").style.display = "none";
@@ -1109,7 +1119,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 
     // Render Collections
     if (results.collections && results.collections.length > 0) {
-      console.log("📁 Rendering collections:", results.collections.length);
       document.getElementById("collections-results-section").style.display = "block";
       document.getElementById("collections-count").textContent = results.collections.length;
       
@@ -1139,7 +1148,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 
     // Render Pages
     if (results.pages && results.pages.length > 0) {
-      console.log("📄 Rendering pages:", results.pages.length);
       document.getElementById("pages-results-section").style.display = "block";
       document.getElementById("pages-count").textContent = results.pages.length;
       
@@ -1170,7 +1178,6 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 
     // Render Orders
     if (results.orders && results.orders.length > 0) {
-      console.log("📦 Rendering orders:", results.orders.length);
       document.getElementById("orders-results-section").style.display = "block";
       document.getElementById("orders-count").textContent = results.orders.length;
       
@@ -1315,23 +1322,17 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
     if (searchIconBtn) {
       searchIconBtn.addEventListener('click', () => {
         const query = storeSearchInputNew.value.trim();
-        console.log("🔘 Search button clicked, query:", query);
-        if (query) {
-          performSearchNew(query);
-        }
+        performSearchNew(query);
       });
     }
 
-    // Enter key on search textarea
+    // Enter key on search textarea (Ctrl+Enter or just Enter)
     if (storeSearchInputNew) {
       storeSearchInputNew.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
+          e.preventDefault(); // Prevent new line
           const query = storeSearchInputNew.value.trim();
-          console.log("⌨️ Enter pressed, query:", query);
-          if (query) {
-            performSearchNew(query);
-          }
+          performSearchNew(query);
         }
       });
     }
