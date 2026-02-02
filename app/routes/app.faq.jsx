@@ -153,8 +153,8 @@ export default function FaqPage() {
 
   const tabs = [
     { id: 'manage', content: 'Manage FAQs', panelID: 'manage-panel' },
-    { id: 'page', content: 'FAQ Page', panelID: 'page-panel' },
-    { id: 'block', content: 'FAQ Block', panelID: 'block-panel' }
+    { id: 'page', content: 'FAQ Page', panelID: 'page-panel' }
+    // { id: 'block', content: 'FAQ Block', panelID: 'block-panel' }
   ];
 
   const iconOptions = [
