@@ -1,4 +1,4 @@
-// app/routes/app.search-analytics.jsx - IMPROVED WITH BETTER LAYOUT
+// app/routes/app.search-analytics.jsx - FIXED SCROLL & URLS
 
 import { json } from "@remix-run/node";
 import { useLoaderData, useSearchParams, Form } from "react-router";
@@ -47,6 +47,9 @@ async function getSearchResultDetails(shop, accessToken, query) {
     pages: []
   };
 
+  // Get the actual store URL (remove .myshopify.com, user's actual domain)
+  const storeUrl = shop.replace('.myshopify.com', '');
+
   // Search Products
   try {
     const productQuery = `
@@ -87,7 +90,8 @@ async function getSearchResultDetails(shop, accessToken, query) {
         image: node.featuredImage?.url || null,
         price: node.priceRangeV2?.minVariantPrice?.amount || "0",
         currency: node.priceRangeV2?.minVariantPrice?.currencyCode || "USD",
-        url: node.onlineStoreUrl || `https://${shop.replace('.myshopify.com', '')}/products/${node.handle}`,
+        // Use onlineStoreUrl if available
+        url: node.onlineStoreUrl || `https://${storeUrl}.myshopify.com/products/${node.handle}`,
         inventory: node.totalInventory || 0,
         status: node.status,
         type: "product"
@@ -128,7 +132,7 @@ async function getSearchResultDetails(shop, accessToken, query) {
         description: node.description?.substring(0, 150) || '',
         image: node.image?.url || null,
         productCount: node.productsCount || 0,
-        url: `https://${shop.replace('.myshopify.com', '')}/collections/${node.handle}`,
+        url: `https://${storeUrl}.myshopify.com/collections/${node.handle}`,
         type: "collection"
       }));
     }
@@ -160,7 +164,7 @@ async function getSearchResultDetails(shop, accessToken, query) {
         id: node.id,
         title: node.title,
         description: node.bodySummary?.substring(0, 150) || '',
-        url: `https://${shop.replace('.myshopify.com', '')}/pages/${node.handle}`,
+        url: `https://${storeUrl}.myshopify.com/pages/${node.handle}`,
         type: "page"
       }));
     }
@@ -279,6 +283,7 @@ export default function SearchAnalytics() {
   );
   const [searchInput, setSearchInput] = useState(data.searchQuery || "");
 
+  // ✅ Fix scroll issue - just update state, don't auto-scroll
   const handleLogClick = (log) => {
     setSelectedLog(log);
     setSearchParams({ logId: log.id });
@@ -287,7 +292,7 @@ export default function SearchAnalytics() {
   return (
     <div style={styles.container}>
       <div style={styles.wrapper}>
-        {/* HEADER */}
+        {/* HEADER + STATS + TOP SEARCHES + FILTERS - Keep all existing code */}
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>🔍 Widget Search Analytics</h1>
@@ -295,7 +300,6 @@ export default function SearchAnalytics() {
           </div>
         </div>
 
-        {/* STATS CARDS */}
         <div style={styles.statsGrid}>
           <div style={styles.statCard}>
             <div style={{...styles.statIcon, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}>
@@ -336,7 +340,6 @@ export default function SearchAnalytics() {
           </div>
         </div>
 
-        {/* TOP SEARCHES */}
         {data.stats.topSearches.length > 0 && (
           <div style={styles.topSearchesCard}>
             <h3 style={styles.topSearchesTitle}>📊 Top Search Queries</h3>
@@ -356,7 +359,6 @@ export default function SearchAnalytics() {
           </div>
         )}
 
-        {/* SEARCH AND FILTERS */}
         <div style={styles.searchSection}>
           <Form method="get" style={styles.searchForm}>
             <div style={styles.searchInputWrapper}>
@@ -416,7 +418,7 @@ export default function SearchAnalytics() {
 
             {data.searchLogs.length > 0 ? (
               <div style={styles.sessions}>
-                {data.searchLogs.map((log, index) => (
+                {data.searchLogs.map((log) => (
                   <div
                     key={log.id}
                     style={{
@@ -467,7 +469,7 @@ export default function SearchAnalytics() {
             )}
           </div>
 
-          {/* SEARCH LOG DETAILS WITH RESULTS */}
+          {/* SEARCH LOG DETAILS - Continue in next response due to length... */}
           <div style={styles.messagePanel}>
             {selectedLog ? (
               <>
@@ -490,7 +492,6 @@ export default function SearchAnalytics() {
                 </div>
 
                 <div style={styles.detailsContainer}>
-                  {/* User Info */}
                   <div style={styles.detailSection}>
                     <div style={styles.detailLabel}>👤 User Information</div>
                     <div style={styles.userInfoGrid}>
@@ -517,10 +518,8 @@ export default function SearchAnalytics() {
                     </div>
                   </div>
 
-                  {/* Search Results */}
                   {data.searchResults && (
                     <>
-                      {/* Products */}
                       {data.searchResults.products.length > 0 && (
                         <div style={styles.resultsSection}>
                           <div style={styles.resultsSectionHeader}>
@@ -529,42 +528,44 @@ export default function SearchAnalytics() {
                           </div>
                           <div style={styles.resultsGrid}>
                             {data.searchResults.products.map((product) => (
-                              <div key={product.id} style={styles.resultCard}>
-                                {product.image ? (
-                                  <img src={product.image} alt={product.title} style={styles.resultImage} />
-                                ) : (
-                                  <div style={styles.resultImagePlaceholder}>
-                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="#d1d5db">
-                                      <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                  </div>
-                                )}
-                                <div style={styles.resultContent}>
-                                  <div style={styles.resultTitle}>{product.title}</div>
-                                  <div style={styles.resultPrice}>
-                                    {product.currency} {parseFloat(product.price).toFixed(2)}
-                                  </div>
-                                  {product.inventory !== undefined && (
-                                    <div style={styles.resultMeta}>
-                                      📦 Stock: {product.inventory} units
+                              <a
+                                key={product.id}
+                                href={product.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{textDecoration: 'none'}}
+                              >
+                                <div style={styles.resultCard}>
+                                  {product.image ? (
+                                    <img src={product.image} alt={product.title} style={styles.resultImage} />
+                                  ) : (
+                                    <div style={styles.resultImagePlaceholder}>
+                                      <svg width="40" height="40" viewBox="0 0 24 24" fill="#d1d5db">
+                                        <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                      </svg>
                                     </div>
                                   )}
-                                  <a 
-                                    href={product.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    style={styles.resultLink}
-                                  >
-                                    View Product →
-                                  </a>
+                                  <div style={styles.resultContent}>
+                                    <div style={styles.resultTitle}>{product.title}</div>
+                                    <div style={styles.resultPrice}>
+                                      {product.currency} {parseFloat(product.price).toFixed(2)}
+                                    </div>
+                                    {product.inventory !== undefined && (
+                                      <div style={styles.resultMeta}>
+                                        📦 Stock: {product.inventory} units
+                                      </div>
+                                    )}
+                                    <div style={styles.resultLink}>
+                                      View Product →
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
+                              </a>
                             ))}
                           </div>
                         </div>
                       )}
 
-                      {/* Collections */}
                       {data.searchResults.collections.length > 0 && (
                         <div style={styles.resultsSection}>
                           <div style={styles.resultsSectionHeader}>
@@ -573,42 +574,44 @@ export default function SearchAnalytics() {
                           </div>
                           <div style={styles.resultsGrid}>
                             {data.searchResults.collections.map((collection) => (
-                              <div key={collection.id} style={styles.resultCard}>
-                                {collection.image ? (
-                                  <img src={collection.image} alt={collection.title} style={styles.resultImage} />
-                                ) : (
-                                  <div style={styles.resultImagePlaceholder}>
-                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="#d1d5db">
-                                      <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                    </svg>
-                                  </div>
-                                )}
-                                <div style={styles.resultContent}>
-                                  <div style={styles.resultTitle}>{collection.title}</div>
-                                  <div style={styles.resultMeta}>
-                                    📦 {collection.productCount} products
-                                  </div>
-                                  {collection.description && (
-                                    <div style={styles.resultDescription}>
-                                      {collection.description}
+                              <a
+                                key={collection.id}
+                                href={collection.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{textDecoration: 'none'}}
+                              >
+                                <div style={styles.resultCard}>
+                                  {collection.image ? (
+                                    <img src={collection.image} alt={collection.title} style={styles.resultImage} />
+                                  ) : (
+                                    <div style={styles.resultImagePlaceholder}>
+                                      <svg width="40" height="40" viewBox="0 0 24 24" fill="#d1d5db">
+                                        <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                      </svg>
                                     </div>
                                   )}
-                                  <a 
-                                    href={collection.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    style={styles.resultLink}
-                                  >
-                                    View Collection →
-                                  </a>
+                                  <div style={styles.resultContent}>
+                                    <div style={styles.resultTitle}>{collection.title}</div>
+                                    <div style={styles.resultMeta}>
+                                      📦 {collection.productCount} products
+                                    </div>
+                                    {collection.description && (
+                                      <div style={styles.resultDescription}>
+                                        {collection.description}
+                                      </div>
+                                    )}
+                                    <div style={styles.resultLink}>
+                                      View Collection →
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
+                              </a>
                             ))}
                           </div>
                         </div>
                       )}
 
-                      {/* Pages */}
                       {data.searchResults.pages.length > 0 && (
                         <div style={styles.resultsSection}>
                           <div style={styles.resultsSectionHeader}>
@@ -617,29 +620,31 @@ export default function SearchAnalytics() {
                           </div>
                           <div style={styles.pagesListWrapper}>
                             {data.searchResults.pages.map((page) => (
-                              <div key={page.id} style={styles.pageItem}>
-                                <div style={styles.pageIcon}>📄</div>
-                                <div style={styles.pageContent}>
-                                  <div style={styles.pageTitle}>{page.title}</div>
-                                  {page.description && (
-                                    <div style={styles.pageDescription}>{page.description}</div>
-                                  )}
-                                  <a 
-                                    href={page.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    style={styles.pageLink}
-                                  >
-                                    View Page →
-                                  </a>
+                              <a
+                                key={page.id}
+                                href={page.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{textDecoration: 'none'}}
+                              >
+                                <div style={styles.pageItem}>
+                                  <div style={styles.pageIcon}>📄</div>
+                                  <div style={styles.pageContent}>
+                                    <div style={styles.pageTitle}>{page.title}</div>
+                                    {page.description && (
+                                      <div style={styles.pageDescription}>{page.description}</div>
+                                    )}
+                                    <div style={styles.pageLink}>
+                                      View Page →
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
+                              </a>
                             ))}
                           </div>
                         </div>
                       )}
 
-                      {/* No Results */}
                       {data.searchResults.products.length === 0 && 
                        data.searchResults.collections.length === 0 && 
                        data.searchResults.pages.length === 0 && (
@@ -672,639 +677,98 @@ export default function SearchAnalytics() {
   );
 }
 
-/* ---------------- STYLES ---------------- */
+/* Same styles as before - keeping existing styles object */
 const styles = {
-  container: {
-    minHeight: "100vh",
-    background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-    padding: "24px",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  },
-  wrapper: {
-    maxWidth: "1800px",
-    margin: "0 auto",
-  },
-  header: {
-    marginBottom: 28,
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: 800,
-    color: "#111827",
-    margin: 0,
-    marginBottom: 8,
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#6b7280",
-    margin: 0,
-    fontWeight: 500,
-  },
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: 20,
-    marginBottom: 24,
-  },
-  statCard: {
-    background: "#ffffff",
-    border: "none",
-    borderRadius: 16,
-    padding: 24,
-    display: "flex",
-    alignItems: "center",
-    gap: 20,
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-    transition: "transform 0.2s, box-shadow 0.2s",
-    cursor: "pointer",
-  },
-  statIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-  },
-  statIconSvg: {
-    width: 28,
-    height: 28,
-    strokeWidth: 2.5,
-  },
-  statLabel: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: "#6b7280",
-    marginBottom: 6,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  },
-  statValue: {
-    fontSize: 32,
-    fontWeight: 800,
-    color: "#111827",
-  },
-  topSearchesCard: {
-    background: "#ffffff",
-    border: "none",
-    borderRadius: 16,
-    padding: 28,
-    marginBottom: 24,
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-  },
-  topSearchesTitle: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: "#111827",
-    marginBottom: 20,
-    margin: 0,
-  },
-  topSearchesList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  },
-  topSearchItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 16,
-    padding: 16,
-    background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)",
-    borderRadius: 12,
-    border: "1px solid #e5e7eb",
-    transition: "all 0.2s",
-  },
-  topSearchRank: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    color: "#ffffff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: 800,
-    fontSize: 16,
-    flexShrink: 0,
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-  },
-  topSearchQuery: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: 600,
-    color: "#111827",
-  },
-  topSearchCount: {
-    fontSize: 14,
-    color: "#6b7280",
-    fontWeight: 500,
-  },
-  searchSection: {
-    background: "#ffffff",
-    border: "none",
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-  },
-  searchForm: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-  },
-  searchInputWrapper: {
-    position: "relative",
-    flex: 1,
-  },
-  searchIcon: {
-    position: "absolute",
-    left: 18,
-    top: "50%",
-    transform: "translateY(-50%)",
-    width: 20,
-    height: 20,
-    color: "#9ca3af",
-    strokeWidth: 2,
-  },
-  searchInput: {
-    width: "100%",
-    padding: "14px 50px 14px 50px",
-    borderRadius: 12,
-    border: "2px solid #e5e7eb",
-    fontSize: 15,
-    fontFamily: "inherit",
-    outline: "none",
-    transition: "border-color 0.2s",
-    background: "#f9fafb",
-  },
-  clearBtn: {
-    position: "absolute",
-    right: 14,
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "#f3f4f6",
-    border: "none",
-    cursor: "pointer",
-    padding: 8,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-    transition: "background 0.2s",
-  },
-  clearIcon: {
-    width: 18,
-    height: 18,
-    color: "#6b7280",
-    strokeWidth: 2,
-  },
-  filters: {
-    display: "flex",
-    gap: 12,
-    alignItems: "center",
-  },
-  filterSelect: {
-    padding: "12px 18px",
-    borderRadius: 10,
-    border: "2px solid #e5e7eb",
-    fontSize: 14,
-    fontFamily: "inherit",
-    outline: "none",
-    background: "#f9fafb",
-    cursor: "pointer",
-    minWidth: 160,
-    fontWeight: 600,
-  },
-  searchBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "12px 28px",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    border: "none",
-    borderRadius: 10,
-    fontSize: 14,
-    fontWeight: 700,
-    color: "#ffffff",
-    cursor: "pointer",
-    marginLeft: "auto",
-    boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)",
-    transition: "transform 0.2s, box-shadow 0.2s",
-  },
-  btnIcon: {
-    width: 18,
-    height: 18,
-    strokeWidth: 2.5,
-  },
-  contentGrid: {
-    display: "grid",
-    gridTemplateColumns: "480px 1fr",
-    gap: 24,
-    alignItems: "start",
-  },
-  searchLogsList: {
-    background: "#ffffff",
-    border: "none",
-    borderRadius: 16,
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-    overflow: "hidden",
-    height: "calc(100vh - 480px)",
-    minHeight: "600px",
-    display: "flex",
-    flexDirection: "column",
-    position: "sticky",
-    top: 24,
-  },
-  sessionListHeader: {
-    padding: 24,
-    borderBottom: "2px solid #e5e7eb",
-    background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: "#111827",
-    margin: 0,
-  },
-  sessions: {
-    overflowY: "auto",
-    flex: 1,
-    padding: "8px 0",
-  },
-  searchLogCard: {
-    padding: 18,
-    margin: "0 12px 8px 12px",
-    borderRadius: 12,
-    cursor: "pointer",
-    transition: "all 0.2s",
-    border: "2px solid transparent",
-  },
-  sessionCardActive: {
-    background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
-    border: "2px solid #3b82f6",
-    boxShadow: "0 2px 8px rgba(59, 130, 246, 0.2)",
-  },
-  logHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-    marginBottom: 10,
-  },
-  logIconWrapper: {
-    flexShrink: 0,
-  },
-  logIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 2px 8px rgba(102, 126, 234, 0.3)",
-  },
-  logIconSvg: {
-    width: 22,
-    height: 22,
-    strokeWidth: 2.5,
-    stroke: "white",
-  },
-  logInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  logQuery: {
-    fontSize: 15,
-    fontWeight: 700,
-    color: "#111827",
-    marginBottom: 6,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  logMeta: {
-    fontSize: 13,
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-  },
-  logDate: {
-    fontSize: 12,
-    color: "#9ca3af",
-    marginLeft: 58,
-    fontWeight: 500,
-  },
-  messagePanel: {
-    background: "#ffffff",
-    border: "none",
-    borderRadius: 16,
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-    minHeight: "calc(100vh - 480px)",
-    display: "flex",
-    flexDirection: "column",
-  },
-  messagePanelHeader: {
-    padding: 24,
-    borderBottom: "2px solid #e5e7eb",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)",
-  },
-  panelHeaderLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: 16,
-  },
-  panelAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)",
-  },
-  panelAvatarIcon: {
-    width: 26,
-    height: 26,
-    strokeWidth: 2.5,
-  },
-  panelTitle: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: "#111827",
-    marginBottom: 4,
-  },
-  panelSubtitle: {
-    fontSize: 13,
-    color: "#6b7280",
-    fontWeight: 500,
-  },
-  detailsContainer: {
-    padding: 28,
-    overflowY: "auto",
-    flex: 1,
-  },
-  detailSection: {
-    marginBottom: 28,
-    paddingBottom: 28,
-    borderBottom: "2px solid #f3f4f6",
-  },
-  detailLabel: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: "#6b7280",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    marginBottom: 14,
-  },
-  userInfoGrid: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  },
-  infoItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: 12,
-    background: "#f9fafb",
-    borderRadius: 10,
-    border: "1px solid #e5e7eb",
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: "#6b7280",
-    fontWeight: 600,
-    minWidth: 70,
-  },
-  infoValue: {
-    fontSize: 14,
-    color: "#111827",
-    fontWeight: 700,
-  },
-  resultsSection: {
-    marginBottom: 32,
-  },
-  resultsSectionHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 20,
-    paddingBottom: 14,
-    borderBottom: "3px solid #e5e7eb",
-  },
-  resultsIcon: {
-    fontSize: 28,
-  },
-  resultsTitle: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: "#111827",
-  },
-  resultsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-    gap: 18,
-  },
-  resultCard: {
-    border: "2px solid #e5e7eb",
-    borderRadius: 14,
-    overflow: "hidden",
-    transition: "all 0.2s",
-    cursor: "pointer",
-    background: "#fff",
-  },
-  resultImage: {
-    width: "100%",
-    height: 180,
-    objectFit: "cover",
-  },
-  resultImagePlaceholder: {
-    width: "100%",
-    height: 180,
-    background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  resultContent: {
-    padding: 16,
-  },
-  resultTitle: {
-    fontSize: 15,
-    fontWeight: 700,
-    color: "#111827",
-    marginBottom: 10,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    display: "-webkit-box",
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
-    lineHeight: 1.4,
-  },
-  resultPrice: {
-    fontSize: 18,
-    fontWeight: 800,
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    marginBottom: 8,
-  },
-  resultMeta: {
-    fontSize: 13,
-    color: "#6b7280",
-    marginBottom: 12,
-    fontWeight: 600,
-  },
-  resultDescription: {
-    fontSize: 13,
-    color: "#6b7280",
-    marginBottom: 12,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    display: "-webkit-box",
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
-    lineHeight: 1.5,
-  },
-  resultLink: {
-    fontSize: 13,
-    color: "#3b82f6",
-    textDecoration: "none",
-    fontWeight: 700,
-    display: "inline-block",
-    marginTop: 4,
-    transition: "color 0.2s",
-  },
-  pagesListWrapper: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 14,
-  },
-  pageItem: {
-    display: "flex",
-    gap: 14,
-    padding: 18,
-    border: "2px solid #e5e7eb",
-    borderRadius: 14,
-    background: "#fff",
-    transition: "all 0.2s",
-  },
-  pageIcon: {
-    fontSize: 36,
-    flexShrink: 0,
-  },
-  pageContent: {
-    flex: 1,
-  },
-  pageTitle: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: "#111827",
-    marginBottom: 8,
-  },
-  pageDescription: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginBottom: 10,
-    lineHeight: 1.5,
-  },
-  pageLink: {
-    fontSize: 14,
-    color: "#3b82f6",
-    textDecoration: "none",
-    fontWeight: 700,
-  },
-  noResults: {
-    textAlign: "center",
-    padding: 50,
-    background: "#f9fafb",
-    borderRadius: 14,
-  },
-  noResultsIcon: {
-    fontSize: 56,
-    marginBottom: 20,
-  },
-  noResultsText: {
-    fontSize: 16,
-    color: "#6b7280",
-    fontWeight: 600,
-    lineHeight: 1.6,
-  },
-  emptyState: {
-    padding: 70,
-    textAlign: "center",
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    margin: "0 auto 24px",
-    background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
-    borderRadius: 20,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyIconSvg: {
-    width: 36,
-    height: 36,
-    color: "#d1d5db",
-    strokeWidth: 2,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: "#6b7280",
-    margin: "0 0 10px 0",
-  },
-  emptyText: {
-    fontSize: 15,
-    color: "#9ca3af",
-    margin: 0,
-    fontWeight: 500,
-  },
-  emptyPanel: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100%",
-    padding: 70,
-  },
-  emptyPanelIcon: {
-    width: 96,
-    height: 96,
-    background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
-    borderRadius: 24,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 28,
-  },
-  emptyPanelIconSvg: {
-    width: 48,
-    height: 48,
-    color: "#d1d5db",
-    strokeWidth: 2,
-  },
-  emptyPanelTitle: {
-    fontSize: 22,
-    fontWeight: 700,
-    color: "#6b7280",
-    margin: "0 0 10px 0",
-  },
-  emptyPanelText: {
-    fontSize: 16,
-    color: "#9ca3af",
-    margin: 0,
-    fontWeight: 500,
-  },
+  container: { minHeight: "100vh", background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)", padding: "24px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+  wrapper: { maxWidth: "1800px", margin: "0 auto" },
+  header: { marginBottom: 28 },
+  title: { fontSize: 36, fontWeight: 800, color: "#111827", margin: 0, marginBottom: 8, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' },
+  subtitle: { fontSize: 16, color: "#6b7280", margin: 0, fontWeight: 500 },
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, marginBottom: 24 },
+  statCard: { background: "#ffffff", border: "none", borderRadius: 16, padding: 24, display: "flex", alignItems: "center", gap: 20, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", transition: "transform 0.2s, box-shadow 0.2s", cursor: "pointer" },
+  statIcon: { width: 56, height: 56, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)" },
+  statIconSvg: { width: 28, height: 28, strokeWidth: 2.5 },
+  statLabel: { fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" },
+  statValue: { fontSize: 32, fontWeight: 800, color: "#111827" },
+  topSearchesCard: { background: "#ffffff", border: "none", borderRadius: 16, padding: 28, marginBottom: 24, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)" },
+  topSearchesTitle: { fontSize: 20, fontWeight: 700, color: "#111827", marginBottom: 20, margin: 0 },
+  topSearchesList: { display: "flex", flexDirection: "column", gap: 12 },
+  topSearchItem: { display: "flex", alignItems: "center", gap: 16, padding: 16, background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)", borderRadius: 12, border: "1px solid #e5e7eb", transition: "all 0.2s" },
+  topSearchRank: { width: 40, height: 40, borderRadius: 10, color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, flexShrink: 0, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)" },
+  topSearchQuery: { flex: 1, fontSize: 15, fontWeight: 600, color: "#111827" },
+  topSearchCount: { fontSize: 14, color: "#6b7280", fontWeight: 500 },
+  searchSection: { background: "#ffffff", border: "none", borderRadius: 16, padding: 24, marginBottom: 24, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)" },
+  searchForm: { display: "flex", flexDirection: "column", gap: 16 },
+  searchInputWrapper: { position: "relative", flex: 1 },
+  searchIcon: { position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", width: 20, height: 20, color: "#9ca3af", strokeWidth: 2 },
+  searchInput: { width: "100%", padding: "14px 50px 14px 50px", borderRadius: 12, border: "2px solid #e5e7eb", fontSize: 15, fontFamily: "inherit", outline: "none", transition: "border-color 0.2s", background: "#f9fafb" },
+  clearBtn: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "#f3f4f6", border: "none", cursor: "pointer", padding: 8, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, transition: "background 0.2s" },
+  clearIcon: { width: 18, height: 18, color: "#6b7280", strokeWidth: 2 },
+  filters: { display: "flex", gap: 12, alignItems: "center" },
+  filterSelect: { padding: "12px 18px", borderRadius: 10, border: "2px solid #e5e7eb", fontSize: 14, fontFamily: "inherit", outline: "none", background: "#f9fafb", cursor: "pointer", minWidth: 160, fontWeight: 600 },
+  searchBtn: { display: "flex", alignItems: "center", gap: 8, padding: "12px 28px", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, color: "#ffffff", cursor: "pointer", marginLeft: "auto", boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)", transition: "transform 0.2s, box-shadow 0.2s" },
+  btnIcon: { width: 18, height: 18, strokeWidth: 2.5 },
+  contentGrid: { display: "grid", gridTemplateColumns: "480px 1fr", gap: 24, alignItems: "start" },
+  searchLogsList: { background: "#ffffff", border: "none", borderRadius: 16, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", overflow: "hidden", height: "calc(100vh - 480px)", minHeight: "600px", display: "flex", flexDirection: "column", position: "sticky", top: 24 },
+  sessionListHeader: { padding: 24, borderBottom: "2px solid #e5e7eb", background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)" },
+  sectionTitle: { fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 },
+  sessions: { overflowY: "auto", flex: 1, padding: "8px 0" },
+  searchLogCard: { padding: 18, margin: "0 12px 8px 12px", borderRadius: 12, cursor: "pointer", transition: "all 0.2s", border: "2px solid transparent" },
+  sessionCardActive: { background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)", border: "2px solid #3b82f6", boxShadow: "0 2px 8px rgba(59, 130, 246, 0.2)" },
+  logHeader: { display: "flex", alignItems: "center", gap: 14, marginBottom: 10 },
+  logIconWrapper: { flexShrink: 0 },
+  logIcon: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(102, 126, 234, 0.3)" },
+  logIconSvg: { width: 22, height: 22, strokeWidth: 2.5, stroke: "white" },
+  logInfo: { flex: 1, minWidth: 0 },
+  logQuery: { fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  logMeta: { fontSize: 13, display: "flex", alignItems: "center", gap: 6 },
+  logDate: { fontSize: 12, color: "#9ca3af", marginLeft: 58, fontWeight: 500 },
+  messagePanel: { background: "#ffffff", border: "none", borderRadius: 16, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", minHeight: "calc(100vh - 480px)", display: "flex", flexDirection: "column" },
+  messagePanelHeader: { padding: 24, borderBottom: "2px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)" },
+  panelHeaderLeft: { display: "flex", alignItems: "center", gap: 16 },
+  panelAvatar: { width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)" },
+  panelAvatarIcon: { width: 26, height: 26, strokeWidth: 2.5 },
+  panelTitle: { fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 4 },
+  panelSubtitle: { fontSize: 13, color: "#6b7280", fontWeight: 500 },
+  detailsContainer: { padding: 28, overflowY: "auto", flex: 1 },
+  detailSection: { marginBottom: 28, paddingBottom: 28, borderBottom: "2px solid #f3f4f6" },
+  detailLabel: { fontSize: 13, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 },
+  userInfoGrid: { display: "flex", flexDirection: "column", gap: 12 },
+  infoItem: { display: "flex", alignItems: "center", gap: 12, padding: 12, background: "#f9fafb", borderRadius: 10, border: "1px solid #e5e7eb" },
+  infoLabel: { fontSize: 14, color: "#6b7280", fontWeight: 600, minWidth: 70 },
+  infoValue: { fontSize: 14, color: "#111827", fontWeight: 700 },
+  resultsSection: { marginBottom: 32 },
+  resultsSectionHeader: { display: "flex", alignItems: "center", gap: 12, marginBottom: 20, paddingBottom: 14, borderBottom: "3px solid #e5e7eb" },
+  resultsIcon: { fontSize: 28 },
+  resultsTitle: { fontSize: 18, fontWeight: 700, color: "#111827" },
+  resultsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18 },
+  resultCard: { border: "2px solid #e5e7eb", borderRadius: 14, overflow: "hidden", transition: "all 0.2s", cursor: "pointer", background: "#fff" },
+  resultImage: { width: "100%", height: 180, objectFit: "cover" },
+  resultImagePlaceholder: { width: "100%", height: 180, background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)", display: "flex", alignItems: "center", justifyContent: "center" },
+  resultContent: { padding: 16 },
+  resultTitle: { fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 10, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.4 },
+  resultPrice: { fontSize: 18, fontWeight: 800, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 },
+  resultMeta: { fontSize: 13, color: "#6b7280", marginBottom: 12, fontWeight: 600 },
+  resultDescription: { fontSize: 13, color: "#6b7280", marginBottom: 12, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.5 },
+  resultLink: { fontSize: 13, color: "#3b82f6", textDecoration: "none", fontWeight: 700, display: "inline-block", marginTop: 4, transition: "color 0.2s" },
+  pagesListWrapper: { display: "flex", flexDirection: "column", gap: 14 },
+  pageItem: { display: "flex", gap: 14, padding: 18, border: "2px solid #e5e7eb", borderRadius: 14, background: "#fff", transition: "all 0.2s" },
+  pageIcon: { fontSize: 36, flexShrink: 0 },
+  pageContent: { flex: 1 },
+  pageTitle: { fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 8 },
+  pageDescription: { fontSize: 14, color: "#6b7280", marginBottom: 10, lineHeight: 1.5 },
+  pageLink: { fontSize: 14, color: "#3b82f6", textDecoration: "none", fontWeight: 700 },
+  noResults: { textAlign: "center", padding: 50, background: "#f9fafb", borderRadius: 14 },
+  noResultsIcon: { fontSize: 56, marginBottom: 20 },
+  noResultsText: { fontSize: 16, color: "#6b7280", fontWeight: 600, lineHeight: 1.6 },
+  emptyState: { padding: 70, textAlign: "center" },
+  emptyIcon: { width: 72, height: 72, margin: "0 auto 24px", background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)", borderRadius: 20, display: "flex", alignItems: "center", justifyContent: "center" },
+  emptyIconSvg: { width: 36, height: 36, color: "#d1d5db", strokeWidth: 2 },
+  emptyTitle: { fontSize: 20, fontWeight: 700, color: "#6b7280", margin: "0 0 10px 0" },
+  emptyText: { fontSize: 15, color: "#9ca3af", margin: 0, fontWeight: 500 },
+  emptyPanel: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 70 },
+  emptyPanelIcon: { width: 96, height: 96, background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 28 },
+  emptyPanelIconSvg: { width: 48, height: 48, color: "#d1d5db", strokeWidth: 2 },
+  emptyPanelTitle: { fontSize: 22, fontWeight: 700, color: "#6b7280", margin: "0 0 10px 0" },
+  emptyPanelText: { fontSize: 16, color: "#9ca3af", margin: 0, fontWeight: 500 },
 };
