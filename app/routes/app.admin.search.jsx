@@ -1,4 +1,4 @@
-// app/routes/app.search-analytics.jsx - IMPROVED WITH PRODUCT DETAILS
+// app/routes/app.search-analytics.jsx - IMPROVED WITH BETTER LAYOUT
 
 import { json } from "@remix-run/node";
 import { useLoaderData, useSearchParams, Form } from "react-router";
@@ -184,7 +184,7 @@ export async function loader({ request }) {
   // Get all search logs (only frontend)
   let searchWhereCondition = { 
     shop,
-    searchType: "frontend" // Only show widget searches
+    searchType: "frontend"
   };
 
   // Apply date filter
@@ -298,8 +298,8 @@ export default function SearchAnalytics() {
         {/* STATS CARDS */}
         <div style={styles.statsGrid}>
           <div style={styles.statCard}>
-            <div style={{...styles.statIcon, background: '#dbeafe'}}>
-              <svg fill="none" viewBox="0 0 24 24" stroke="#3b82f6" style={styles.statIconSvg}>
+            <div style={{...styles.statIcon, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}>
+              <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.statIconSvg}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
@@ -310,8 +310,8 @@ export default function SearchAnalytics() {
           </div>
 
           <div style={styles.statCard}>
-            <div style={{...styles.statIcon, background: '#d1fae5'}}>
-              <svg fill="none" viewBox="0 0 24 24" stroke="#10b981" style={styles.statIconSvg}>
+            <div style={{...styles.statIcon, background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'}}>
+              <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.statIconSvg}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
@@ -322,8 +322,8 @@ export default function SearchAnalytics() {
           </div>
 
           <div style={styles.statCard}>
-            <div style={{...styles.statIcon, background: '#fef3c7'}}>
-              <svg fill="none" viewBox="0 0 24 24" stroke="#f59e0b" style={styles.statIconSvg}>
+            <div style={{...styles.statIcon, background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'}}>
+              <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.statIconSvg}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
@@ -343,9 +343,13 @@ export default function SearchAnalytics() {
             <div style={styles.topSearchesList}>
               {data.stats.topSearches.map((item, idx) => (
                 <div key={idx} style={styles.topSearchItem}>
-                  <div style={styles.topSearchRank}>{idx + 1}</div>
+                  <div style={{...styles.topSearchRank, background: idx === 0 ? '#fbbf24' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : '#3b82f6'}}>
+                    {idx + 1}
+                  </div>
                   <div style={styles.topSearchQuery}>"{item.query}"</div>
-                  <div style={styles.topSearchCount}>{item.count} searches</div>
+                  <div style={styles.topSearchCount}>
+                    <span style={{fontWeight: 700, color: '#111827'}}>{item.count}</span> searches
+                  </div>
                 </div>
               ))}
             </div>
@@ -423,7 +427,7 @@ export default function SearchAnalytics() {
                   >
                     <div style={styles.logHeader}>
                       <div style={styles.logIconWrapper}>
-                        <div style={{...styles.logIcon, background: '#dbeafe', color: '#3b82f6'}}>
+                        <div style={styles.logIcon}>
                           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.logIconSvg}>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                           </svg>
@@ -435,9 +439,11 @@ export default function SearchAnalytics() {
                         </div>
                         <div style={styles.logMeta}>
                           {log.userEmail && log.userEmail !== 'anonymous' ? (
-                            <span>{log.firstName || ''} {log.lastName || ''}</span>
+                            <span style={{color: '#3b82f6', fontWeight: 600}}>
+                              {log.firstName || ''} {log.lastName || ''}
+                            </span>
                           ) : (
-                            <span style={{color: '#9ca3af'}}>Anonymous</span>
+                            <span style={{color: '#9ca3af', fontStyle: 'italic'}}>Anonymous</span>
                           )}
                         </div>
                       </div>
@@ -467,7 +473,7 @@ export default function SearchAnalytics() {
               <>
                 <div style={styles.messagePanelHeader}>
                   <div style={styles.panelHeaderLeft}>
-                    <div style={{...styles.panelAvatar, background: '#3b82f6'}}>
+                    <div style={styles.panelAvatar}>
                       <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.panelAvatarIcon}>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
@@ -486,7 +492,7 @@ export default function SearchAnalytics() {
                 <div style={styles.detailsContainer}>
                   {/* User Info */}
                   <div style={styles.detailSection}>
-                    <div style={styles.detailLabel}>User Information</div>
+                    <div style={styles.detailLabel}>👤 User Information</div>
                     <div style={styles.userInfoGrid}>
                       {(selectedLog.firstName || selectedLog.lastName) && (
                         <div style={styles.infoItem}>
@@ -501,7 +507,7 @@ export default function SearchAnalytics() {
                           <span style={styles.infoLabel}>Email:</span>
                           <span style={styles.infoValue}>
                             {selectedLog.userEmail === 'anonymous' ? (
-                              <span style={{color: '#9ca3af'}}>Anonymous User</span>
+                              <span style={{color: '#9ca3af', fontStyle: 'italic'}}>Anonymous User</span>
                             ) : (
                               selectedLog.userEmail
                             )}
@@ -540,7 +546,7 @@ export default function SearchAnalytics() {
                                   </div>
                                   {product.inventory !== undefined && (
                                     <div style={styles.resultMeta}>
-                                      Stock: {product.inventory} units
+                                      📦 Stock: {product.inventory} units
                                     </div>
                                   )}
                                   <a 
@@ -580,7 +586,7 @@ export default function SearchAnalytics() {
                                 <div style={styles.resultContent}>
                                   <div style={styles.resultTitle}>{collection.title}</div>
                                   <div style={styles.resultMeta}>
-                                    {collection.productCount} products
+                                    📦 {collection.productCount} products
                                   </div>
                                   {collection.description && (
                                     <div style={styles.resultDescription}>
@@ -670,83 +676,93 @@ export default function SearchAnalytics() {
 const styles = {
   container: {
     minHeight: "100vh",
-    background: "#f9fafb",
-    padding: "32px 24px",
+    background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+    padding: "24px",
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   wrapper: {
-    maxWidth: "1600px",
+    maxWidth: "1800px",
     margin: "0 auto",
   },
   header: {
-    marginBottom: 32,
+    marginBottom: 28,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 700,
+    fontSize: 36,
+    fontWeight: 800,
     color: "#111827",
     margin: 0,
     marginBottom: 8,
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
   },
   subtitle: {
     fontSize: 16,
     color: "#6b7280",
     margin: 0,
+    fontWeight: 500,
   },
   statsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
     gap: 20,
-    marginBottom: 32,
+    marginBottom: 24,
   },
   statCard: {
     background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 12,
-    padding: 20,
+    border: "none",
+    borderRadius: 16,
+    padding: 24,
     display: "flex",
     alignItems: "center",
-    gap: 16,
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+    gap: 20,
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+    transition: "transform 0.2s, box-shadow 0.2s",
+    cursor: "pointer",
   },
   statIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
+    width: 56,
+    height: 56,
+    borderRadius: 14,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
   },
   statIconSvg: {
-    width: 24,
-    height: 24,
-    strokeWidth: 2,
+    width: 28,
+    height: 28,
+    strokeWidth: 2.5,
   },
   statLabel: {
     fontSize: 13,
-    fontWeight: 500,
+    fontWeight: 600,
     color: "#6b7280",
-    marginBottom: 4,
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
   },
   statValue: {
-    fontSize: 28,
-    fontWeight: 700,
+    fontSize: 32,
+    fontWeight: 800,
     color: "#111827",
   },
   topSearchesCard: {
     background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 12,
-    padding: 24,
+    border: "none",
+    borderRadius: 16,
+    padding: 28,
     marginBottom: 24,
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
   },
   topSearchesTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 700,
     color: "#111827",
-    marginBottom: 16,
+    marginBottom: 20,
     margin: 0,
   },
   topSearchesList: {
@@ -757,24 +773,25 @@ const styles = {
   topSearchItem: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
-    padding: 12,
-    background: "#f9fafb",
-    borderRadius: 8,
+    gap: 16,
+    padding: 16,
+    background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)",
+    borderRadius: 12,
     border: "1px solid #e5e7eb",
+    transition: "all 0.2s",
   },
   topSearchRank: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    background: "#3b82f6",
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     color: "#ffffff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontWeight: 700,
-    fontSize: 14,
+    fontWeight: 800,
+    fontSize: 16,
     flexShrink: 0,
+    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
   },
   topSearchQuery: {
     flex: 1,
@@ -783,17 +800,17 @@ const styles = {
     color: "#111827",
   },
   topSearchCount: {
-    fontSize: 13,
+    fontSize: 14,
     color: "#6b7280",
     fontWeight: 500,
   },
   searchSection: {
     background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 12,
+    border: "none",
+    borderRadius: 16,
     padding: 24,
     marginBottom: 24,
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
   },
   searchForm: {
     display: "flex",
@@ -806,7 +823,7 @@ const styles = {
   },
   searchIcon: {
     position: "absolute",
-    left: 16,
+    left: 18,
     top: "50%",
     transform: "translateY(-50%)",
     width: 20,
@@ -816,32 +833,34 @@ const styles = {
   },
   searchInput: {
     width: "100%",
-    padding: "12px 48px 12px 48px",
-    borderRadius: 10,
-    border: "1px solid #e5e7eb",
+    padding: "14px 50px 14px 50px",
+    borderRadius: 12,
+    border: "2px solid #e5e7eb",
     fontSize: 15,
     fontFamily: "inherit",
     outline: "none",
     transition: "border-color 0.2s",
+    background: "#f9fafb",
   },
   clearBtn: {
     position: "absolute",
-    right: 12,
+    right: 14,
     top: "50%",
     transform: "translateY(-50%)",
-    background: "transparent",
+    background: "#f3f4f6",
     border: "none",
     cursor: "pointer",
-    padding: 6,
+    padding: 8,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 6,
+    borderRadius: 8,
+    transition: "background 0.2s",
   },
   clearIcon: {
     width: 18,
     height: 18,
-    color: "#9ca3af",
+    color: "#6b7280",
     strokeWidth: 2,
   },
   filters: {
@@ -850,203 +869,226 @@ const styles = {
     alignItems: "center",
   },
   filterSelect: {
-    padding: "10px 16px",
-    borderRadius: 8,
-    border: "1px solid #e5e7eb",
+    padding: "12px 18px",
+    borderRadius: 10,
+    border: "2px solid #e5e7eb",
     fontSize: 14,
     fontFamily: "inherit",
     outline: "none",
-    background: "#ffffff",
+    background: "#f9fafb",
     cursor: "pointer",
-    minWidth: 150,
+    minWidth: 160,
+    fontWeight: 600,
   },
   searchBtn: {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    padding: "10px 24px",
-    background: "#3b82f6",
+    padding: "12px 28px",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     border: "none",
-    borderRadius: 8,
+    borderRadius: 10,
     fontSize: 14,
-    fontWeight: 600,
+    fontWeight: 700,
     color: "#ffffff",
     cursor: "pointer",
     marginLeft: "auto",
+    boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)",
+    transition: "transform 0.2s, box-shadow 0.2s",
   },
   btnIcon: {
     width: 18,
     height: 18,
-    strokeWidth: 2,
+    strokeWidth: 2.5,
   },
   contentGrid: {
     display: "grid",
-    gridTemplateColumns: "400px 1fr",
+    gridTemplateColumns: "480px 1fr",
     gap: 24,
     alignItems: "start",
   },
   searchLogsList: {
     background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 12,
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+    border: "none",
+    borderRadius: 16,
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
     overflow: "hidden",
-    maxHeight: "calc(100vh - 600px)",
+    height: "calc(100vh - 480px)",
+    minHeight: "600px",
     display: "flex",
     flexDirection: "column",
+    position: "sticky",
+    top: 24,
   },
   sessionListHeader: {
-    padding: 20,
-    borderBottom: "1px solid #e5e7eb",
-    background: "#f9fafb",
+    padding: 24,
+    borderBottom: "2px solid #e5e7eb",
+    background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)",
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 600,
+    fontSize: 18,
+    fontWeight: 700,
     color: "#111827",
     margin: 0,
   },
   sessions: {
     overflowY: "auto",
     flex: 1,
+    padding: "8px 0",
   },
   searchLogCard: {
-    padding: 16,
-    borderBottom: "1px solid #e5e7eb",
+    padding: 18,
+    margin: "0 12px 8px 12px",
+    borderRadius: 12,
     cursor: "pointer",
-    transition: "background 0.2s",
+    transition: "all 0.2s",
+    border: "2px solid transparent",
   },
   sessionCardActive: {
-    background: "#eff6ff",
-    borderLeft: "3px solid #3b82f6",
+    background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+    border: "2px solid #3b82f6",
+    boxShadow: "0 2px 8px rgba(59, 130, 246, 0.2)",
   },
   logHeader: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 8,
+    gap: 14,
+    marginBottom: 10,
   },
   logIconWrapper: {
     flexShrink: 0,
   },
   logIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    boxShadow: "0 2px 8px rgba(102, 126, 234, 0.3)",
   },
   logIconSvg: {
-    width: 20,
-    height: 20,
-    strokeWidth: 2,
+    width: 22,
+    height: 22,
+    strokeWidth: 2.5,
+    stroke: "white",
   },
   logInfo: {
     flex: 1,
     minWidth: 0,
   },
   logQuery: {
-    fontSize: 14,
-    fontWeight: 600,
+    fontSize: 15,
+    fontWeight: 700,
     color: "#111827",
-    marginBottom: 4,
+    marginBottom: 6,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   logMeta: {
-    fontSize: 12,
-    color: "#9ca3af",
+    fontSize: 13,
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
   },
   logDate: {
     fontSize: 12,
     color: "#9ca3af",
-    marginLeft: 52,
+    marginLeft: 58,
+    fontWeight: 500,
   },
   messagePanel: {
     background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 12,
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-    minHeight: "calc(100vh - 600px)",
+    border: "none",
+    borderRadius: 16,
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+    minHeight: "calc(100vh - 480px)",
     display: "flex",
     flexDirection: "column",
   },
   messagePanelHeader: {
-    padding: 20,
-    borderBottom: "1px solid #e5e7eb",
+    padding: 24,
+    borderBottom: "2px solid #e5e7eb",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    background: "#f9fafb",
+    background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)",
   },
   panelHeaderLeft: {
     display: "flex",
     alignItems: "center",
-    gap: 14,
+    gap: 16,
   },
   panelAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)",
   },
   panelAvatarIcon: {
-    width: 24,
-    height: 24,
-    strokeWidth: 2,
+    width: 26,
+    height: 26,
+    strokeWidth: 2.5,
   },
   panelTitle: {
-    fontSize: 16,
-    fontWeight: 600,
+    fontSize: 18,
+    fontWeight: 700,
     color: "#111827",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   panelSubtitle: {
-    fontSize: 12,
-    color: "#9ca3af",
+    fontSize: 13,
+    color: "#6b7280",
+    fontWeight: 500,
   },
   detailsContainer: {
-    padding: 24,
+    padding: 28,
     overflowY: "auto",
     flex: 1,
   },
   detailSection: {
-    marginBottom: 24,
-    paddingBottom: 24,
-    borderBottom: "1px solid #e5e7eb",
+    marginBottom: 28,
+    paddingBottom: 28,
+    borderBottom: "2px solid #f3f4f6",
   },
   detailLabel: {
-    fontSize: 12,
-    fontWeight: 600,
+    fontSize: 13,
+    fontWeight: 700,
     color: "#6b7280",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   userInfoGrid: {
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: 12,
   },
   infoItem: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
+    padding: 12,
+    background: "#f9fafb",
+    borderRadius: 10,
+    border: "1px solid #e5e7eb",
   },
   infoLabel: {
     fontSize: 14,
     color: "#6b7280",
-    fontWeight: 500,
-    minWidth: 60,
+    fontWeight: 600,
+    minWidth: 70,
   },
   infoValue: {
     fontSize: 14,
     color: "#111827",
-    fontWeight: 600,
+    fontWeight: 700,
   },
   resultsSection: {
     marginBottom: 32,
@@ -1054,27 +1096,27 @@ const styles = {
   resultsSectionHeader: {
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottom: "2px solid #e5e7eb",
+    gap: 12,
+    marginBottom: 20,
+    paddingBottom: 14,
+    borderBottom: "3px solid #e5e7eb",
   },
   resultsIcon: {
-    fontSize: 24,
+    fontSize: 28,
   },
   resultsTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 700,
     color: "#111827",
   },
   resultsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-    gap: 16,
+    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+    gap: 18,
   },
   resultCard: {
-    border: "1px solid #e5e7eb",
-    borderRadius: 12,
+    border: "2px solid #e5e7eb",
+    borderRadius: 14,
     overflow: "hidden",
     transition: "all 0.2s",
     cursor: "pointer",
@@ -1082,139 +1124,152 @@ const styles = {
   },
   resultImage: {
     width: "100%",
-    height: 160,
+    height: 180,
     objectFit: "cover",
   },
   resultImagePlaceholder: {
     width: "100%",
-    height: 160,
-    background: "#f3f4f6",
+    height: 180,
+    background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   resultContent: {
-    padding: 12,
+    padding: 16,
   },
   resultTitle: {
-    fontSize: 14,
-    fontWeight: 600,
+    fontSize: 15,
+    fontWeight: 700,
     color: "#111827",
-    marginBottom: 8,
+    marginBottom: 10,
     overflow: "hidden",
     textOverflow: "ellipsis",
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
+    lineHeight: 1.4,
   },
   resultPrice: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: "#3b82f6",
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: 800,
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    marginBottom: 8,
   },
   resultMeta: {
-    fontSize: 12,
+    fontSize: 13,
     color: "#6b7280",
-    marginBottom: 8,
+    marginBottom: 12,
+    fontWeight: 600,
   },
   resultDescription: {
     fontSize: 13,
     color: "#6b7280",
-    marginBottom: 8,
+    marginBottom: 12,
     overflow: "hidden",
     textOverflow: "ellipsis",
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
+    lineHeight: 1.5,
   },
   resultLink: {
     fontSize: 13,
     color: "#3b82f6",
     textDecoration: "none",
-    fontWeight: 600,
+    fontWeight: 700,
     display: "inline-block",
     marginTop: 4,
+    transition: "color 0.2s",
   },
   pagesListWrapper: {
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: 14,
   },
   pageItem: {
     display: "flex",
-    gap: 12,
-    padding: 16,
-    border: "1px solid #e5e7eb",
-    borderRadius: 12,
+    gap: 14,
+    padding: 18,
+    border: "2px solid #e5e7eb",
+    borderRadius: 14,
     background: "#fff",
+    transition: "all 0.2s",
   },
   pageIcon: {
-    fontSize: 32,
+    fontSize: 36,
     flexShrink: 0,
   },
   pageContent: {
     flex: 1,
   },
   pageTitle: {
-    fontSize: 15,
-    fontWeight: 600,
+    fontSize: 16,
+    fontWeight: 700,
     color: "#111827",
-    marginBottom: 6,
-  },
-  pageDescription: {
-    fontSize: 13,
-    color: "#6b7280",
     marginBottom: 8,
   },
+  pageDescription: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginBottom: 10,
+    lineHeight: 1.5,
+  },
   pageLink: {
-    fontSize: 13,
+    fontSize: 14,
     color: "#3b82f6",
     textDecoration: "none",
-    fontWeight: 600,
+    fontWeight: 700,
   },
   noResults: {
     textAlign: "center",
-    padding: 40,
+    padding: 50,
+    background: "#f9fafb",
+    borderRadius: 14,
   },
   noResultsIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+    fontSize: 56,
+    marginBottom: 20,
   },
   noResultsText: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#6b7280",
+    fontWeight: 600,
+    lineHeight: 1.6,
   },
   emptyState: {
-    padding: 60,
+    padding: 70,
     textAlign: "center",
   },
   emptyIcon: {
-    width: 64,
-    height: 64,
-    margin: "0 auto 20px",
-    background: "#f3f4f6",
-    borderRadius: 16,
+    width: 72,
+    height: 72,
+    margin: "0 auto 24px",
+    background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
+    borderRadius: 20,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   emptyIconSvg: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     color: "#d1d5db",
-    strokeWidth: 1.5,
+    strokeWidth: 2,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: 600,
+    fontSize: 20,
+    fontWeight: 700,
     color: "#6b7280",
-    margin: "0 0 8px 0",
+    margin: "0 0 10px 0",
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 15,
     color: "#9ca3af",
     margin: 0,
+    fontWeight: 500,
   },
   emptyPanel: {
     display: "flex",
@@ -1222,33 +1277,34 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     height: "100%",
-    padding: 60,
+    padding: 70,
   },
   emptyPanelIcon: {
-    width: 80,
-    height: 80,
-    background: "#f3f4f6",
-    borderRadius: 20,
+    width: 96,
+    height: 96,
+    background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
+    borderRadius: 24,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 24,
+    marginBottom: 28,
   },
   emptyPanelIconSvg: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     color: "#d1d5db",
-    strokeWidth: 1.5,
+    strokeWidth: 2,
   },
   emptyPanelTitle: {
-    fontSize: 20,
-    fontWeight: 600,
+    fontSize: 22,
+    fontWeight: 700,
     color: "#6b7280",
-    margin: "0 0 8px 0",
+    margin: "0 0 10px 0",
   },
   emptyPanelText: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#9ca3af",
     margin: 0,
+    fontWeight: 500,
   },
 };

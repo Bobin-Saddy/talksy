@@ -108,7 +108,7 @@
       <div class="faq-container">
         <div class="faq-header">
           <h2 id="faq-main-title">Frequently Asked Questions</h2>
-          <p id="faq-subtitle">Find quick answers to common questions</p>
+          
         </div>
         
         <div class="faq-search">
@@ -393,7 +393,11 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 #emoji-picker { position: absolute; bottom: 85px; left: 15px; right: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
 
 .faq-container { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-.faq-header { padding: 25px 20px; color: white; flex-shrink: 0; }
+.faq-header {
+    padding: 0 20px 0;
+    color: white;
+    flex-shrink: 0;
+}
 .faq-header h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
 .faq-header p { font-size: 14px; opacity: 0.9; }
 .faq-search { padding: 15px 20px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
@@ -642,19 +646,19 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 }
 
 #store-search-input-new {
-  width: 100%;
-  padding: 16px 60px 16px 16px;
-  border: 2px solid #e2e8f0;
-  border-radius: 16px;
-  font-size: 15px;
-  font-family: inherit;
-  outline: none;
-  transition: all 0.3s;
-  background: white;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  resize: none;
-  min-height: 80px;
-  line-height: 1.5;
+    width: 100%;
+    padding: 16px 20px 20px 47px;
+    border: 2px solid #e2e8f0;
+    border-radius: 16px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.3s;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    resize: none;
+    line-height: 1.5;
+    min-height: 80px;
 }
 
 #store-search-input-new:focus {
@@ -663,21 +667,22 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
 }
 
 .search-icon-btn {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  width: 44px;
-  height: 44px;
-  background: var(--chat-primary);
-  border: none;
-  border-radius: 12px;
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    position: absolute;
+    left: 8px;
+    top: 19px;
+    width: 30px;
+    height: 30px;
+    background: var(--chat-primary);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .search-icon-btn:hover {
