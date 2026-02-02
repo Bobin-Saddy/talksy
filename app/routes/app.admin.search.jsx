@@ -91,7 +91,7 @@ async function getSearchResultDetails(shop, accessToken, query) {
         price: node.priceRangeV2?.minVariantPrice?.amount || "0",
         currency: node.priceRangeV2?.minVariantPrice?.currencyCode || "USD",
         // Use onlineStoreUrl if available
-        url: node.onlineStoreUrl || `https://${storeUrl}.com/products/${node.handle}`,
+        url: node.onlineStoreUrl || `https://${storeUrl}.myshopify.com/products/${node.handle}`,
         inventory: node.totalInventory || 0,
         status: node.status,
         type: "product"
@@ -132,7 +132,7 @@ async function getSearchResultDetails(shop, accessToken, query) {
         description: node.description?.substring(0, 150) || '',
         image: node.image?.url || null,
         productCount: node.productsCount || 0,
-        url: `https://${storeUrl}.com/collections/${node.handle}`,
+        url: `https://${storeUrl}.myshopify.com/collections/${node.handle}`,
         type: "collection"
       }));
     }
@@ -164,7 +164,7 @@ async function getSearchResultDetails(shop, accessToken, query) {
         id: node.id,
         title: node.title,
         description: node.bodySummary?.substring(0, 150) || '',
-        url: `https://${storeUrl}.com/pages/${node.handle}`,
+        url: `https://${storeUrl}.myshopify.com/pages/${node.handle}`,
         type: "page"
       }));
     }
