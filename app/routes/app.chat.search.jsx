@@ -125,7 +125,7 @@ export const loader = async ({ request }) => {
             image: node.featuredImage?.url || null,
             price: node.variants?.edges?.[0]?.node?.price || node.priceRangeV2?.minVariantPrice?.amount || "N/A",
             currency: node.priceRangeV2?.minVariantPrice?.currencyCode || "USD",
-            url: node.onlineStoreUrl || `https://${shop.replace('.myshopify.com', '')}/products/${node.handle}`,
+            url: node.onlineStoreUrl || `https://${storeUrl}.myshopify.com/collections/${node.handle}`,
             type: "product"
           }));
         }
@@ -165,7 +165,7 @@ export const loader = async ({ request }) => {
             id: node.id,
             title: node.title,
             description: node.bodySummary?.substring(0, 150) || node.body?.replace(/<[^>]*>/g, '').substring(0, 150) || '',
-            url: `https://${shop.replace('.myshopify.com', '')}/pages/${node.handle}`,
+            url: `https://${storeUrl}.myshopify.com/pages/${node.handle}`,
             type: "page"
           }));
         }
@@ -278,7 +278,7 @@ export const loader = async ({ request }) => {
             description: node.description?.substring(0, 150) || '',
             image: node.image?.url || null,
             productCount: node.productsCount || 0,
-            url: `https://${shop.replace('.myshopify.com', '')}/collections/${node.handle}`,
+            url: `https://${storeUrl}.myshopify.com/collections/${node.handle}`,
             type: "collection"
           }));
         }
