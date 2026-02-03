@@ -29,28 +29,31 @@ export const loader = async ({ request }) => {
   const settings = await prisma.chatSettings.findUnique({ where: { shop: session.shop } });
   
   const defaults = {
-    primaryColor: "#FFD600",
-    headerBgColor: "#FFFFFF",
-    heroBgColor: "#FFFFFF",
-    headerTextColor: "#111827",
-    heroTextColor: "#111827",
-    cardTitleColor: "#384959",
-    cardSubtitleColor: "#64748b",
-    onboardingTextColor: "#384959",
-    chatBoxBgColor: "#FFFFFF",
+    primaryColor: "#4F46E5",
+    headerBgColor: "#2c3e50",
+    heroBgColor: "#f8f9fa",
+    headerTextColor: "#ffffff",
+    heroTextColor: "#1a1a1a",
+    cardTitleColor: "#1a1a1a",
+    cardSubtitleColor: "#4a5568",
+    onboardingTextColor: "#1a1a1a",
+    chatBoxBgColor: "#f8f9fa",
     messageBgColor: "#FFFFFF",
-    widgetBorderColor: "#F3F4F6", 
-    welcomeImg: "https://ui-avatars.com/api/?name=Support&background=FFD600&color=fff",
+    widgetBorderColor: "#E5E7EB",
+    contactCardBgColor: "#e8e8e8",
+    chatButtonBgColor: "#2c3e50",
+    emailButtonBgColor: "#fbbf24",
+    customLauncherImg: "", 
+    welcomeImg: "https://ui-avatars.com/api/?name=Support&background=4F46E5&color=fff",
     headerTitle: "Live Support",
     headerSubtitle: "Online now",
     welcomeText: "Hi 👋",
     welcomeSubtext: "How can we help you?",
     replyTimeText: "Typically replies in 5 minutes",
-    startConversationText: "Contact us",
+    startConversationText: "Contact us", 
     onboardingTitle: "Start a conversation",
     onboardingSubtitle: "Please provide your details to begin.",
     launcherIcon: "bubble",
-    customLauncherImg: "", 
     fontFamily: "'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     baseFontSize: "15px"
   };
@@ -82,7 +85,6 @@ export default function UltimateSettings() {
   const [activeTab, setActiveTab] = useState('style');
   const [toast, setToast] = useState(false);
   
-  const avatarRef = useRef(null);
   const launcherRef = useRef(null);
 
   useEffect(() => { if (settings) setFormState(settings); }, [settings]);
@@ -102,8 +104,6 @@ export default function UltimateSettings() {
       reader.onloadend = () => {
         if (field === 'launcher') {
           setFormState(p => ({ ...p, customLauncherImg: reader.result, launcherIcon: 'custom' }));
-        } else {
-          handleChange('welcomeImg', reader.result);
         }
       };
       reader.readAsDataURL(file);
@@ -165,47 +165,50 @@ export default function UltimateSettings() {
               </div>
             </Card>
 
-            <Card title="Background Colors">
+            <Card title="Header Colors">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
-                <ColorBox label="Primary Action Color" value={formState.primaryColor} onChange={(v) => handleChange('primaryColor', v)} />
-                <ColorBox label="Widget Border Color" value={formState.widgetBorderColor} onChange={(v) => handleChange('widgetBorderColor', v)} />
-                <ColorBox label="Chat Window BG" value={formState.chatBoxBgColor} onChange={(v) => handleChange('chatBoxBgColor', v)} />
-                <ColorBox label="Message Bubble BG" value={formState.messageBgColor} onChange={(v) => handleChange('messageBgColor', v)} />
-                <ColorBox label="Header BG Color" value={formState.headerBgColor} onChange={(v) => handleChange('headerBgColor', v)} />
-                <ColorBox label="Hero BG Color" value={formState.heroBgColor} onChange={(v) => handleChange('heroBgColor', v)} />
+                <ColorBox label="Header Background" value={formState.headerBgColor} onChange={(v) => handleChange('headerBgColor', v)} />
+                <ColorBox label="Header Text Color" value={formState.headerTextColor} onChange={(v) => handleChange('headerTextColor', v)} />
               </div>
             </Card>
 
-            <Card title="Text & Content Colors">
+            <Card title="Main Background Colors">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
-                <ColorBox label="Header Text" value={formState.headerTextColor} onChange={(v) => handleChange('headerTextColor', v)} />
-                <ColorBox label="Hero Text" value={formState.heroTextColor} onChange={(v) => handleChange('heroTextColor', v)} />
-                <ColorBox label="Card Title Text" value={formState.cardTitleColor} onChange={(v) => handleChange('cardTitleColor', v)} />
-                <ColorBox label="Card Subtitle Text" value={formState.cardSubtitleColor} onChange={(v) => handleChange('cardSubtitleColor', v)} />
-                <ColorBox label="Onboarding Text" value={formState.onboardingTextColor} onChange={(v) => handleChange('onboardingTextColor', v)} />
+                <ColorBox label="Primary Color" value={formState.primaryColor} onChange={(v) => handleChange('primaryColor', v)} />
+                <ColorBox label="Page Background" value={formState.chatBoxBgColor} onChange={(v) => handleChange('chatBoxBgColor', v)} />
+                <ColorBox label="Widget Border" value={formState.widgetBorderColor} onChange={(v) => handleChange('widgetBorderColor', v)} />
               </div>
             </Card>
 
-            <Card title="Brand Assets">
-               <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: '#6B7280' }}>Support Avatar</label>
-               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                 <img src={formState.welcomeImg} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #EEE' }} alt="Avatar" />
-                 <button onClick={() => avatarRef.current.click()} style={{ fontSize: '12px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #DDD', background: '#FFF', cursor: 'pointer' }}>Change Photo</button>
-                 <input type="file" ref={avatarRef} onChange={(e) => handleFileUpload(e, 'avatar')} accept="image/*" style={{ display: 'none' }} />
-               </div>
+            <Card title="Contact Card Colors">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
+                <ColorBox label="Card Background" value={formState.contactCardBgColor || "#e8e8e8"} onChange={(v) => handleChange('contactCardBgColor', v)} />
+                <ColorBox label="Chat Button" value={formState.chatButtonBgColor || "#2c3e50"} onChange={(v) => handleChange('chatButtonBgColor', v)} />
+                <ColorBox label="Email Button" value={formState.emailButtonBgColor || "#fbbf24"} onChange={(v) => handleChange('emailButtonBgColor', v)} />
+              </div>
+            </Card>
+
+            <Card title="Text Colors">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
+                <ColorBox label="Card Title" value={formState.cardTitleColor} onChange={(v) => handleChange('cardTitleColor', v)} />
+                <ColorBox label="Card Subtitle" value={formState.cardSubtitleColor} onChange={(v) => handleChange('cardSubtitleColor', v)} />
+              </div>
             </Card>
           </div>
         )}
 
         {activeTab === 'content' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <Card title="Messaging Content">
-               <Field label="Header Title" value={formState.headerTitle} onChange={(v) => handleChange('headerTitle', v)} />
-               <Field label="Hero Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
-               <AreaField label="Hero Description" value={formState.welcomeSubtext} onChange={(v) => handleChange('welcomeSubtext', v)} />
-               <hr style={{ margin: '20px 0', border: '0', borderTop: '1px solid #F3F4F6' }} />
+            <Card title="Header Content">
+               <Field label="Header Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
+               <Field label="Header Subtitle" value={formState.welcomeSubtext} onChange={(v) => handleChange('welcomeSubtext', v)} />
+            </Card>
+            
+            <Card title="Contact Card Content">
                <Field label="Contact Card Title" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
-               <Field label="Reply Status Text" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
+            </Card>
+            
+            <Card title="Onboarding Content">
                <Field label="Onboarding Title" value={formState.onboardingTitle} onChange={(v) => handleChange('onboardingTitle', v)} />
                <AreaField label="Onboarding Subtitle" value={formState.onboardingSubtitle} onChange={(v) => handleChange('onboardingSubtitle', v)} />
             </Card>
@@ -229,10 +232,10 @@ export default function UltimateSettings() {
       <div style={{ flex: 1, background: '#F9FAFB', borderLeft: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'sticky', top: 0, height: '100vh' }}>
           
           <div style={{ 
-            width: '370px', 
-            height: '650px', 
+            width: '400px', 
+            height: '680px', 
             background: formState.chatBoxBgColor, 
-            borderRadius: '32px', 
+            borderRadius: '24px', 
             display: 'flex', 
             flexDirection: 'column', 
             boxShadow: '0 30px 60px -12px rgba(0,0,0,0.15)', 
@@ -240,152 +243,174 @@ export default function UltimateSettings() {
             fontFamily: formState.fontFamily,
             overflow: 'hidden'
           }}>
-            <div style={{ background: formState.headerBgColor, padding: '25px 25px 15px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ position: 'relative' }}>
-                        <img src={formState.welcomeImg} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} alt="avatar" />
-                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: '9px', height: '9px', background: '#4ADE80', borderRadius: '50%', border: '2px solid #FFF' }}></div>
-                    </div>
-                    <div style={{ 
-                        fontWeight: formState.fontFamily.includes('Euclid') ? '500' : '600', 
-                        fontSize: '17px', 
-                        color: formState.headerTextColor,
-                        fontFamily: formState.fontFamily 
-                    }}>
-                        {formState.headerTitle}
-                    </div>
+            {/* Header */}
+            <div style={{ 
+              background: formState.headerBgColor, 
+              color: formState.headerTextColor,
+              padding: '24px 24px 20px', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'flex-start'
+            }}>
+                <div>
+                    <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '4px' }}>
+                        {formState.welcomeText}
+                    </h1>
+                    <p style={{ fontSize: '16px', opacity: 0.9, fontWeight: '400' }}>
+                        {formState.welcomeSubtext}
+                    </p>
                 </div>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5"><path d="m6 9 6 6 6-6"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', textAlign: 'center' }}>
-                <div style={{ background: formState.heroBgColor, padding: '30px 25px 20px', color: formState.heroTextColor }}>
-                    <h1 style={{ fontSize: '26px', fontWeight: '600', marginBottom: '8px' }}>{formState.welcomeText}</h1>
-                    <p style={{ fontSize: formState.baseFontSize, color: formState.heroTextColor, lineHeight: '1.4', opacity: 0.8 }}>{formState.welcomeSubtext}</p>
-                </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 
-                {/* Updated Contact Card Preview */}
+                {/* Contact Card */}
                 <div style={{ 
-                    background: formState.messageBgColor, 
-                    margin: '0 20px 16px', 
+                    background: formState.contactCardBgColor || '#e8e8e8', 
                     padding: '20px', 
-                    borderRadius: '16px', 
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.06)', 
-                    border: `1px solid ${formState.widgetBorderColor}`,
-                    textAlign: 'left'
+                    borderRadius: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
                 }}>
-                    <div style={{ marginBottom: '12px' }}>
-                        <div style={{ fontWeight: '600', color: formState.cardTitleColor, fontSize: '16px', marginBottom: '6px' }}>
+                    <div>
+                        <div style={{ fontSize: '17px', fontWeight: '600', color: formState.cardTitleColor, marginBottom: '6px' }}>
                             {formState.startConversationText}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: formState.cardSubtitleColor }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <div style={{ width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%' }}></div>
-                            <span>We are online</span>
+                            <span style={{ fontSize: '14px', color: formState.cardSubtitleColor }}>We are online</span>
                         </div>
                     </div>
                     
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                        <div style={{ 
-                            flex: 1, 
-                            background: formState.primaryColor, 
-                            color: 'white', 
-                            padding: '10px', 
-                            borderRadius: '10px', 
-                            fontSize: '13px', 
-                            fontWeight: '600',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '6px'
-                        }}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                            </svg>
-                            <span>Chat now</span>
-                        </div>
-                        <div style={{ 
-                            width: '42px',
-                            background: '#FFD600', 
-                            padding: '10px', 
-                            borderRadius: '10px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1e293b" strokeWidth="2">
-                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                                <polyline points="22,6 12,13 2,6"/>
-                            </svg>
-                        </div>
-                    </div>
+                    <button style={{ 
+                        background: formState.chatButtonBgColor || '#2c3e50', 
+                        color: 'white',
+                        border: 'none',
+                        padding: '14px 16px',
+                        borderRadius: '12px',
+                        fontSize: '15px',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                    }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                        </svg>
+                        <span>Chat now</span>
+                    </button>
+                    
+                    <button style={{ 
+                        background: formState.emailButtonBgColor || '#fbbf24',
+                        color: '#1a1a1a',
+                        border: 'none',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="2" y="4" width="20" height="16" rx="2"/>
+                            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                        </svg>
+                    </button>
                 </div>
 
-                {/* Search Card Preview */}
+                {/* Order Tracking Card */}
                 <div style={{ 
-                    background: formState.messageBgColor, 
-                    margin: '0 20px 16px', 
-                    padding: '20px', 
-                    borderRadius: '16px', 
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.06)', 
-                    border: `1px solid ${formState.widgetBorderColor}`,
+                    background: 'white', 
+                    padding: '18px 20px', 
+                    borderRadius: '16px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    textAlign: 'left'
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                 }}>
                     <div>
-                        <div style={{ fontWeight: '600', color: formState.cardTitleColor, fontSize: '16px', marginBottom: '4px' }}>Search</div>
-                        <div style={{ fontSize: '13px', color: formState.cardSubtitleColor }}>Find products, orders & more</div>
+                        <div style={{ fontSize: '16px', fontWeight: '600', color: formState.cardTitleColor }}>
+                            Order tracking
+                        </div>
+                        <div style={{ fontSize: '14px', color: formState.cardSubtitleColor }}>
+                            Track your orders
+                        </div>
                     </div>
-                    <div style={{ width: '38px', height: '38px', background: formState.primaryColor, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="3"><path d="m9 18 6-6-6-6"/></svg>
+                    <div style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="m9 18 6-6-6-6"/>
+                        </svg>
                     </div>
                 </div>
 
-                {/* FAQ Preview */}
-                <div style={{ padding: '0 20px', textAlign: 'left' }}>
-                    {[1, 2].map(i => (
-                        <div key={i} style={{
-                            background: 'white',
-                            border: `1px solid ${formState.widgetBorderColor}`,
+                {/* Search Box */}
+                <div style={{ position: 'relative' }}>
+                    <input 
+                        type="text"
+                        placeholder="Search for help"
+                        style={{
+                            width: '100%',
+                            padding: '14px 50px 14px 18px',
+                            border: '1px solid #e2e8f0',
                             borderRadius: '12px',
-                            marginBottom: '10px',
-                            padding: '12px 14px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                        }}>
-                            <span style={{ fontSize: '13px', fontWeight: '600', color: formState.cardTitleColor }}>
-                                {i === 1 ? 'How to track order?' : 'Return policy?'}
-                            </span>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={formState.primaryColor} strokeWidth="2">
-                                <path d="M6 9l6 6 6-6"/>
-                            </svg>
-                        </div>
-                    ))}
+                            fontSize: '15px',
+                            background: 'white'
+                        }}
+                    />
+                    <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                    </div>
                 </div>
+
+                {/* FAQ Items */}
+                {[1, 2, 3].map(i => (
+                    <div key={i} style={{
+                        background: 'white',
+                        padding: '16px 18px',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                    }}>
+                        <span style={{ fontSize: '15px', fontWeight: '500', color: formState.cardTitleColor }}>
+                            {i === 1 ? 'How long will it take to receive my order?' : i === 2 ? 'How to track my order?' : 'Do you ship internationally?'}
+                        </span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+                            <path d="m9 18 6-6-6-6"/>
+                        </svg>
+                    </div>
+                ))}
             </div>
 
+            {/* Bottom Navigation */}
             <div style={{ height: '80px', borderTop: `1px solid ${formState.widgetBorderColor}`, display: 'flex', alignItems: 'center', justifyContent: 'space-around', paddingBottom: '8px', background: '#FFF' }}>
                 <NavIcon active={true} color={formState.primaryColor} label="Home">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                         <polyline points="9 22 9 12 15 12 15 22"/>
                     </svg>
                 </NavIcon>
                 <NavIcon label="Message">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                     </svg>
                 </NavIcon>
                 <NavIcon label="Track">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <circle cx="11" cy="11" r="8"/>
-                        <path d="M21 21l-4.35-4.35"/>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                     </svg>
                 </NavIcon>
                 <NavIcon label="Help">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="10"/>
                         <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
                         <line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -396,8 +421,8 @@ export default function UltimateSettings() {
 
           <div style={{ 
               marginTop: '25px',
-              width: '60px', 
-              height: '60px', 
+              width: '62px', 
+              height: '62px', 
               borderRadius: '50%', 
               background: '#FFF', 
               display: 'flex', 

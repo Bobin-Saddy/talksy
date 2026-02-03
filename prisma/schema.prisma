@@ -64,33 +64,46 @@ model ChatMessage {
 model ChatSettings {
   id                    String   @id @default(uuid())
   shop                  String   @unique
-  primaryColor          String   @default("#4F46E5")
-  headerBgColor         String   @default("#384959")
-  heroBgColor           String   @default("#bdddfc")
-  headerTextColor       String   @default("#bdddfc")
-  heroTextColor         String   @default("#384959")
-  cardTitleColor        String   @default("#384959")
-  cardSubtitleColor     String   @default("#64748b")
-  onboardingTextColor   String   @default("#384959")
   
-  // NAYE FIELDS YAHAN ADD KAREIN
-  chatBoxBgColor        String   @default("#F8FAFC")
+  // COLOR SETTINGS
+  primaryColor          String   @default("#4F46E5")
+  headerBgColor         String   @default("#2c3e50")
+  heroBgColor           String   @default("#f8f9fa")
+  headerTextColor       String   @default("#ffffff")
+  heroTextColor         String   @default("#1a1a1a")
+  cardTitleColor        String   @default("#1a1a1a")
+  cardSubtitleColor     String   @default("#4a5568")
+  onboardingTextColor   String   @default("#1a1a1a")
+  
+  chatBoxBgColor        String   @default("#f8f9fa")
   messageBgColor        String   @default("#FFFFFF")
   widgetBorderColor     String   @default("#E5E7EB")
   
+  // NEW FIELDS FOR CONTACT CARD
+  contactCardBgColor    String   @default("#e8e8e8")
+  chatButtonBgColor     String   @default("#2c3e50")
+  emailButtonBgColor    String   @default("#fbbf24")
+  
+  // IMAGES
   customLauncherImg     String?
-  welcomeImg            String   @default("https://ui-avatars.com/api/?name=Support&background=fff&color=4F46E5")
+  welcomeImg            String   @default("https://ui-avatars.com/api/?name=Support&background=4F46E5&color=fff")
+  
+  // TEXT CONTENT
   headerTitle           String   @default("Live Support")
   headerSubtitle        String   @default("Online now")
-  welcomeText           String   @default("Hi there 👋")
-  welcomeSubtext        String   @default("We are here to help you! Ask us anything.")
+  welcomeText           String   @default("Hi 👋")
+  welcomeSubtext        String   @default("How can we help you?")
   replyTimeText         String   @default("Typically replies in 5 minutes")
-  startConversationText String   @default("Send us a message") 
+  startConversationText String   @default("Contact us") 
   onboardingTitle       String   @default("Start a conversation")
   onboardingSubtitle    String   @default("Please provide your details to begin.")
-  launcherIcon          String   @default("custom")
-fontFamily    String   @default("'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif") 
- baseFontSize          String   @default("15px")
+  
+  // SETTINGS
+  launcherIcon          String   @default("bubble")
+  fontFamily            String   @default("'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif") 
+  baseFontSize          String   @default("15px")
+  
+  // TIMESTAMPS
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
