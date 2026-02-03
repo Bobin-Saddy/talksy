@@ -1,120 +1,142 @@
+{% comment %}
+  Talksy Chat Widget v2
+  - Orange gradient header (configurable start/end)
+  - Contact card: white bg, inline online/offline status (green/red dot)
+  - "Search here" card with subtitle + orange arrow
+  - Flat FAQ list rows
+  - Admin online/offline polling every 10s
+{% endcomment %}
+
+{%- assign primary_color    = section.settings.primary_color    | default: '#F39C12' -%}
+{%- assign grad_start       = section.settings.grad_start       | default: '#F39C12' -%}
+{%- assign grad_end         = section.settings.grad_end         | default: '#E67E22' -%}
+
+<!-- ── Google Fonts ── -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Flow+Circular&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-{%- assign primary_color = section.settings.primary_color | default: '#4F46E5' -%}
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 
-<div id="chat-launcher" aria-label="Open Chat" style="background: #ffffff; color: {{ primary_color }};">
+<!-- ── Launcher Button ── -->
+<div id="chat-launcher" aria-label="Open Chat"
+     style="background:#ffffff; color:{{ primary_color }};">
   <div id="launcher-icon">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
   </div>
   <div id="close-launcher-icon" style="display:none;">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.5">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
   </div>
 </div>
 
+<!-- ── Widget Shell ── -->
 <div id="chat-widget" class="chat-hidden">
-  
+
+  <!-- HEADER  (gradient) -->
   <div id="chat-header">
     <div class="header-content">
-      <h1 id="header-title-text" class="header-title">Hi 👋</h1>
-      <p id="header-subtitle-text" class="header-subtitle">How can we help you?</p>
+      <h1 id="header-title-text" class="header-title">Hello 👋</h1>
+      <p  id="header-subtitle-text" class="header-subtitle">How can we help you?</p>
     </div>
     <button id="chat-close" title="Close">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.5">
         <line x1="18" y1="6" x2="6" y2="18"></line>
         <line x1="6" y1="6" x2="18" y2="18"></line>
       </svg>
     </button>
   </div>
 
-  <div id="widget-main-container" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
-    
-    <!-- HOME TAB -->
+  <!-- ── SCROLLABLE BODY ── -->
+  <div id="widget-main-container">
+
+    <!-- ════════ HOME TAB ════════ -->
     <div id="tab-home" class="tab-content">
-      <div class="home-scroll-area" id="home-scroll-area-bg">
-        
-        <!-- Contact Us Card -->
-        <div class="contact-card" id="start-chat-trigger">
+      <div class="home-scroll-area">
+
+        <!-- Contact-us card -->
+        <div class="contact-card">
           <div class="contact-header">
             <strong id="contact-title">Contact us</strong>
-            <div class="online-status">
-              <span class="status-dot"></span>
+            <div class="online-status" id="online-status-badge">
+              <span class="status-dot" id="status-dot"></span>
               <span id="status-text">We are online</span>
             </div>
           </div>
           <button class="chat-now-btn" id="chat-now-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
               <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
             </svg>
-            <span>Chat now</span>
-          </button>
-          <button class="email-btn" id="email-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="4" width="20" height="16" rx="2"/>
-              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-            </svg>
+            <span>Chat Now</span>
           </button>
         </div>
 
-        <!-- Order Tracking Card -->
-        <div class="tracking-card" id="tracking-card-trigger">
-          <div class="tracking-content">
-            <strong id="tracking-title">Order tracking</strong>
-            <span id="tracking-subtitle">Track your orders</span>
+        <!-- Search-here card  (replaces old Order-tracking card) -->
+        <div class="search-here-card" id="search-here-trigger">
+          <div class="search-here-content">
+            <strong id="search-card-title">Search here</strong>
+            <span  id="search-card-subtitle">This is Search</span>
           </div>
-          <div class="tracking-arrow">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <div class="search-here-arrow">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5">
               <path d="m9 18 6-6-6-6"/>
             </svg>
           </div>
         </div>
 
-        <!-- Search Box -->
+        <!-- Search input row -->
         <div class="search-box">
-          <input 
-            type="text" 
-            id="home-search-input" 
-            placeholder="Search for help"
-            autocomplete="off"
-          />
-          <button class="search-btn" id="home-search-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <input type="text" id="home-search-input"
+                 placeholder="Search for help" autocomplete="off" />
+          <button class="search-icon-round" id="home-search-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5">
               <circle cx="11" cy="11" r="8"/>
               <path d="m21 21-4.35-4.35"/>
             </svg>
           </button>
         </div>
 
-        <!-- FAQ List -->
+        <!-- FAQ list (flat rows) -->
         <div class="faq-list" id="home-faq-list">
           <div class="faq-loading">
             <div class="loading-spinner"></div>
-            <p>Loading FAQs...</p>
+            <p>Loading…</p>
           </div>
         </div>
 
-      </div>
-    </div>
+      </div><!-- .home-scroll-area -->
+    </div><!-- #tab-home -->
 
-    <!-- CHAT TAB -->
+    <!-- ════════ CHAT TAB ════════ -->
     <div id="tab-chat" class="tab-content" style="display:none;">
-      
+
+      <!-- onboarding form -->
       <div id="chat-onboarding-step" class="step-container">
         <div class="registration-form">
           <h3 id="onboarding-form-title">Identify Yourself</h3>
-          <p id="onboarding-form-subtitle">How should we address you?</p>
+          <p  id="onboarding-form-subtitle">How should we address you?</p>
           <div class="input-group">
-            <input id="chat-fname" type="text" placeholder="First Name" autocomplete="off" />
-            <input id="chat-lname" type="text" placeholder="Last Name" autocomplete="off" />
-            <input id="chat-email" type="email" placeholder="Email Address" autocomplete="off" />
+            <input id="chat-fname"  type="text"  placeholder="First Name"     autocomplete="off" />
+            <input id="chat-lname"  type="text"  placeholder="Last Name"      autocomplete="off" />
+            <input id="chat-email"  type="email" placeholder="Email Address"  autocomplete="off" />
             <button id="chat-submit-info" disabled>Start Chatting</button>
           </div>
         </div>
       </div>
 
+      <!-- live messages -->
       <div id="chat-chat-step" class="step-container" style="display:none;">
         <div id="chat-messages"></div>
-        
+
+        <!-- image preview -->
         <div id="image-preview-container" style="display:none;">
           <div id="image-preview-wrapper">
             <img id="image-preview" src="" alt="Preview" />
@@ -123,50 +145,54 @@
           <button id="send-image-btn">Upload and Send</button>
         </div>
 
+        <!-- input footer -->
         <div id="chat-footer">
           <div class="input-wrapper">
             <button id="emoji-btn" class="tool-btn">😊</button>
             <button id="file-btn" class="tool-btn">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+              </svg>
             </button>
-            <input id="chat-file-input" type="file" style="display:none;" accept="image/*" />
-            <input id="chat-input" placeholder="Compose message..." autocomplete="off" />
+            <input type="file" id="chat-file-input" style="display:none;" accept="image/*" />
+            <input id="chat-input" placeholder="Compose message…" autocomplete="off" />
             <button id="chat-send">
-               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+              </svg>
             </button>
           </div>
           <div id="emoji-picker" class="hidden-picker"></div>
         </div>
       </div>
-    </div>
+    </div><!-- #tab-chat -->
 
-    <!-- FAQ TAB -->
+    <!-- ════════ FAQ TAB ════════ -->
     <div id="tab-faq" class="tab-content" style="display:none;">
       <div class="faq-container">
         <div class="faq-search">
-          <input type="text" id="faq-search-input" placeholder="🔍 Search FAQs..." />
+          <input type="text" id="faq-search-input" placeholder="🔍 Search FAQs…" />
         </div>
-        
         <div id="faq-categories-list" class="faq-scroll-area">
           <div class="faq-loading">
             <div class="loading-spinner"></div>
-            <p>Loading FAQs...</p>
+            <p>Loading…</p>
           </div>
         </div>
       </div>
-    </div>
+    </div><!-- #tab-faq -->
 
-    <!-- SEARCH TAB -->
+    <!-- ════════ SEARCH TAB ════════ -->
     <div id="tab-search" class="tab-content" style="display:none;">
       <div class="search-container-new">
-        
-        <!-- Results Section -->
-        <div id="search-results-wrapper" class="search-results-wrapper" style="display:none;">
-          <div class="results-header">
-            <h3>✨ Search Results</h3>
-          </div>
-          
-          <!-- Products Results -->
+
+        <!-- results (hidden until query runs) -->
+        <div id="search-results-wrapper" style="display:none;">
+          <div class="results-header"><h3>✨ Search Results</h3></div>
+
+          <!-- Products -->
           <div id="products-results-section" class="results-section" style="display:none;">
             <div class="section-header">
               <span class="section-icon">🛍️</span>
@@ -174,21 +200,17 @@
               <span class="section-count" id="products-count">0</span>
             </div>
             <div class="scroll-wrapper">
-              <button class="scroll-btn scroll-left" onclick="scrollSection('products', 'left')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M15 18l-6-6 6-6"/>
-                </svg>
+              <button class="scroll-btn scroll-left" onclick="scrollSection('products','left')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
               <div class="horizontal-scroll" id="products-scroll"></div>
-              <button class="scroll-btn scroll-right" onclick="scrollSection('products', 'right')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M9 18l6-6-6-6"/>
-                </svg>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('products','right')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
               </button>
             </div>
           </div>
 
-          <!-- Collections Results -->
+          <!-- Collections -->
           <div id="collections-results-section" class="results-section" style="display:none;">
             <div class="section-header">
               <span class="section-icon">📁</span>
@@ -196,21 +218,17 @@
               <span class="section-count" id="collections-count">0</span>
             </div>
             <div class="scroll-wrapper">
-              <button class="scroll-btn scroll-left" onclick="scrollSection('collections', 'left')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M15 18l-6-6 6-6"/>
-                </svg>
+              <button class="scroll-btn scroll-left" onclick="scrollSection('collections','left')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
               <div class="horizontal-scroll" id="collections-scroll"></div>
-              <button class="scroll-btn scroll-right" onclick="scrollSection('collections', 'right')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M9 18l6-6-6-6"/>
-                </svg>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('collections','right')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
               </button>
             </div>
           </div>
 
-          <!-- Pages Results -->
+          <!-- Pages -->
           <div id="pages-results-section" class="results-section" style="display:none;">
             <div class="section-header">
               <span class="section-icon">📄</span>
@@ -218,21 +236,17 @@
               <span class="section-count" id="pages-count">0</span>
             </div>
             <div class="scroll-wrapper">
-              <button class="scroll-btn scroll-left" onclick="scrollSection('pages', 'left')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M15 18l-6-6 6-6"/>
-                </svg>
+              <button class="scroll-btn scroll-left" onclick="scrollSection('pages','left')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
               <div class="horizontal-scroll" id="pages-scroll"></div>
-              <button class="scroll-btn scroll-right" onclick="scrollSection('pages', 'right')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M9 18l6-6-6-6"/>
-                </svg>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('pages','right')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
               </button>
             </div>
           </div>
 
-          <!-- Orders Results -->
+          <!-- Orders -->
           <div id="orders-results-section" class="results-section" style="display:none;">
             <div class="section-header">
               <span class="section-icon">📦</span>
@@ -240,89 +254,80 @@
               <span class="section-count" id="orders-count">0</span>
             </div>
             <div class="scroll-wrapper">
-              <button class="scroll-btn scroll-left" onclick="scrollSection('orders', 'left')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M15 18l-6-6 6-6"/>
-                </svg>
+              <button class="scroll-btn scroll-left" onclick="scrollSection('orders','left')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
               <div class="horizontal-scroll" id="orders-scroll"></div>
-              <button class="scroll-btn scroll-right" onclick="scrollSection('orders', 'right')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M9 18l6-6-6-6"/>
-                </svg>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('orders','right')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
               </button>
             </div>
           </div>
-        </div>
+        </div><!-- #search-results-wrapper -->
 
-        <!-- Centered Search Box -->
+        <!-- hero + textarea -->
         <div class="search-center-wrapper">
           <div class="search-hero">
             <div class="search-icon-large">🔍</div>
-            <h2 id="search-main-title">What are you looking for?</h2>
-            <p id="search-subtitle">Search products, collections, pages & orders</p>
+            <h2>What are you looking for?</h2>
+            <p>Search products, collections, pages & orders</p>
           </div>
-          
           <div class="search-textarea-wrapper">
-            <textarea 
-              id="store-search-input-new" 
-              placeholder="Type your search query and press Enter or click the search icon..." 
-              rows="3"
-              autocomplete="off"
-            ></textarea>
-            <button id="search-icon-btn" class="search-icon-btn" title="Search">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <textarea id="store-search-input-new"
+                      placeholder="Type your search query and press Enter…"
+                      rows="3" autocomplete="off"></textarea>
+            <button id="search-icon-btn" class="search-icon-btn-inner" title="Search">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5">
                 <circle cx="11" cy="11" r="8"/>
                 <path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
               </svg>
             </button>
-            <div id="search-loading-indicator" class="search-loading-indicator" style="display:none;">
+            <div id="search-loading-indicator" style="display:none;">
               <div class="mini-spinner"></div>
             </div>
           </div>
         </div>
 
-        <!-- Empty State -->
+        <!-- empty / no-results states -->
         <div id="search-empty-state" class="search-empty-new">
           <div class="empty-icon">🎯</div>
           <p class="empty-text">Type your query and press Enter to search</p>
         </div>
-
-        <!-- No Results State -->
         <div id="no-results-state" class="search-empty-new" style="display:none;">
           <div class="empty-icon">😕</div>
           <p class="empty-text">No results found</p>
           <p class="empty-subtext">Try different keywords or check spelling</p>
         </div>
-
       </div>
-    </div>
+    </div><!-- #tab-search -->
 
-  </div>
+  </div><!-- #widget-main-container -->
 
-  <!-- BOTTOM NAVIGATION -->
+  <!-- ══════ BOTTOM NAV ══════ -->
   <div id="chat-nav">
     <div class="nav-item active" data-tab="home">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
         <polyline points="9 22 9 12 15 12 15 22"/>
       </svg>
       <span>Home</span>
     </div>
     <div class="nav-item" data-tab="chat">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
       </svg>
       <span>Message</span>
     </div>
     <div class="nav-item" data-tab="search">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.35-4.35"/>
       </svg>
-      <span>Track</span>
+      <span>Search</span>
     </div>
     <div class="nav-item" data-tab="faq">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10"/>
         <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
         <line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -330,1577 +335,869 @@
       <span>Help</span>
     </div>
   </div>
-</div>
 
+</div><!-- #chat-widget -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     STYLES
+     ═══════════════════════════════════════════════════════════ -->
 <style>
-div#image-preview-wrapper { position: relative; }
-img#image-preview { width: 100%; height: 151px; object-fit: cover; }
-button#send-image-btn { background: #f3f4f6; color: #6c6c6c; border: none; padding: 10px; border-radius: 10px; width: 96%; margin: 0 6px; }
-button#remove-image-btn { position: absolute; background: #f3f4f6; border: none; padding: 4px 8px; border-radius: 20px !important; right: 7px; top: 8px; }
-
-:root { 
-    --chat-primary: {{ primary_color }}; 
-    --chat-bg: #ffffff;
-    --chat-font: 'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, sans-serif; 
-    --chat-font-size: 15px;
+/* ── reset ── */
+#chat-widget *, #chat-launcher * {
+  box-sizing: border-box;
+  margin: 0; padding: 0;
+  font-family: 'Montserrat', -apple-system, sans-serif !important;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-#chat-widget, #chat-widget *, #chat-launcher, #chat-launcher * { 
-  box-sizing: border-box; 
-  font-family: var(--chat-font) !important; 
+:root {
+  --tw-primary : {{ primary_color }};
+  --tw-grad-s  : {{ grad_start }};
+  --tw-grad-e  : {{ grad_end }};
 }
 
-#chat-launcher { 
-  position: fixed; bottom: 25px; right: 25px; width: 62px; height: 62px; border-radius: 50%; 
-  display: flex; align-items: center; justify-content: center; cursor: pointer; 
-  z-index: 999999; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transition: transform 0.3s;
+/* ── launcher ── */
+#chat-launcher {
+  position: fixed; bottom: 25px; right: 25px;
+  width: 62px; height: 62px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 999999;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.22);
+  transition: transform .3s;
 }
 #chat-launcher:hover { transform: scale(1.08); }
 
-#chat-widget { 
-  position: fixed; bottom: 100px; right: 25px; width: 400px; height: 680px; 
-  max-height: calc(100vh - 130px); background: var(--chat-bg); border-radius: 24px; 
-  display: flex; flex-direction: column; overflow: hidden; 
-  box-shadow: 0 15px 50px rgba(0,0,0,0.15); z-index: 999998; 
-  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); 
+/* ── widget frame ── */
+#chat-widget {
+  position: fixed; bottom: 100px; right: 25px;
+  width: 380px; height: 680px;
+  max-height: calc(100vh - 130px);
+  background: #fff; border-radius: 24px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 15px 50px rgba(0,0,0,0.18);
+  z-index: 999998;
+  transition: all .4s cubic-bezier(.165,.84,.44,1);
 }
-.chat-hidden { opacity: 0; transform: translateY(30px) scale(0.9); pointer-events: none; }
-.chat-visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: all; }
+.chat-hidden  { opacity:0; transform:translateY(30px) scale(.9); pointer-events:none; }
+.chat-visible { opacity:1; transform:translateY(0)   scale(1);   pointer-events:all;  }
 
-/* HEADER STYLE - Dark with close button */
-#chat-header { 
-  padding: 24px 24px 20px; 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: flex-start; 
-  flex-shrink: 0; 
-  background: #2c3e50;
-  color: white;
+/* ── HEADER – gradient ── */
+#chat-header {
+  background: linear-gradient(135deg, var(--tw-grad-s), var(--tw-grad-e));
+  color: #fff;
+  padding: 28px 22px 24px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  flex-shrink: 0;
+  border-radius: 24px 24px 0 0;
 }
-
-.header-content {
-  flex: 1;
+.header-title   { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+.header-subtitle{ font-size: 15px; font-weight: 400; opacity: .92; }
+#chat-close {
+  background: none; border: none; cursor: pointer;
+  color: #fff; opacity: .85; transition: .2s;
+  display: flex; align-items: center; justify-content: center;
 }
+#chat-close:hover { opacity: 1; }
 
-.header-title { 
-  font-size: 24px; 
-  font-weight: 600; 
-  margin-bottom: 4px;
-  display: block;
+/* ── body scroll ── */
+#widget-main-container {
+  flex: 1; overflow: hidden; display: flex; flex-direction: column;
 }
-
-.header-subtitle { 
-  font-size: 16px; 
-  opacity: 0.9;
-  display: block;
-  font-weight: 400;
+.tab-content {
+  flex: 1; display: flex; flex-direction: column;
+  height: 100%; overflow: hidden; position: relative;
 }
-
-#chat-close { 
-  background: none; 
-  border: none; 
-  cursor: pointer; 
-  color: white;
-  opacity: 0.8;
-  transition: 0.2s;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.home-scroll-area {
+  flex: 1; overflow-y: auto;
+  padding: 18px 16px;
+  display: flex; flex-direction: column; gap: 12px;
+  background: #f5f5f5;
 }
 
-#chat-close:hover {
-  opacity: 1;
-}
-
-.tab-content { 
-  flex: 1; 
-  display: flex; 
-  flex-direction: column; 
-  height: 100%; 
-  overflow: hidden; 
-  position: relative; 
-}
-
-.home-scroll-area { 
-  flex: 1; 
-  overflow-y: auto; 
-  padding: 20px; 
-  display: flex; 
-  flex-direction: column; 
-  gap: 16px;
-  background: #f8f9fa;
-}
-
-/* CONTACT CARD - Gray background with buttons */
+/* ── Contact card ── (white, inline status) */
 .contact-card {
-  background: #e8e8e8;
-  padding: 20px;
-  border-radius: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
 }
-
 .contact-header {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 14px;
 }
-
 .contact-header strong {
-  font-size: 17px;
-  font-weight: 600;
-  color: #1a1a1a;
+  font-size: 16px; font-weight: 700; color: #1a1a1a;
 }
-
 .online-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: flex; align-items: center; gap: 6px;
 }
-
 .status-dot {
-  width: 8px;
-  height: 8px;
-  background: #22c55e;
-  border-radius: 50%;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #22c55e;   /* default green – JS flips to red when offline */
+  transition: background .4s;
 }
-
 #status-text {
-  font-size: 14px;
-  color: #4a5568;
+  font-size: 13px; color: #555; font-weight: 500;
 }
-
+/* ── Chat Now button (full-width, primary colour) ── */
 .chat-now-btn {
-  background: #2c3e50;
-  color: white;
+  width: 100%;
+  background: var(--tw-primary);
+  color: #fff;
   border: none;
   padding: 14px 16px;
   border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 15px; font-weight: 700;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: filter .2s, transform .15s;
 }
+.chat-now-btn:hover { filter: brightness(.92); transform: translateY(-1px); }
 
-.chat-now-btn:hover {
-  background: #1a252f;
+/* ── Search-here card ── */
+.search-here-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  transition: box-shadow .2s, transform .15s;
+}
+.search-here-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
   transform: translateY(-1px);
 }
-
-.email-btn {
-  background: #fbbf24;
-  color: #1a1a1a;
-  border: none;
-  padding: 14px;
-  border-radius: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
+.search-here-content {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.search-here-content strong { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+.search-here-content span  { font-size: 13px; color: #777; }
+.search-here-arrow {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--tw-primary);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
 
-.email-btn:hover {
-  background: #f59e0b;
-  transform: translateY(-1px);
-}
-
-/* ORDER TRACKING CARD - White with arrow */
-.tracking-card {
-  background: white;
-  padding: 18px 20px;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.tracking-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-
-.tracking-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.tracking-content strong {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.tracking-content span {
-  font-size: 14px;
-  color: #64748b;
-}
-
-.tracking-arrow {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748b;
-}
-
-/* SEARCH BOX */
+/* ── Search input row ── */
 .search-box {
   position: relative;
-  display: flex;
-  align-items: center;
 }
-
 #home-search-input {
   width: 100%;
-  padding: 14px 50px 14px 18px;
-  border: 1px solid #e2e8f0;
+  padding: 13px 48px 13px 16px;
+  border: 1px solid #ddd;
   border-radius: 12px;
-  font-size: 15px;
+  font-size: 14px;
   outline: none;
-  background: white;
-  transition: all 0.2s;
+  background: #fff;
+  transition: border-color .2s;
 }
-
-#home-search-input:focus {
-  border-color: #cbd5e0;
-  box-shadow: 0 0 0 3px rgba(203, 213, 224, 0.1);
+#home-search-input:focus { border-color: var(--tw-primary); }
+.search-icon-round {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--tw-primary);
+  color: #fff; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: filter .2s;
 }
+.search-icon-round:hover { filter: brightness(.9); }
 
-.search-btn {
-  position: absolute;
-  right: 8px;
-  background: none;
-  border: none;
-  padding: 8px;
-  cursor: pointer;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* FAQ LIST */
-.faq-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
+/* ── FAQ flat list ── */
+.faq-list { display: flex; flex-direction: column; }
 .faq-item {
-  background: white;
-  padding: 16px 18px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  background: #fff;
+  padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between;
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border-bottom: 1px solid #eee;
+  transition: background .15s;
 }
-
-.faq-item:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-
-.faq-question {
-  font-size: 15px;
-  font-weight: 500;
-  color: #1a1a1a;
-  flex: 1;
-}
-
-.faq-arrow {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748b;
-  transition: transform 0.3s;
-}
-
-.faq-item.open .faq-arrow {
-  transform: rotate(180deg);
-}
-
+.faq-item:first-child { border-radius: 12px 12px 0 0; }
+.faq-item:last-child  { border-radius: 0 0 12px 12px; border-bottom: none; }
+.faq-item:hover { background: #fafafa; }
+.faq-question { font-size: 14px; font-weight: 500; color: #222; flex: 1; padding-right: 12px; }
+.faq-arrow { color: #999; display: flex; align-items: center; }
 .faq-answer {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s;
+  max-height: 0; overflow: hidden;
+  transition: max-height .3s ease, padding .2s;
+  background: #fff;
 }
-
 .faq-item.open .faq-answer {
-  max-height: 500px;
-  padding-top: 12px;
+  max-height: 300px;
+  padding: 0 16px 14px;
+}
+.faq-answer-text { font-size: 13px; line-height: 1.6; color: #666; }
+.faq-item.open .faq-arrow { transform: rotate(90deg); transition: transform .25s; }
+
+/* ── Chat tab ── */
+.step-container { flex:1; display:flex; flex-direction:column; height:100%; overflow:hidden; }
+#chat-messages  { flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:12px; }
+.msg            { max-width:82%; display:flex; flex-direction:column; }
+.msg.user       { align-self:flex-end; }
+.msg.bot        { align-self:flex-start; }
+.msg-content    { padding:11px 15px; border-radius:18px; font-size:14px; line-height:1.5; word-wrap:break-word; }
+
+.registration-form { padding:30px !important; text-align:center; }
+.registration-form h3 { font-size:20px; font-weight:700; margin-bottom:6px; color:#1a1a1a; }
+.registration-form p  { font-size:14px; color:#777; margin-bottom:22px; }
+.input-group { display:flex; flex-direction:column; gap:10px; }
+.input-group input { padding:13px !important; border:1px solid #ddd; border-radius:12px; outline:none; font-size:14px; }
+.input-group button {
+  padding:14px !important; border:none; border-radius:12px;
+  color:#fff; font-weight:700; cursor:pointer; margin-top:8px;
+  background: var(--tw-primary); transition: filter .2s;
+}
+.input-group button:disabled { opacity:.5; cursor:not-allowed; background:#aaa; }
+.input-group button:not(:disabled):hover { filter:brightness(.9); }
+
+#chat-footer { padding:12px; background:#fff; border-top:1px solid #eee; flex-shrink:0; position:relative; }
+.input-wrapper {
+  display:flex; align-items:center;
+  background:#f3f4f6; border-radius:14px;
+  padding:5px 10px; gap:6px;
+}
+#chat-input { flex:1; border:none; background:transparent; outline:none; padding:10px 4px; font-size:14px; }
+.tool-btn  { background:none; border:none; cursor:pointer; font-size:1.25em; color:#999; }
+#chat-send {
+  color:#fff; border:none; border-radius:10px;
+  padding:9px; cursor:pointer; display:flex; align-items:center;
+  background: var(--tw-primary);
 }
 
-.faq-answer-text {
-  font-size: 14px;
-  line-height: 1.6;
-  color: #64748b;
+/* image preview */
+div#image-preview-wrapper { position:relative; }
+img#image-preview { width:100%; height:140px; object-fit:cover; border-radius:10px; }
+button#send-image-btn { background:#f3f4f6; color:#555; border:none; padding:9px; border-radius:10px; width:96%; margin:6px auto 0; cursor:pointer; }
+button#remove-image-btn { position:absolute; background:#f3f4f6; border:none; padding:3px 7px; border-radius:16px; right:6px; top:6px; cursor:pointer; }
+
+/* emoji picker */
+.hidden-picker { display:none !important; }
+#emoji-picker {
+  position:absolute; bottom:75px; left:12px; right:12px;
+  background:#fff; border:1px solid #eee; border-radius:16px;
+  padding:10px; display:grid; grid-template-columns:repeat(6,1fr);
+  gap:8px; z-index:100; box-shadow:0 8px 22px rgba(0,0,0,.1);
 }
 
-.step-container { 
-  flex: 1; 
-  display: flex; 
-  flex-direction: column; 
-  height: 100%; 
-  overflow: hidden; 
+/* ── FAQ full tab ── */
+.faq-container { flex:1; display:flex; flex-direction:column; height:100%; overflow:hidden; }
+.faq-search { padding:12px 16px; background:#fff; border-bottom:1px solid #eee; flex-shrink:0; }
+.faq-search input { width:100%; padding:11px 14px; border:1px solid #ddd; border-radius:10px; font-size:14px; outline:none; }
+.faq-search input:focus { border-color: var(--tw-primary); }
+.faq-scroll-area { flex:1; overflow-y:auto; padding:16px; }
+.faq-loading { text-align:center; padding:40px 20px; color:#888; }
+.loading-spinner {
+  width:36px; height:36px; margin:0 auto 12px;
+  border:3px solid #eee; border-top-color: var(--tw-primary);
+  border-radius:50%; animation:spin .7s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.faq-category { margin-bottom:20px; }
+.faq-category-title {
+  font-size:16px; font-weight:700; color:#222;
+  margin-bottom:10px; padding-bottom:8px;
+  border-bottom:2px solid #eee;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.faq-category-badge {
+  background: var(--tw-primary); color:#fff;
+  padding:3px 10px; border-radius:18px; font-size:11px; font-weight:600;
 }
 
-#chat-messages { 
-  flex: 1; 
-  overflow-y: auto; 
-  padding: 20px; 
-  display: flex; 
-  flex-direction: column; 
-  gap: 14px; 
-}
-
-.msg { 
-  max-width: 82%; 
-  display: flex; 
-  flex-direction: column; 
-}
-
-.msg.user { align-self: flex-end; }
-.msg.bot { align-self: flex-start; }
-
-.msg-content { 
-  padding: 12px 16px; 
-  border-radius: 18px; 
-  font-size: var(--chat-font-size); 
-  line-height: 1.5; 
-  word-wrap: break-word; 
-}
-
-.registration-form { 
-  padding: 30px !important; 
-  text-align: center;
-}
-
-.registration-form h3 {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #1a1a1a;
-}
-
-.registration-form p {
-  font-size: 14px;
-  color: #64748b;
-  margin-bottom: 24px;
-}
-
-.input-group { 
-  display: flex; 
-  flex-direction: column; 
-  gap: 12px; 
-}
-
-.input-group input { 
-  padding: 14px !important; 
-  border: 1px solid #e2e8f0; 
-  border-radius: 12px; 
-  outline: none; 
-  font-size: 15px; 
-  width: 100%; 
-}
-
-.input-group button { 
-  padding: 15px !important; 
-  border: none; 
-  border-radius: 12px; 
-  color: white; 
-  font-weight: 700; 
-  cursor: pointer; 
-  margin-top: 10px; 
-  transition: all 0.3s; 
-}
-
-.input-group button:disabled { 
-  opacity: 0.5; 
-  cursor: not-allowed; 
-  background: #94a3b8;
-}
-
-.input-group button:not(:disabled) { 
-  background: var(--chat-primary); 
-}
-
-#chat-footer { 
-  padding: 15px; 
-  background: #fff; 
-  border-top: 1px solid #f1f5f9; 
-  flex-shrink: 0; 
-  position: relative; 
-}
-
-.input-wrapper { 
-  display: flex; 
-  align-items: center; 
-  background: #f3f4f6; 
-  border-radius: 14px; 
-  padding: 6px 12px; 
-  gap: 8px; 
-}
-
-#chat-input { 
-  flex: 1; 
-  border: none; 
-  background: transparent; 
-  outline: none; 
-  padding: 10px 5px; 
-  font-size: 15px; 
-}
-
-.tool-btn { 
-  background: none; 
-  border: none; 
-  cursor: pointer; 
-  font-size: 1.3em; 
-  color: #94a3b8; 
-}
-
-#chat-send { 
-  color: #fff; 
-  border: none; 
-  border-radius: 10px; 
-  padding: 9px; 
-  cursor: pointer; 
-  display: flex; 
-  align-items: center; 
-  background: var(--chat-primary); 
-}
-
-#chat-nav { 
-  display: flex; 
-  border-top: 1px solid #f1f5f9; 
-  background: #fff; 
-  padding: 10px 0; 
-  flex-shrink: 0; 
-}
-
-.nav-item { 
-  flex: 1; 
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  padding: 8px 5px; 
-  cursor: pointer; 
-  font-size: 11px; 
-  color: #94a3b8; 
-  gap: 4px; 
-  transition: all 0.2s;
-}
-
-.nav-item.active { 
-  color: var(--chat-primary); 
-  font-weight: 600; 
-}
-
-.nav-item svg {
-  transition: all 0.2s;
-}
-
-.nav-item.active svg {
-  stroke: var(--chat-primary);
-}
-
-.hidden-picker { display: none !important; }
-
-#emoji-picker { 
-  position: absolute; 
-  bottom: 85px; 
-  left: 15px; 
-  right: 15px; 
-  background: #fff; 
-  border: 1px solid #e2e8f0; 
-  border-radius: 16px; 
-  padding: 12px; 
-  display: grid; 
-  grid-template-columns: repeat(6, 1fr); 
-  gap: 10px; 
-  z-index: 100; 
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-}
-
-.faq-container { 
-  flex: 1; 
-  display: flex; 
-  flex-direction: column; 
-  height: 100%; 
-  overflow: hidden; 
-}
-
-.faq-search { 
-  padding: 15px 20px; 
-  background: white; 
-  border-bottom: 1px solid #e2e8f0; 
-  flex-shrink: 0; 
-}
-
-.faq-search input { 
-  width: 100%; 
-  padding: 12px 16px; 
-  border: 1px solid #e2e8f0; 
-  border-radius: 10px; 
-  font-size: 14px; 
-  outline: none; 
-  transition: border-color 0.2s; 
-}
-
-.faq-search input:focus { 
-  border-color: var(--chat-primary); 
-}
-
-.faq-scroll-area { 
-  flex: 1; 
-  overflow-y: auto; 
-  padding: 20px; 
-}
-
-.faq-loading { 
-  text-align: center; 
-  padding: 40px 20px; 
-  color: #64748b; 
-}
-
-.loading-spinner { 
-  width: 40px; 
-  height: 40px; 
-  margin: 0 auto 15px; 
-  border: 3px solid #e2e8f0; 
-  border-top-color: var(--chat-primary); 
-  border-radius: 50%; 
-  animation: spin 0.8s linear infinite; 
-}
-
-@keyframes spin { 
-  to { transform: rotate(360deg); } 
-}
-
-.faq-category { 
-  margin-bottom: 25px; 
-}
-
-.faq-category-title { 
-  font-size: 18px; 
-  font-weight: 700; 
-  color: #1e293b; 
-  margin-bottom: 15px; 
-  padding-bottom: 10px; 
-  border-bottom: 2px solid #e2e8f0; 
-  display: flex; 
-  align-items: center; 
-  justify-content: space-between; 
-}
-
-.faq-category-badge { 
-  display: inline-block; 
-  background: var(--chat-primary); 
-  color: white; 
-  padding: 4px 12px; 
-  border-radius: 20px; 
-  font-size: 12px; 
-  font-weight: 600; 
-}
-
-.faq-empty { 
-  text-align: center; 
-  padding: 40px 20px; 
-}
-
-.faq-empty-icon { 
-  font-size: 48px; 
-  margin-bottom: 15px; 
-}
-
-.faq-empty-text { 
-  font-size: 16px; 
-  color: #1e293b; 
-  font-weight: 600; 
-  margin-bottom: 8px; 
-}
-
-.faq-empty-subtext { 
-  color: #94a3b8; 
-  font-size: 14px; 
-}
-
-/* SEARCH STYLES */
+/* ── Search tab ── */
 .search-container-new {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow-y: auto;
-  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
-  padding: 20px;
+  flex:1; display:flex; flex-direction:column;
+  height:100%; overflow-y:auto;
+  background: linear-gradient(135deg, #f7f7f7, #fff);
+  padding:18px;
 }
-
-.search-results-wrapper {
-  margin-bottom: 20px;
-}
-
-.results-header h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 20px 0;
-  text-align: center;
-}
-
-.results-section {
-  margin-bottom: 24px;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 0 4px;
-}
-
-.section-icon {
-  font-size: 20px;
-}
-
-.section-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1e293b;
-  flex: 1;
-}
-
-.section-count {
-  background: var(--chat-primary);
-  color: white;
-  padding: 2px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.scroll-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+.results-header h3 { font-size:17px; font-weight:700; color:#222; margin:0 0 16px; text-align:center; }
+.results-section { margin-bottom:20px; }
+.section-header { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
+.section-icon  { font-size:18px; }
+.section-title { font-size:15px; font-weight:600; color:#222; flex:1; }
+.section-count { background: var(--tw-primary); color:#fff; padding:2px 9px; border-radius:10px; font-size:11px; font-weight:600; }
+.scroll-wrapper { position:relative; display:flex; align-items:center; gap:6px; }
 .scroll-btn {
-  background: white;
-  border: 2px solid var(--chat-primary);
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.2s;
-  z-index: 2;
+  background:#fff; border:2px solid var(--tw-primary);
+  border-radius:50%; width:32px; height:32px;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; flex-shrink:0; transition:.2s; z-index:2;
 }
-
-.scroll-btn:hover {
-  background: var(--chat-primary);
-  transform: scale(1.1);
-}
-
-.scroll-btn:hover svg {
-  stroke: white;
-}
-
-.scroll-btn svg {
-  stroke: var(--chat-primary);
-  transition: stroke 0.2s;
-}
-
+.scroll-btn:hover { background: var(--tw-primary); }
+.scroll-btn:hover svg { stroke:#fff; }
+.scroll-btn svg { stroke: var(--tw-primary); transition:stroke .2s; }
 .horizontal-scroll {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding: 8px 4px;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  flex: 1;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  display:flex; gap:10px; overflow-x:auto;
+  padding:6px 2px; scroll-behavior:smooth;
+  flex:1; scrollbar-width:none; -ms-overflow-style:none;
 }
-
-.horizontal-scroll::-webkit-scrollbar {
-  display: none;
-}
-
+.horizontal-scroll::-webkit-scrollbar { display:none; }
+.horizontal-scroll.few-results { justify-content:center; }
 .result-card {
-  min-width: 200px;
-  max-width: 200px;
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
+  min-width:180px; max-width:180px;
+  background:#fff; border-radius:12px; overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+  cursor:pointer; transition:.2s; flex-shrink:0;
 }
-
-.result-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-}
-
-.result-card-image {
-  width: 100%;
-  height: 140px;
-  object-fit: cover;
-  background: #f8fafc;
-}
-
-.result-card-content {
-  padding: 12px;
-}
-
+.result-card:hover { transform:translateY(-3px); box-shadow:0 4px 14px rgba(0,0,0,.12); }
+.result-card-image { width:100%; height:120px; object-fit:cover; background:#f0f0f0; }
+.result-card-content { padding:10px; }
 .result-card-type {
-  display: inline-block;
-  background: var(--chat-primary);
-  color: white;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  margin-bottom: 8px;
+  display:inline-block; background: var(--tw-primary);
+  color:#fff; padding:2px 7px; border-radius:4px;
+  font-size:10px; font-weight:600; text-transform:uppercase; margin-bottom:6px;
 }
-
 .result-card-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1e293b;
-  margin-bottom: 6px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size:13px; font-weight:600; color:#222; margin-bottom:4px;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
+.result-card-price { font-size:15px; font-weight:700; color: var(--tw-primary); margin-bottom:3px; }
+.result-card-meta  { font-size:11px; color:#888; }
 
-.result-card-price {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--chat-primary);
-  margin-bottom: 4px;
-}
-
-.result-card-meta {
-  font-size: 12px;
-  color: #64748b;
-}
-
-.horizontal-scroll.few-results {
-  justify-content: center;
-}
-
-.search-center-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  padding: 20px;
-}
-
-.search-hero {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.search-icon-large {
-  font-size: 64px;
-  margin-bottom: 16px;
-  animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-}
-
-.search-hero h2 {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 8px 0;
-}
-
-.search-hero p {
-  font-size: 14px;
-  color: #64748b;
-  margin: 0;
-}
-
-.search-textarea-wrapper {
-  width: 100%;
-  max-width: 400px;
-  position: relative;
-}
-
+.search-center-wrapper { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; padding:16px; }
+.search-hero { text-align:center; margin-bottom:24px; }
+.search-icon-large { font-size:56px; margin-bottom:12px; animation:float 3s ease-in-out infinite; }
+@keyframes float { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-8px); } }
+.search-hero h2 { font-size:21px; font-weight:700; color:#222; margin:0 0 6px; }
+.search-hero p  { font-size:13px; color:#888; margin:0; }
+.search-textarea-wrapper { width:100%; max-width:380px; position:relative; }
 #store-search-input-new {
-    width: 100%;
-    padding: 16px 20px 20px 47px;
-    border: 2px solid #e2e8f0;
-    border-radius: 16px;
-    font-size: 14px;
-    font-family: inherit;
-    outline: none;
-    transition: all 0.3s;
-    background: white;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    resize: none;
-    line-height: 1.5;
-    min-height: 80px;
+  width:100%; padding:14px 18px 18px 44px;
+  border:2px solid #ddd; border-radius:16px;
+  font-size:14px; outline:none; background:#fff;
+  box-shadow:0 3px 10px rgba(0,0,0,.05);
+  resize:none; line-height:1.5; min-height:74px;
+  transition: border-color .3s;
 }
-
-#store-search-input-new:focus {
-  border-color: var(--chat-primary);
-  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.15);
+#store-search-input-new:focus { border-color: var(--tw-primary); }
+.search-icon-btn-inner {
+  position:absolute; left:8px; top:16px;
+  width:28px; height:28px; background: var(--tw-primary);
+  border:none; border-radius:10px; color:#fff;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:.2s; box-shadow:0 3px 10px rgba(0,0,0,.15);
 }
+.search-icon-btn-inner:hover { transform:scale(1.05); }
+#search-loading-indicator { position:absolute; right:60px; bottom:20px; }
+.mini-spinner { width:18px; height:18px; border:2px solid #ddd; border-top-color: var(--tw-primary); border-radius:50%; animation:spin .6s linear infinite; }
+.search-empty-new { text-align:center; padding:36px 16px; }
+.empty-icon    { font-size:48px; margin-bottom:12px; }
+.empty-text    { font-size:15px; font-weight:600; color:#222; margin:0 0 6px; }
+.empty-subtext { font-size:13px; color:#999; margin:0; }
 
-.search-icon-btn {
-    position: absolute;
-    left: 8px;
-    top: 19px;
-    width: 30px;
-    height: 30px;
-    background: var(--chat-primary);
-    border: none;
-    border-radius: 12px;
-    color: white;
-    cursor: pointer;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s;
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+/* ── Bottom nav ── */
+#chat-nav {
+  display:flex; border-top:1px solid #eee;
+  background:#fff; padding:8px 0; flex-shrink:0;
 }
-
-.search-icon-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+.nav-item {
+  flex:1; display:flex; flex-direction:column; align-items:center;
+  padding:6px 4px; cursor:pointer; font-size:11px;
+  color:#aaa; gap:3px; transition:.2s;
 }
+.nav-item.active { color: var(--tw-primary); font-weight:700; }
+.nav-item.active svg { stroke: var(--tw-primary); }
 
-.search-icon-btn:active {
-  transform: scale(0.95);
-}
-
-.search-loading-indicator {
-  position: absolute;
-  right: 66px;
-  bottom: 22px;
-}
-
-.mini-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #e2e8f0;
-  border-top-color: var(--chat-primary);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-
-.search-empty-new {
-  text-align: center;
-  padding: 40px 20px;
-}
-
-.empty-icon {
-  font-size: 56px;
-  margin-bottom: 16px;
-}
-
-.empty-text {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 0 0 8px 0;
-}
-
-.empty-subtext {
-  font-size: 14px;
-  color: #94a3b8;
-  margin: 0;
-}
-
-@media (max-width: 480px) {
-  #chat-widget {
-    width: 100%;
-    height: 100%;
-    max-height: 100vh;
-    bottom: 0;
-    right: 0;
-    border-radius: 0;
-  }
-  
-  #chat-launcher {
-    bottom: 20px;
-    right: 20px;
-    width: 56px;
-    height: 56px;
-  }
+/* ── mobile ── */
+@media (max-width:480px){
+  #chat-widget { width:100%; height:100%; max-height:100vh; bottom:0; right:0; border-radius:0; }
+  #chat-launcher { bottom:20px; right:20px; width:56px; height:56px; }
 }
 </style>
 
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════════════════════ -->
 <script>
 (() => {
-  const shop = "{{ shop.permanent_domain }}";
-  const BASE_URL = "https://talksy-production-2e93.up.railway.app"; 
-  const widget = document.getElementById("chat-widget");
-  const launcher = document.getElementById("chat-launcher");
-  const chatInput = document.getElementById("chat-input");
-  const msgBox = document.getElementById("chat-messages");
-  const submitBtn = document.getElementById("chat-submit-info");
-  const fnameInput = document.getElementById("chat-fname");
-  const lnameInput = document.getElementById("chat-lname");
-  const emailInput = document.getElementById("chat-email");
-  
-  let selectedImg = null;
-  let pollInterval = null; 
-  let currentConfig = {};
-  let seenMsgs = new Set();
-  let faqData = [];
+  /* ── config ── */
+  const shop     = "{{ shop.permanent_domain }}";
+  const BASE_URL = "https://talksy-production-2e93.up.railway.app";
 
-  const STORAGE_KEYS = {
-    SESSION_ID: `chat_session_${shop}`,
-    USER_EMAIL: `chat_email_${shop}`,
-    USER_FNAME: `chat_fname_${shop}`,
-    USER_LNAME: `chat_lname_${shop}`
+  /* ── DOM refs ── */
+  const widget      = document.getElementById("chat-widget");
+  const launcher    = document.getElementById("chat-launcher");
+  const chatInput   = document.getElementById("chat-input");
+  const msgBox      = document.getElementById("chat-messages");
+  const submitBtn   = document.getElementById("chat-submit-info");
+  const fnameInput  = document.getElementById("chat-fname");
+  const lnameInput  = document.getElementById("chat-lname");
+  const emailInput  = document.getElementById("chat-email");
+
+  /* ── state ── */
+  let selectedImg   = null;
+  let pollInterval  = null;
+  let statusInterval= null;   // admin-status poller
+  let currentConfig = {};
+  let seenMsgs      = new Set();
+  let faqData       = [];
+  let adminOnline   = true;    // cached status
+
+  /* ── localStorage keys ── */
+  const SK = {
+    SID   : `chat_session_${shop}`,
+    EMAIL : `chat_email_${shop}`,
+    FNAME : `chat_fname_${shop}`,
+    LNAME : `chat_lname_${shop}`
   };
 
-  try {
-    localStorage.setItem("__test", "1");
-    localStorage.removeItem("__test");
-  } catch (e) {
-    console.warn("LocalStorage blocked");
-  }
+  /* ─────────────────────────────────────────────
+     ADMIN ONLINE / OFFLINE STATUS
+     Polls  GET /api/admin-status?shop=…  every 10 s.
+     The backend returns { online: true|false }.
+     We flip the green/red dot + label in the widget.
+     ───────────────────────────────────────────── */
+  function applyStatus(online) {
+    adminOnline = online;
+    const dot  = document.getElementById("status-dot");
+    const txt  = document.getElementById("status-text");
+    if (!dot || !txt) return;
 
-  function getOrCreateSessionId() {
-    let sId = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
-    if (!sId || sId === "null" || sId === "undefined") {
-      sId = "s_" + crypto.randomUUID();
-      localStorage.setItem(STORAGE_KEYS.SESSION_ID, sId);
+    if (online) {
+      dot.style.background = "#22c55e";   // green
+      txt.textContent      = "We are online";
+    } else {
+      dot.style.background = "#ef4444";   // red
+      txt.textContent      = "We are offline";
     }
-    return sId;
   }
 
+  async function pollAdminStatus() {
+    try {
+      const res  = await fetch(`${BASE_URL}/api/admin-status?shop=${shop}`);
+      const data = await res.json();                // { online: true|false }
+      applyStatus(data.online);
+    } catch (_) {
+      // network error → assume offline
+      applyStatus(false);
+    }
+  }
+
+  function startStatusPolling() {
+    pollAdminStatus();                              // immediate first call
+    if (statusInterval) clearInterval(statusInterval);
+    statusInterval = setInterval(pollAdminStatus, 10000); // every 10 s
+  }
+
+  /* ── form validation ── */
   function validateForm() {
-    const fname = fnameInput.value.trim();
-    const email = emailInput.value.trim();
-    const isValid = fname && email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    submitBtn.disabled = !isValid;
+    const f = fnameInput.value.trim();
+    const e = emailInput.value.trim();
+    submitBtn.disabled = !(f && e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
   }
-
   fnameInput.addEventListener('input', validateForm);
   lnameInput.addEventListener('input', validateForm);
   emailInput.addEventListener('input', validateForm);
 
+  /* ── icon helpers ── */
   const ICON_SVGS = {
     bubble: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
-    send: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
+    send  : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
     defaultCustom: '<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:30px;height:30px;object-fit:contain;"/>'
   };
 
+  /* ── load remote settings ── */
   async function loadSettings() {
     try {
       const r = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
       const s = await r.json();
       currentConfig = s;
-      
-      let cleanFont = s.fontFamily.replace(/['"]+/g, "'"); 
-      
-      document.documentElement.style.setProperty('--chat-primary', s.primaryColor);
-      document.documentElement.style.setProperty('--chat-font', cleanFont);
-      document.documentElement.style.setProperty('--chat-font-size', s.baseFontSize);
 
-      widget.style.border = `1px solid ${s.widgetBorderColor}`;
-      widget.style.background = s.chatBoxBgColor;
-      launcher.style.color = s.primaryColor;
+      /* gradient header */
+      const hdr = document.getElementById("chat-header");
+      if (s.headerGradientStart && s.headerGradientEnd)
+        hdr.style.background = `linear-gradient(135deg, ${s.headerGradientStart}, ${s.headerGradientEnd})`;
+      else if (s.headerBgColor)
+        hdr.style.background = s.headerBgColor;
 
-      const header = document.getElementById("chat-header");
-      header.style.background = s.headerBgColor;
-      header.style.color = s.headerTextColor;
-      
-      document.getElementById("header-title-text").innerText = s.welcomeText;
-      document.getElementById("header-subtitle-text").innerText = s.welcomeSubtext;
+      hdr.style.color = s.headerTextColor || "#fff";
 
-      document.getElementById("home-scroll-area-bg").style.background = s.chatBoxBgColor;
+      /* text */
+      document.getElementById("header-title-text").innerText    = s.welcomeText    || "Hello 👋";
+      document.getElementById("header-subtitle-text").innerText = s.welcomeSubtext || "How can we help you?";
+      document.getElementById("contact-title").innerText        = s.startConversationText || "Contact us";
 
-      document.getElementById("contact-title").innerText = s.startConversationText;
-      
-      const chatNowBtn = document.getElementById("chat-now-btn");
-      if(chatNowBtn) chatNowBtn.style.background = s.primaryColor;
+      /* search-here card text */
+      if (s.searchCardTitle)    document.getElementById("search-card-title").innerText    = s.searchCardTitle;
+      if (s.searchCardSubtitle) document.getElementById("search-card-subtitle").innerText = s.searchCardSubtitle;
 
-      document.getElementById("onboarding-form-title").innerText = s.onboardingTitle;
-      document.getElementById("onboarding-form-subtitle").innerText = s.onboardingSubtitle;
+      /* onboarding */
+      document.getElementById("onboarding-form-title").innerText    = s.onboardingTitle    || "Identify Yourself";
+      document.getElementById("onboarding-form-subtitle").innerText = s.onboardingSubtitle || "How should we address you?";
 
-      if (s.launcherIcon === 'custom' && s.customLauncherImg) {
+      /* primary colour → CSS var */
+      if (s.primaryColor)
+        document.documentElement.style.setProperty('--tw-primary', s.primaryColor);
+
+      /* launcher icon */
+      if (s.launcherIcon === 'custom' && s.customLauncherImg)
         document.getElementById("launcher-icon").innerHTML = `<img src="${s.customLauncherImg}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>`;
-      } else {
+      else
         document.getElementById("launcher-icon").innerHTML = ICON_SVGS[s.launcherIcon] || ICON_SVGS.bubble;
-      }
 
-    } catch (e) { 
-      console.error("Setup Error", e); 
+    } catch (e) { console.error("loadSettings", e); }
+  }
+
+  /* ── session helpers ── */
+  function getOrCreateSessionId() {
+    let id = localStorage.getItem(SK.SID);
+    if (!id || id === "null" || id === "undefined") {
+      id = "s_" + crypto.randomUUID();
+      localStorage.setItem(SK.SID, id);
     }
+    return id;
   }
 
   async function checkExistingSession() {
-    const existingSession = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
-    const existingEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
-    const existingFname = localStorage.getItem(STORAGE_KEYS.USER_FNAME);
-
-    if(!existingSession || !existingEmail || !existingFname) {
-      return false;
-    }
+    const sid   = localStorage.getItem(SK.SID);
+    const email = localStorage.getItem(SK.EMAIL);
+    const fname = localStorage.getItem(SK.FNAME);
+    if (!sid || !email || !fname) return false;
 
     try {
-      const response = await fetch(`${BASE_URL}/app/chat/validate-session`, {
+      const res  = await fetch(`${BASE_URL}/app/chat/validate-session`, {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ 
-          shop, 
-          sessionId: existingSession,
-          email: existingEmail 
-        })
+        body: JSON.stringify({ shop, sessionId: sid, email })
       });
-
-      const data = await response.json();
-
-      if(response.ok && data.valid) {
-        showChatInterface();
-        startPolling();
-        return true;
-      } else {
-        clearSession();
-        return false;
-      }
-    } catch(e) {
-      clearSession();
-      return false;
-    }
+      const data = await res.json();
+      if (res.ok && data.valid) { showChatInterface(); startPolling(); return true; }
+      clearSession(); return false;
+    } catch (_) { clearSession(); return false; }
   }
 
   function clearSession() {
-    Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
+    Object.values(SK).forEach(k => localStorage.removeItem(k));
     document.getElementById("chat-onboarding-step").style.display = "flex";
-    document.getElementById("chat-chat-step").style.display = "none";
+    document.getElementById("chat-chat-step").style.display        = "none";
   }
-
   function showChatInterface() {
     document.getElementById("chat-onboarding-step").style.display = "none";
-    document.getElementById("chat-chat-step").style.display = "flex";
+    document.getElementById("chat-chat-step").style.display        = "flex";
   }
 
-  async function performSearchNew(query) {
-    if (!query || query.length < 2) {
-      document.getElementById("search-results-wrapper").style.display = "none";
-      document.getElementById("search-empty-state").style.display = "block";
-      document.getElementById("no-results-state").style.display = "none";
-      document.querySelector(".search-hero").style.display = "block";
-      return;
-    }
-
-    document.getElementById("search-loading-indicator").style.display = "flex";
-    document.getElementById("search-empty-state").style.display = "none";
-    document.getElementById("no-results-state").style.display = "none";
-    document.querySelector(".search-hero").style.display = "block";
-
-    try {
-      const userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL) || 'anonymous';
-      const sessionId = localStorage.getItem(STORAGE_KEYS.SESSION_ID) || 'no-session';
-      const firstName = localStorage.getItem(STORAGE_KEYS.USER_FNAME) || '';
-      const lastName = localStorage.getItem(STORAGE_KEYS.USER_LNAME) || '';
-      
-      await fetch(`${BASE_URL}/app/chat/search-log`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          shop: shop,
-          query: query,
-          searchType: "frontend",
-          userEmail: userEmail,
-          sessionId: sessionId,
-          firstName: firstName,
-          lastName: lastName,
-          createdAt: new Date()
-        })
-      });
-      
-    } catch(e) {
-      console.error("Search logging failed:", e);
-    }
-
-    try {
-      const searchUrl = `${BASE_URL}/app/chat/search?shop=${encodeURIComponent(shop)}&query=${encodeURIComponent(query)}&type=all`;
-      
-      const response = await fetch(searchUrl);
-      const data = await response.json();
-
-      document.getElementById("search-loading-indicator").style.display = "none";
-
-      if (!data.success) {
-        document.getElementById("no-results-state").style.display = "block";
-        document.querySelector(".search-hero").style.display = "none";
-        return;
-      }
-      
-      document.querySelector(".search-hero").style.display = "none";
-      renderSearchResultsNew(data.results);
-    } catch (error) {
-      console.error("Search error:", error);
-      document.getElementById("search-loading-indicator").style.display = "none";
-      document.getElementById("no-results-state").style.display = "block";
-      document.querySelector(".search-hero").style.display = "none";
-    }
-  }
-
-  function renderSearchResultsNew(results) {
-    const hasResults = (
-      (results.products && results.products.length > 0) ||
-      (results.collections && results.collections.length > 0) ||
-      (results.pages && results.pages.length > 0) ||
-      (results.orders && results.orders.length > 0)
-    );
-
-    if (!hasResults) {
-      document.getElementById("search-results-wrapper").style.display = "none";
-      document.getElementById("no-results-state").style.display = "block";
-      document.getElementById("search-empty-state").style.display = "none";
-      return;
-    }
-
-    document.getElementById("search-results-wrapper").style.display = "block";
-    document.getElementById("search-empty-state").style.display = "none";
-    document.getElementById("no-results-state").style.display = "none";
-
-    function updateScrollButtons(section, count) {
-      const leftBtn = document.querySelector(`#${section}-results-section .scroll-left`);
-      const rightBtn = document.querySelector(`#${section}-results-section .scroll-right`);
-      
-      if (count <= 1) {
-        if (leftBtn) leftBtn.style.display = 'none';
-        if (rightBtn) rightBtn.style.display = 'none';
-      } else {
-        if (leftBtn) leftBtn.style.display = 'flex';
-        if (rightBtn) rightBtn.style.display = 'flex';
-      }
-    }
-
-    if (results.products && results.products.length > 0) {
-      document.getElementById("products-results-section").style.display = "block";
-      document.getElementById("products-count").textContent = results.products.length;
-      
-      const productsHTML = results.products.map(product => `
-        <div class="result-card" onclick="window.open('${product.url}', '_blank')">
-          ${product.image ? `<img src="${product.image}" class="result-card-image" alt="${product.title}" />` : '<div class="result-card-image"></div>'}
-          <div class="result-card-content">
-            <div class="result-card-title">${product.title}</div>
-            <div class="result-card-price">${product.currency} ${parseFloat(product.price).toFixed(2)}</div>
-          </div>
-        </div>
-      `).join('');
-      
-      const productsScroll = document.getElementById("products-scroll");
-      productsScroll.innerHTML = productsHTML;
-      
-      if (results.products.length <= 2) {
-        productsScroll.classList.add('few-results');
-      } else {
-        productsScroll.classList.remove('few-results');
-      }
-      
-      updateScrollButtons('products', results.products.length);
-    } else {
-      document.getElementById("products-results-section").style.display = "none";
-    }
-
-    if (results.collections && results.collections.length > 0) {
-      document.getElementById("collections-results-section").style.display = "block";
-      document.getElementById("collections-count").textContent = results.collections.length;
-      
-      const collectionsHTML = results.collections.map(collection => `
-        <div class="result-card" onclick="window.open('${collection.url}', '_blank')">
-          ${collection.image ? `<img src="${collection.image}" class="result-card-image" alt="${collection.title}" />` : '<div class="result-card-image"></div>'}
-          <div class="result-card-content">
-            <div class="result-card-title">${collection.title}</div>
-            <div class="result-card-meta">${collection.productCount || 0} products</div>
-          </div>
-        </div>
-      `).join('');
-      
-      const collectionsScroll = document.getElementById("collections-scroll");
-      collectionsScroll.innerHTML = collectionsHTML;
-      
-      if (results.collections.length <= 2) {
-        collectionsScroll.classList.add('few-results');
-      } else {
-        collectionsScroll.classList.remove('few-results');
-      }
-      
-      updateScrollButtons('collections', results.collections.length);
-    } else {
-      document.getElementById("collections-results-section").style.display = "none";
-    }
-
-    if (results.pages && results.pages.length > 0) {
-      document.getElementById("pages-results-section").style.display = "block";
-      document.getElementById("pages-count").textContent = results.pages.length;
-      
-      const pagesHTML = results.pages.map(page => `
-        <div class="result-card" onclick="window.open('${page.url}', '_blank')">
-          <div class="result-card-image"></div>
-          <div class="result-card-content">
-            <div class="result-card-type">Page</div>
-            <div class="result-card-title">${page.title}</div>
-            ${page.description ? `<div class="result-card-meta">${page.description.substring(0, 60)}...</div>` : ''}
-          </div>
-        </div>
-      `).join('');
-      
-      const pagesScroll = document.getElementById("pages-scroll");
-      pagesScroll.innerHTML = pagesHTML;
-      
-      if (results.pages.length <= 2) {
-        pagesScroll.classList.add('few-results');
-      } else {
-        pagesScroll.classList.remove('few-results');
-      }
-      
-      updateScrollButtons('pages', results.pages.length);
-    } else {
-      document.getElementById("pages-results-section").style.display = "none";
-    }
-
-    if (results.orders && results.orders.length > 0) {
-      document.getElementById("orders-results-section").style.display = "block";
-      document.getElementById("orders-count").textContent = results.orders.length;
-      
-      const ordersHTML = results.orders.map(order => `
-        <div class="result-card">
-          <div class="result-card-image"></div>
-          <div class="result-card-content">
-            <div class="result-card-type">Order</div>
-            <div class="result-card-title">${order.orderNumber}</div>
-            <div class="result-card-price">${order.currency} ${parseFloat(order.total).toFixed(2)}</div>
-            <div class="result-card-meta">${order.email}</div>
-          </div>
-        </div>
-      `).join('');
-      
-      const ordersScroll = document.getElementById("orders-scroll");
-      ordersScroll.innerHTML = ordersHTML;
-      
-      if (results.orders.length <= 2) {
-        ordersScroll.classList.add('few-results');
-      } else {
-        ordersScroll.classList.remove('few-results');
-      }
-      
-      updateScrollButtons('orders', results.orders.length);
-    } else {
-      document.getElementById("orders-results-section").style.display = "none";
-    }
-  }
-
-  window.scrollSection = function(section, direction) {
-    const scrollContainer = document.getElementById(`${section}-scroll`);
-    const scrollAmount = 220;
-    
-    if (direction === 'left') {
-      scrollContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-    } else {
-      scrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-  };
-
-  async function loadFAQs() {
-    try {
-      const response = await fetch(`${BASE_URL}/api/faq/categories?shop=${shop}`);
-      const data = await response.json();
-      
-      faqData = data.categories || [];
-      renderHomeFAQs();
-      renderFAQs();
-    } catch (error) {
-      console.error("Error loading FAQs:", error);
-      document.getElementById("faq-categories-list").innerHTML = `
-        <div class="faq-empty">
-          <div class="faq-empty-icon">❌</div>
-          <div class="faq-empty-text">Failed to load FAQs</div>
-          <p class="faq-empty-subtext">Please try again later</p>
-        </div>
-      `;
-    }
-  }
-
-  function renderHomeFAQs() {
-    const container = document.getElementById("home-faq-list");
-    
-    if (!faqData.length || !faqData.some(cat => cat.isActive && cat.faqs && cat.faqs.length > 0)) {
-      container.innerHTML = `
-        <div class="faq-empty" style="padding: 20px;">
-          <div class="faq-empty-icon">❓</div>
-          <div class="faq-empty-text">No FAQs Available</div>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-
-    faqData.forEach(category => {
-      if (!category.isActive || !category.faqs || !category.faqs.length) return;
-
-      const activeFaqs = category.faqs.filter(f => f.isActive);
-      
-      activeFaqs.forEach(faq => {
-        const faqItem = document.createElement('div');
-        faqItem.className = 'faq-item';
-        faqItem.innerHTML = `
-          <div class="faq-question">${faq.question}</div>
-          <div class="faq-arrow">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="m9 18 6-6-6-6"/>
-            </svg>
-          </div>
-        `;
-        
-        faqItem.onclick = () => {
-          faqItem.classList.toggle('open');
-          if (faqItem.classList.contains('open') && !faqItem.querySelector('.faq-answer')) {
-            const answerDiv = document.createElement('div');
-            answerDiv.className = 'faq-answer';
-            answerDiv.innerHTML = `<div class="faq-answer-text">${faq.answer}</div>`;
-            faqItem.appendChild(answerDiv);
-          }
-        };
-        
-        container.appendChild(faqItem);
-      });
-    });
-  }
-
-  function renderFAQs() {
-    const container = document.getElementById("faq-categories-list");
-    
-    if (!faqData.length || !faqData.some(cat => cat.isActive && cat.faqs && cat.faqs.length > 0)) {
-      container.innerHTML = `
-        <div class="faq-empty">
-          <div class="faq-empty-icon">❓</div>
-          <div class="faq-empty-text">No FAQs Available</div>
-          <p class="faq-empty-subtext">Check back later for helpful information</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-
-    faqData.forEach(category => {
-      if (!category.isActive || !category.faqs || !category.faqs.length) return;
-
-      const categoryDiv = document.createElement('div');
-      categoryDiv.className = 'faq-category';
-      
-      const activeFaqs = category.faqs.filter(f => f.isActive);
-      
-      let categoryHTML = `
-        <div class="faq-category-title">
-          <span>${category.title}</span>
-          <span class="faq-category-badge">${activeFaqs.length}</span>
-        </div>
-      `;
-
-      activeFaqs.forEach(faq => {
-        const faqId = `faq-${faq.id}`;
-        categoryHTML += `
-          <div class="faq-item" onclick="toggleFaq('${faqId}')">
-            <div class="faq-question">${faq.question}</div>
-            <div class="faq-arrow" id="${faqId}-arrow">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="m9 18 6-6-6-6"/>
-              </svg>
-            </div>
-            <div class="faq-answer" id="${faqId}-answer" style="display:none;">
-              <div class="faq-answer-text">${faq.answer}</div>
-            </div>
-          </div>
-        `;
-      });
-
-      categoryDiv.innerHTML = categoryHTML;
-      container.appendChild(categoryDiv);
-    });
-  }
-
-  window.toggleFaq = function(faqId) {
-    const answer = document.getElementById(`${faqId}-answer`);
-    const arrow = document.getElementById(`${faqId}-arrow`);
-    
-    if (answer && arrow) {
-      const isOpen = answer.style.display === 'block';
-      answer.style.display = isOpen ? 'none' : 'block';
-      arrow.parentElement.classList.toggle('open');
-    }
-  };
-
-  document.addEventListener('DOMContentLoaded', () => {
-    const storeSearchInputNew = document.getElementById("store-search-input-new");
-    const searchIconBtn = document.getElementById("search-icon-btn");
-    const faqSearchInput = document.getElementById("faq-search-input");
-    const homeSearchInput = document.getElementById("home-search-input");
-    const homeSearchBtn = document.getElementById("home-search-btn");
-    
-    if (searchIconBtn) {
-      searchIconBtn.addEventListener('click', () => {
-        const query = storeSearchInputNew.value.trim();
-        if (query) {
-          performSearchNew(query);
-        }
-      });
-    }
-
-    if (storeSearchInputNew) {
-      storeSearchInputNew.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          const query = storeSearchInputNew.value.trim();
-          if (query) {
-            performSearchNew(query);
-          }
-        }
-      });
-    }
-
-    if (homeSearchBtn && homeSearchInput) {
-      homeSearchBtn.addEventListener('click', () => {
-        const query = homeSearchInput.value.trim();
-        if (query) {
-          document.querySelector('[data-tab="search"]').click();
-          setTimeout(() => {
-            document.getElementById("store-search-input-new").value = query;
-            performSearchNew(query);
-          }, 100);
-        }
-      });
-
-      homeSearchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const query = homeSearchInput.value.trim();
-          if (query) {
-            document.querySelector('[data-tab="search"]').click();
-            setTimeout(() => {
-              document.getElementById("store-search-input-new").value = query;
-              performSearchNew(query);
-            }, 100);
-          }
-        }
-      });
-    }
-
-    if (faqSearchInput) {
-      faqSearchInput.addEventListener('input', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        const faqItems = document.querySelectorAll('#faq-categories-list .faq-item');
-
-        faqItems.forEach(item => {
-          const question = item.querySelector('.faq-question')?.textContent.toLowerCase() || '';
-          const answer = item.querySelector('.faq-answer-text')?.textContent.toLowerCase() || '';
-          
-          if (question.includes(searchTerm) || answer.includes(searchTerm)) {
-            item.style.display = '';
-          } else {
-            item.style.display = 'none';
-          }
-        });
-
-        document.querySelectorAll('.faq-category').forEach(category => {
-          const visibleItems = category.querySelectorAll('.faq-item:not([style*="display: none"])');
-          category.style.display = visibleItems.length > 0 ? '' : 'none';
-        });
-      });
-    }
-  });
-
+  /* ── messages ── */
   async function fetchMessages() {
-    const sId = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
-    if (!sId) return;
+    const sid = localStorage.getItem(SK.SID);
+    if (!sid) return;
     try {
-      const res = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sId}`);
+      const res  = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sid}`);
       const data = await res.json();
       data.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).forEach(renderMsg);
-    } catch (e) {}
+    } catch (_) {}
   }
 
   function renderMsg(m) {
     if (seenMsgs.has(m.id)) return;
     seenMsgs.add(m.id);
-    const div = document.createElement("div");
+    const div   = document.createElement("div");
     const isBot = (m.sender === 'admin' || m.sender === 'bot');
     div.className = `msg ${isBot ? 'bot' : 'user'}`;
-    const bg = isBot ? (currentConfig.messageBgColor || "#fff") : "var(--chat-primary)";
+    const bg    = isBot ? (currentConfig.messageBgColor || "#fff") : "var(--tw-primary)";
     const color = isBot ? "#1e293b" : "#fff";
-    const border = isBot ? `1px solid ${currentConfig.widgetBorderColor}` : 'none';
-    div.innerHTML = `<div class="msg-content" style="background:${bg}; color:${color}; border:${border}">${m.message ? `<div>${m.message}</div>` : ''}${m.fileUrl ? `<img src="${m.fileUrl}" style="max-width:100%; border-radius:10px; margin-top:8px; display:block;" />` : ''}</div>`;
+    const bdr   = isBot ? `1px solid ${currentConfig.widgetBorderColor || '#eee'}` : 'none';
+    div.innerHTML = `<div class="msg-content" style="background:${bg};color:${color};border:${bdr}">
+      ${m.message ? `<div>${m.message}</div>` : ''}
+      ${m.fileUrl  ? `<img src="${m.fileUrl}" style="max-width:100%;border-radius:10px;margin-top:6px;display:block;" />` : ''}
+    </div>`;
     msgBox.appendChild(div);
     msgBox.scrollTop = msgBox.scrollHeight;
   }
 
   async function postMessage(txt = "", file = null) {
-    const sId = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
+    const sid     = localStorage.getItem(SK.SID);
     const message = txt || chatInput.value.trim();
-    if ((!message && !file) || !sId) return;
+    if ((!message && !file) || !sid) return;
     chatInput.value = "";
     try {
       await fetch(`${BASE_URL}/app/chat/message`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          sessionId: sId, 
-          shop, 
-          message, 
-          fileUrl: file, 
-          email: localStorage.getItem(STORAGE_KEYS.USER_EMAIL), 
-          fname: localStorage.getItem(STORAGE_KEYS.USER_FNAME) 
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          sessionId: sid, shop, message,
+          fileUrl : file,
+          email   : localStorage.getItem(SK.EMAIL),
+          fname   : localStorage.getItem(SK.FNAME)
         })
       });
       fetchMessages();
-    } catch (e) {}
+    } catch (_) {}
   }
 
+  /* ── search ── */
+  async function performSearchNew(query) {
+    if (!query || query.length < 2) {
+      document.getElementById("search-results-wrapper").style.display = "none";
+      document.getElementById("search-empty-state").style.display     = "block";
+      document.getElementById("no-results-state").style.display       = "none";
+      document.querySelector(".search-hero").style.display             = "block";
+      return;
+    }
+
+    document.getElementById("search-loading-indicator").style.display = "flex";
+    document.getElementById("search-empty-state").style.display       = "none";
+    document.getElementById("no-results-state").style.display         = "none";
+    document.querySelector(".search-hero").style.display               = "block";
+
+    /* log search */
+    try {
+      await fetch(`${BASE_URL}/app/chat/search-log`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          shop, query, searchType: "frontend",
+          userEmail : localStorage.getItem(SK.EMAIL) || 'anonymous',
+          sessionId : localStorage.getItem(SK.SID)   || 'no-session',
+          firstName : localStorage.getItem(SK.FNAME) || '',
+          lastName  : localStorage.getItem(SK.LNAME) || '',
+          createdAt : new Date()
+        })
+      });
+    } catch (_) {}
+
+    try {
+      const res  = await fetch(`${BASE_URL}/app/chat/search?shop=${encodeURIComponent(shop)}&query=${encodeURIComponent(query)}&type=all`);
+      const data = await res.json();
+      document.getElementById("search-loading-indicator").style.display = "none";
+      if (!data.success) {
+        document.getElementById("no-results-state").style.display = "block";
+        document.querySelector(".search-hero").style.display       = "none";
+        return;
+      }
+      document.querySelector(".search-hero").style.display = "none";
+      renderSearchResultsNew(data.results);
+    } catch (_) {
+      document.getElementById("search-loading-indicator").style.display = "none";
+      document.getElementById("no-results-state").style.display         = "block";
+      document.querySelector(".search-hero").style.display               = "none";
+    }
+  }
+
+  function renderSearchResultsNew(results) {
+    const has = (results.products    && results.products.length)    ||
+                (results.collections && results.collections.length) ||
+                (results.pages       && results.pages.length)       ||
+                (results.orders      && results.orders.length);
+    if (!has) {
+      document.getElementById("search-results-wrapper").style.display = "none";
+      document.getElementById("no-results-state").style.display       = "block";
+      return;
+    }
+    document.getElementById("search-results-wrapper").style.display = "block";
+    document.getElementById("search-empty-state").style.display     = "none";
+    document.getElementById("no-results-state").style.display       = "none";
+
+    function fill(section, items, cardFn) {
+      const wrap  = document.getElementById(`${section}-results-section`);
+      const count = document.getElementById(`${section}-count`);
+      const scroll= document.getElementById(`${section}-scroll`);
+      if (items && items.length) {
+        wrap.style.display = "block";
+        count.textContent  = items.length;
+        scroll.innerHTML   = items.map(cardFn).join('');
+        scroll.classList.toggle('few-results', items.length <= 2);
+        const lb = wrap.querySelector('.scroll-left');
+        const rb = wrap.querySelector('.scroll-right');
+        if (items.length <= 1) { if(lb) lb.style.display='none'; if(rb) rb.style.display='none'; }
+        else { if(lb) lb.style.display='flex'; if(rb) rb.style.display='flex'; }
+      } else {
+        wrap.style.display = "none";
+      }
+    }
+
+    fill('products', results.products, p =>
+      `<div class="result-card" onclick="window.open('${p.url}','_blank')">
+        ${p.image ? `<img src="${p.image}" class="result-card-image" alt="${p.title}"/>` : '<div class="result-card-image"></div>'}
+        <div class="result-card-content">
+          <div class="result-card-title">${p.title}</div>
+          <div class="result-card-price">${p.currency} ${parseFloat(p.price).toFixed(2)}</div>
+        </div>
+      </div>`
+    );
+
+    fill('collections', results.collections, c =>
+      `<div class="result-card" onclick="window.open('${c.url}','_blank')">
+        ${c.image ? `<img src="${c.image}" class="result-card-image" alt="${c.title}"/>` : '<div class="result-card-image"></div>'}
+        <div class="result-card-content">
+          <div class="result-card-title">${c.title}</div>
+          <div class="result-card-meta">${c.productCount || 0} products</div>
+        </div>
+      </div>`
+    );
+
+    fill('pages', results.pages, pg =>
+      `<div class="result-card" onclick="window.open('${pg.url}','_blank')">
+        <div class="result-card-image"></div>
+        <div class="result-card-content">
+          <div class="result-card-type">Page</div>
+          <div class="result-card-title">${pg.title}</div>
+          ${pg.description ? `<div class="result-card-meta">${pg.description.substring(0,55)}…</div>` : ''}
+        </div>
+      </div>`
+    );
+
+    fill('orders', results.orders, o =>
+      `<div class="result-card">
+        <div class="result-card-image"></div>
+        <div class="result-card-content">
+          <div class="result-card-type">Order</div>
+          <div class="result-card-title">${o.orderNumber}</div>
+          <div class="result-card-price">${o.currency} ${parseFloat(o.total).toFixed(2)}</div>
+          <div class="result-card-meta">${o.email}</div>
+        </div>
+      </div>`
+    );
+  }
+
+  window.scrollSection = function(section, dir) {
+    const el = document.getElementById(`${section}-scroll`);
+    el.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' });
+  };
+
+  /* ── FAQs ── */
+  async function loadFAQs() {
+    try {
+      const res  = await fetch(`${BASE_URL}/api/faq/categories?shop=${shop}`);
+      const data = await res.json();
+      faqData = data.categories || [];
+      renderHomeFAQs();
+      renderFAQs();
+    } catch (_) {
+      document.getElementById("faq-categories-list").innerHTML =
+        '<div style="text-align:center;padding:40px 20px;color:#888;">❌ Failed to load FAQs</div>';
+    }
+  }
+
+  function renderHomeFAQs() {
+    const c = document.getElementById("home-faq-list");
+    c.innerHTML = '';
+    faqData.forEach(cat => {
+      if (!cat.isActive || !cat.faqs) return;
+      cat.faqs.filter(f => f.isActive).forEach(faq => {
+        const item = document.createElement("div");
+        item.className = "faq-item";
+        item.innerHTML = `
+          <div class="faq-question">${faq.question}</div>
+          <div class="faq-arrow">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </div>`;
+        item.onclick = () => {
+          item.classList.toggle('open');
+          if (item.classList.contains('open') && !item.querySelector('.faq-answer')) {
+            const ans = document.createElement('div');
+            ans.className = 'faq-answer';
+            ans.innerHTML = `<div class="faq-answer-text">${faq.answer}</div>`;
+            item.appendChild(ans);
+          }
+        };
+        c.appendChild(item);
+      });
+    });
+    if (!c.children.length)
+      c.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">❓ No FAQs available</div>';
+  }
+
+  function renderFAQs() {
+    const c = document.getElementById("faq-categories-list");
+    c.innerHTML = '';
+    faqData.forEach(cat => {
+      if (!cat.isActive || !cat.faqs) return;
+      const active = cat.faqs.filter(f => f.isActive);
+      if (!active.length) return;
+      const catDiv = document.createElement('div');
+      catDiv.className = 'faq-category';
+      let html = `<div class="faq-category-title"><span>${cat.title}</span><span class="faq-category-badge">${active.length}</span></div>`;
+      active.forEach(faq => {
+        const id = `faq-${faq.id}`;
+        html += `<div class="faq-item" onclick="window.toggleFaq('${id}')">
+          <div class="faq-question">${faq.question}</div>
+          <div class="faq-arrow" id="${id}-arrow">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+          </div>
+          <div class="faq-answer" id="${id}-answer" style="display:none;">
+            <div class="faq-answer-text">${faq.answer}</div>
+          </div>
+        </div>`;
+      });
+      catDiv.innerHTML = html;
+      c.appendChild(catDiv);
+    });
+  }
+
+  window.toggleFaq = function(id) {
+    const ans   = document.getElementById(`${id}-answer`);
+    const arrow = document.getElementById(`${id}-arrow`);
+    if (ans && arrow) {
+      const open = ans.style.display === 'block';
+      ans.style.display = open ? 'none' : 'block';
+      arrow.parentElement.classList.toggle('open', !open);
+    }
+  };
+
+  /* ── DOM-ready bindings ── */
+  document.addEventListener('DOMContentLoaded', () => {
+    /* search tab textarea */
+    const searchInput = document.getElementById("store-search-input-new");
+    const searchBtn   = document.getElementById("search-icon-btn");
+
+    searchBtn && searchBtn.addEventListener('click', () => {
+      const q = searchInput.value.trim();
+      if (q) performSearchNew(q);
+    });
+    searchInput && searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const q = searchInput.value.trim(); if (q) performSearchNew(q); }
+    });
+
+    /* home search → jump to search tab */
+    const hsi = document.getElementById("home-search-input");
+    const hsb = document.getElementById("home-search-btn");
+    function goSearch(q) {
+      document.querySelector('[data-tab="search"]').click();
+      setTimeout(() => { document.getElementById("store-search-input-new").value = q; performSearchNew(q); }, 80);
+    }
+    hsb && hsb.addEventListener('click', () => { const q = hsi.value.trim(); if (q) goSearch(q); });
+    hsi && hsi.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const q = hsi.value.trim(); if (q) goSearch(q); } });
+
+    /* FAQ tab search filter */
+    const fsi = document.getElementById("faq-search-input");
+    fsi && fsi.addEventListener('input', e => {
+      const term = e.target.value.toLowerCase();
+      document.querySelectorAll('#faq-categories-list .faq-item').forEach(item => {
+        const q = (item.querySelector('.faq-question')?.textContent || '').toLowerCase();
+        const a = (item.querySelector('.faq-answer-text')?.textContent || '').toLowerCase();
+        item.style.display = (q.includes(term) || a.includes(term)) ? '' : 'none';
+      });
+      document.querySelectorAll('.faq-category').forEach(cat => {
+        cat.style.display = cat.querySelectorAll('.faq-item:not([style*="display: none"])').length ? '' : 'none';
+      });
+    });
+  });
+
+  /* ── polling helpers ── */
+  function startPolling() {
+    fetchMessages();
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(fetchMessages, 3500);
+  }
+
+  /* ── launcher toggle ── */
   launcher.onclick = () => {
     const open = widget.classList.toggle("chat-visible");
     widget.classList.toggle("chat-hidden", !open);
-    document.getElementById("launcher-icon").style.display = open ? "none" : "block";
-    document.getElementById("close-launcher-icon").style.display = open ? "flex" : "none";
+    document.getElementById("launcher-icon").style.display       = open ? "none"  : "block";
+    document.getElementById("close-launcher-icon").style.display = open ? "flex"  : "none";
   };
 
+  /* ── tab nav ── */
   document.querySelectorAll('.nav-item').forEach(nav => {
     nav.onclick = () => {
       const tab = nav.dataset.tab;
@@ -1908,140 +1205,95 @@ button#remove-image-btn { position: absolute; background: #f3f4f6; border: none;
       document.getElementById(`tab-${tab}`).style.display = 'flex';
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
       nav.classList.add('active');
-      
-      if(tab === 'chat') { 
-        fetchMessages(); 
-        setTimeout(() => msgBox.scrollTop = msgBox.scrollHeight, 100); 
-      }
-      
-      if(tab === 'faq' && faqData.length === 0) {
-        loadFAQs();
-      }
-      
-      if(tab === 'search') {
-        document.getElementById("store-search-input-new").value = "";
+
+      if (tab === 'chat') { fetchMessages(); setTimeout(() => msgBox.scrollTop = msgBox.scrollHeight, 80); }
+      if (tab === 'faq'  && !faqData.length) loadFAQs();
+      if (tab === 'search') {
+        document.getElementById("store-search-input-new").value       = "";
         document.getElementById("search-results-wrapper").style.display = "none";
-        document.getElementById("search-empty-state").style.display = "block";
-        document.getElementById("no-results-state").style.display = "none";
-        document.querySelector(".search-hero").style.display = "block";
+        document.getElementById("search-empty-state").style.display     = "block";
+        document.getElementById("no-results-state").style.display       = "none";
+        document.querySelector(".search-hero").style.display            = "block";
       }
     };
   });
 
-  const trackingCard = document.getElementById("tracking-card-trigger");
-  if(trackingCard) {
-    trackingCard.onclick = () => {
-      document.querySelector('[data-tab="search"]').click();
-    };
-  }
+  /* ── search-here card click → search tab ── */
+  document.getElementById("search-here-trigger").onclick = () =>
+    document.querySelector('[data-tab="search"]').click();
 
+  /* ── contact card click → chat tab ── */
+  document.querySelector('.contact-card').addEventListener('click', (e) => {
+    if (e.target.closest('.chat-now-btn'))
+      document.querySelector('[data-tab="chat"]').click();
+  });
+
+  /* ── onboarding submit ── */
   submitBtn.onclick = async () => {
-    const f = fnameInput.value.trim();
-    const l = lnameInput.value.trim();
-    const e = emailInput.value.trim();
-    
-    if(!f || !e) return alert("Required fields missing");
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Connecting...";
-
-    const sId = getOrCreateSessionId();
-
+    const f = fnameInput.value.trim(), l = lnameInput.value.trim(), e = emailInput.value.trim();
+    if (!f || !e) return alert("Required fields missing");
+    submitBtn.disabled = true; submitBtn.textContent = "Connecting…";
+    const sid = getOrCreateSessionId();
     try {
       const res = await fetch(`${BASE_URL}/app/chat/register`, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ 
-          shop, 
-          firstName: f, 
-          lastName: l,
-          email: e, 
-          sessionId: sId 
-        })
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ shop, firstName: f, lastName: l, email: e, sessionId: sid })
       });
-
-      if(res.ok) {
-        const data = await res.json();
-        
-        localStorage.setItem(STORAGE_KEYS.SESSION_ID, sId);
-        localStorage.setItem(STORAGE_KEYS.USER_FNAME, f);
-        localStorage.setItem(STORAGE_KEYS.USER_LNAME, l || '');
-        localStorage.setItem(STORAGE_KEYS.USER_EMAIL, e);
-        
-        showChatInterface();
-        startPolling();
-        
-        submitBtn.textContent = "Start Chatting";
-        submitBtn.disabled = false;
-      } else {
-        alert("Registration failed. Please try again.");
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Start Chatting";
-      }
-    } catch(e) {
-      console.error("Registration error:", e);
-      alert("Connection error. Please try again.");
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Start Chatting";
-    }
+      if (res.ok) {
+        localStorage.setItem(SK.SID, sid);
+        localStorage.setItem(SK.FNAME, f);
+        localStorage.setItem(SK.LNAME, l || '');
+        localStorage.setItem(SK.EMAIL, e);
+        showChatInterface(); startPolling();
+      } else alert("Registration failed.");
+    } catch (_) { alert("Connection error."); }
+    submitBtn.disabled = false; submitBtn.textContent = "Start Chatting";
   };
 
+  /* ── file / image ── */
   const fInput = document.getElementById("chat-file-input");
   document.getElementById("file-btn").onclick = () => fInput.click();
-  fInput.onchange = (e) => {
+  fInput.onchange = e => {
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = ev => {
       selectedImg = ev.target.result;
       document.getElementById("image-preview").src = selectedImg;
       document.getElementById("image-preview-container").style.display = "";
     };
     reader.readAsDataURL(e.target.files[0]);
   };
-
   document.getElementById("send-image-btn").onclick = () => {
-    postMessage("", selectedImg);
-    selectedImg = null;
+    postMessage("", selectedImg); selectedImg = null;
     document.getElementById("image-preview-container").style.display = "none";
   };
-
   document.getElementById("remove-image-btn").onclick = () => {
     selectedImg = null;
     document.getElementById("image-preview-container").style.display = "none";
   };
 
+  /* ── emoji ── */
   const picker = document.getElementById("emoji-picker");
-  const ems = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏"];
-  picker.innerHTML = ems.map(em => `<span class="e-item" style="cursor:pointer; font-size:22px;">${em}</span>`).join("");
-  document.getElementById("emoji-btn").onclick = (e) => { 
-    e.stopPropagation(); 
-    picker.classList.toggle("hidden-picker"); 
-  };
-  picker.onclick = (e) => {
-    if(e.target.classList.contains('e-item')) {
-      chatInput.value += e.target.innerText;
-      picker.classList.add("hidden-picker");
-      chatInput.focus();
-    }
+  picker.innerHTML = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏"]
+    .map(em => `<span class="e-item" style="cursor:pointer;font-size:20px;">${em}</span>`).join('');
+  document.getElementById("emoji-btn").onclick = e => { e.stopPropagation(); picker.classList.toggle("hidden-picker"); };
+  picker.onclick = e => {
+    if (e.target.classList.contains('e-item')) { chatInput.value += e.target.innerText; picker.classList.add("hidden-picker"); chatInput.focus(); }
   };
 
-  function startPolling() {
-    fetchMessages();
-    if(pollInterval) clearInterval(pollInterval);
-    pollInterval = setInterval(fetchMessages, 3500);
-  }
-
-  chatInput.onkeydown = (e) => { if(e.key === 'Enter') postMessage(); };
+  /* ── send shortcuts ── */
+  chatInput.onkeydown = e => { if (e.key === 'Enter') postMessage(); };
   document.getElementById("chat-send").onclick = () => postMessage();
   document.getElementById("chat-close").onclick = () => launcher.click();
-  document.getElementById("start-chat-trigger").onclick = () => document.querySelector('[data-tab="chat"]').click();
 
+  /* ── INIT ── */
   async function initialize() {
     await loadSettings();
     await loadFAQs();
     await checkExistingSession();
+    startStatusPolling();        // ← start online/offline polling
   }
-
   initialize();
+
 })();
 </script>
 

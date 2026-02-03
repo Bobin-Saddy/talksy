@@ -64,48 +64,77 @@ model ChatMessage {
 model ChatSettings {
   id                    String   @id @default(uuid())
   shop                  String   @unique
-  
-  // COLOR SETTINGS
-  primaryColor          String   @default("#4F46E5")
-  headerBgColor         String   @default("#2c3e50")
-  heroBgColor           String   @default("#f8f9fa")
+
+  // ── HEADER GRADIENT (← NEW: replaces flat headerBgColor for gradient support)
+  headerGradientStart   String   @default("#F39C12")   // ← NEW  left / top colour
+  headerGradientEnd     String   @default("#E67E22")   // ← NEW  right / bottom colour
+  headerBgColor         String   @default("#2c3e50")   //        kept as fallback when gradient fields are empty
   headerTextColor       String   @default("#ffffff")
-  heroTextColor         String   @default("#1a1a1a")
-  cardTitleColor        String   @default("#1a1a1a")
-  cardSubtitleColor     String   @default("#4a5568")
-  onboardingTextColor   String   @default("#1a1a1a")
-  
-  chatBoxBgColor        String   @default("#f8f9fa")
+
+  // ── PRIMARY / PAGE
+  primaryColor          String   @default("#F39C12")
+  chatBoxBgColor        String   @default("#f5f5f5")
   messageBgColor        String   @default("#FFFFFF")
   widgetBorderColor     String   @default("#E5E7EB")
-  
-  // NEW FIELDS FOR CONTACT CARD
-  contactCardBgColor    String   @default("#e8e8e8")
-  chatButtonBgColor     String   @default("#2c3e50")
-  emailButtonBgColor    String   @default("#fbbf24")
-  
-  // IMAGES
+
+  // ── CONTACT CARD
+  contactCardBgColor    String   @default("#FFFFFF")   // white in new design
+  chatButtonBgColor     String   @default("#F39C12")   // same as primary
+  // emailButtonBgColor removed – email button no longer shown on home card
+
+  // ── TEXT COLOURS
+  cardTitleColor        String   @default("#1a1a1a")
+  cardSubtitleColor     String   @default("#777777")
+  onboardingTextColor   String   @default("#1a1a1a")
+
+  // ── SEARCH-HERE CARD (← NEW)
+  searchCardTitle       String   @default("Search here")      // ← NEW
+  searchCardSubtitle    String   @default("This is Search")   // ← NEW
+
+  // ── ONLINE / OFFLINE STATUS COLOURS (← NEW)
+  onlineStatusColor     String   @default("#22c55e")   // ← NEW  green dot
+  offlineStatusColor    String   @default("#ef4444")   // ← NEW  red dot
+
+  // ── IMAGES
   customLauncherImg     String?
-  welcomeImg            String   @default("https://ui-avatars.com/api/?name=Support&background=4F46E5&color=fff")
-  
-  // TEXT CONTENT
+  welcomeImg            String   @default("https://ui-avatars.com/api/?name=Support&background=F39C12&color=fff")
+
+  // ── TEXT CONTENT
   headerTitle           String   @default("Live Support")
   headerSubtitle        String   @default("Online now")
-  welcomeText           String   @default("Hi 👋")
+  welcomeText           String   @default("Hello 👋")
   welcomeSubtext        String   @default("How can we help you?")
   replyTimeText         String   @default("Typically replies in 5 minutes")
-  startConversationText String   @default("Contact us") 
+  startConversationText String   @default("Contact us")
   onboardingTitle       String   @default("Start a conversation")
   onboardingSubtitle    String   @default("Please provide your details to begin.")
-  
-  // SETTINGS
+
+  // ── LAUNCHER
   launcherIcon          String   @default("bubble")
-  fontFamily            String   @default("'Euclid Circular A Medium', 'Euclid Circular A', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif") 
-  baseFontSize          String   @default("15px")
-  
-  // TIMESTAMPS
+
+  // ── TYPOGRAPHY
+  fontFamily            String   @default("'Montserrat', -apple-system, sans-serif")
+  baseFontSize          String   @default("14px")
+
+  // ── TIMESTAMPS
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+
+// ─── AdminStatus ───────────────────────────────────────────────
+// Tracks whether the store admin is currently online.
+// The Remix admin app writes a heartbeat row every 30 s.
+// The widget reads GET /api/admin-status; if the last heartbeat
+// is older than 60 s the backend returns { online: false }.
+
+model AdminStatus {
+  id            String   @id @default(uuid())
+  shop          String   @unique                        // one row per shop
+  isOnline      Boolean  @default(false)
+  lastHeartbeat DateTime @default(now())               // updated by admin heartbeat
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model FaqPage {
