@@ -1,39 +1,60 @@
 import { json } from "@remix-run/node";
-import prisma   from "../db.server";        // ← adjust path if needed
+import prisma from "../db.server";
 
-/* 60 seconds – if no heartbeat arrives in this window the admin is considered offline */
 const STALE_THRESHOLD_MS = 60_000;
 
+/* ---------- CORS HEADERS ---------- */
+function corsHeaders(origin) {
+  return {
+    "Access-Control-Allow-Origin": origin || "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+}
+
+/* ---------- OPTIONS (PREFLIGHT) ---------- */
+export const action = async ({ request }) => {
+  if (request.method === "OPTIONS") {
+    const origin = request.headers.get("Origin");
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders(origin),
+    });
+  }
+
+  return new Response("Method Not Allowed", { status: 405 });
+};
+
+/* ---------- LOADER ---------- */
 export const loader = async ({ request }) => {
-  const url  = new URL(request.url);
+  const origin = request.headers.get("Origin");
+  const headers = corsHeaders(origin);
+
+  const url = new URL(request.url);
   const shop = url.searchParams.get("shop");
 
-  /* no shop param → just return offline, don't crash */
   if (!shop) {
-    return json({ online: false });
+    return json({ online: false }, { headers });
   }
 
   const record = await prisma.adminStatus.findUnique({
     where: { shop },
   });
 
-  /* row doesn't exist → admin has never been online */
   if (!record) {
-    return json({ online: false });
+    return json({ online: false }, { headers });
   }
 
-  /* explicit offline flag set by the admin's beforeunload handler */
   if (!record.isOnline) {
-    return json({ online: false });
+    return json({ online: false }, { headers });
   }
 
-  /* staleness check – heartbeat too old */
-  const elapsed = Date.now() - new Date(record.lastHeartbeat).getTime();
+  const elapsed =
+    Date.now() - new Date(record.lastHeartbeat).getTime();
 
   if (elapsed >= STALE_THRESHOLD_MS) {
-    return json({ online: false });
+    return json({ online: false }, { headers });
   }
 
-  /* all checks passed */
-  return json({ online: true });
+  return json({ online: true }, { headers });
 };
