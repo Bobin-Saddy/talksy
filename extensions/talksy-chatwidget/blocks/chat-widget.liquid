@@ -385,7 +385,7 @@
 
 /* ── HEADER – ORANGE GRADIENT BY DEFAULT ── */
 #chat-header {
-    padding: 28px 22px 24px;
+    padding: 28px 22px 50px;          /* extra bottom padding — contact card overlaps this space */
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -393,11 +393,8 @@
     border-radius: 24px 24px 0 0;
     background: linear-gradient(167deg,rgba(227, 131, 25, 1) 0%, rgba(235, 156, 30, 1) 50%, rgba(227, 131, 25, 1) 100%);
 }
-.header-title   { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
-h1#header-title-text {
-    color: #FFFFFF;
-}
-.header-subtitle{ font-size: 15px; font-weight: 400; opacity: .92; }
+.header-title   { font-size: 26px; font-weight: 700; margin-bottom: 4px; color: inherit; }
+.header-subtitle{ font-size: 15px; font-weight: 400; opacity: .92; color: inherit; }
 #chat-close {
   background: none; border: none; cursor: pointer;
   color: #fff; opacity: .85; transition: .2s;
@@ -407,7 +404,7 @@ h1#header-title-text {
 
 /* ── body scroll ── */
 #widget-main-container {
-  flex: 1; overflow: visible; display: flex; flex-direction: column;
+  flex: 1; overflow: hidden; display: flex; flex-direction: column;
 }
 
 .tab-content {
@@ -425,17 +422,18 @@ h1#header-title-text {
   background: #f5f5f5;
 }
 
-/* ── Contact card ── (white, inline status) */
+/* ── Contact card ── (white, inline status, overlaps header via negative margin) */
 .contact-card {
     background: #fff;
     border-radius: 14px;
     padding: 18px 18px 16px;
-    margin: -38px 0 0 0  !important;
-    position: absolute !important;
-    z-index: 33333 !important;
-    width: 91%;
-    box-shadow: none;
+    margin-top: -40px;               /* pulls card up into the header's extra padding */
+    position: relative;              /* stays in normal document flow */
+    z-index: 2;                      /* just above the bg, no need for 33333 */
+    width: 100%;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
     border: 1px solid #ddd;
+    flex-shrink: 0;                  /* don't let flexbox squish it */
 }
 .contact-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -481,9 +479,9 @@ h1#header-title-text {
     cursor: pointer;
     box-shadow: 0 1px 4px rgba(0,0,0,.07);
     transition: box-shadow .2s, transform .15s;
-    margin: 83px 0 0 0 !important;
     border: 1px solid #ddd;
     padding-right: 4px;
+    flex-shrink: 0;
 }
 .search-here-card:hover {
   box-shadow: 0 4px 12px rgba(0,0,0,.1);
@@ -840,7 +838,10 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 
       hdr.style.color = s.headerTextColor || "#fff";
 
-      /* text */
+      /* also set color directly on title + subtitle — belt-and-suspenders */
+      const textColor = s.headerTextColor || "#fff";
+      document.getElementById("header-title-text").style.color    = textColor;
+      document.getElementById("header-subtitle-text").style.color = textColor;
       document.getElementById("header-title-text").innerText    = s.welcomeText    || "Hello 👋";
       document.getElementById("header-subtitle-text").innerText = s.welcomeSubtext || "How can we help you?";
       document.getElementById("contact-title").innerText        = s.startConversationText || "Contact us";
@@ -1189,9 +1190,26 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 
     const hsi = document.getElementById("home-search-input");
     const hsb = document.getElementById("home-search-btn");
+    /* "Search for help" on Home → goes to FAQ (Help) tab and filters FAQs */
     function goSearch(q) {
-      document.querySelector('[data-tab="search"]').click();
-      setTimeout(() => { document.getElementById("store-search-input-new").value = q; performSearchNew(q); }, 80);
+      // 1. make sure FAQs are loaded first
+      if (!faqData.length) {
+        loadFAQs().then(() => switchToFAQ(q));
+      } else {
+        switchToFAQ(q);
+      }
+    }
+    function switchToFAQ(q) {
+      // 2. click the Help (faq) nav item to switch tab
+      document.querySelector('[data-tab="faq"]').click();
+      // 3. after tab switch paint, set the FAQ search input and fire filter
+      setTimeout(() => {
+        const faqInput = document.getElementById("faq-search-input");
+        if (faqInput) {
+          faqInput.value = q;
+          faqInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 80);
     }
     hsb && hsb.addEventListener('click', () => { const q = hsi.value.trim(); if (q) goSearch(q); });
     hsi && hsi.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const q = hsi.value.trim(); if (q) goSearch(q); } });
