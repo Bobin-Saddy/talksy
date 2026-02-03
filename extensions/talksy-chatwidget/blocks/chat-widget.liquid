@@ -385,14 +385,18 @@
 
 /* ── HEADER – ORANGE GRADIENT BY DEFAULT ── */
 #chat-header {
-  background: linear-gradient(135deg, #F39C12, #E67E22);
-  color: #fff;
-  padding: 28px 22px 24px;
-  display: flex; justify-content: space-between; align-items: flex-start;
-  flex-shrink: 0;
-  border-radius: 24px 24px 0 0;
+    padding: 28px 22px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-shrink: 0;
+    border-radius: 24px 24px 0 0;
+    background: linear-gradient(167deg,rgba(227, 131, 25, 1) 0%, rgba(235, 156, 30, 1) 50%, rgba(227, 131, 25, 1) 100%);
 }
 .header-title   { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+h1#header-title-text {
+    color: #FFFFFF;
+}
 .header-subtitle{ font-size: 15px; font-weight: 400; opacity: .92; }
 #chat-close {
   background: none; border: none; cursor: pointer;
@@ -403,11 +407,16 @@
 
 /* ── body scroll ── */
 #widget-main-container {
-  flex: 1; overflow: hidden; display: flex; flex-direction: column;
+  flex: 1; overflow: visible; display: flex; flex-direction: column;
 }
+
 .tab-content {
-  flex: 1; display: flex; flex-direction: column;
-  height: 100%; overflow: hidden; position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: visible;
+    position: relative;
 }
 .home-scroll-area {
   flex: 1; overflow-y: auto;
@@ -418,10 +427,15 @@
 
 /* ── Contact card ── (white, inline status) */
 .contact-card {
-  background: #fff;
-  border-radius: 14px;
-  padding: 18px 18px 16px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 18px 16px;
+    margin: -38px 0 0 0  !important;
+    position: absolute !important;
+    z-index: 33333 !important;
+    width: 91%;
+    box-shadow: none;
+    border: 1px solid #ddd;
 }
 .contact-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -458,13 +472,18 @@
 
 /* ── Search-here card ── */
 .search-here-card {
-  background: #fff;
-  border-radius: 14px;
-  padding: 16px 18px;
-  display: flex; align-items: center; justify-content: space-between;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0,0,0,.07);
-  transition: box-shadow .2s, transform .15s;
+    background: #fff;
+    border-radius: 14px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    transition: box-shadow .2s, transform .15s;
+    margin: 83px 0 0 0 !important;
+    border: 1px solid #ddd;
+    padding-right: 4px;
 }
 .search-here-card:hover {
   box-shadow: 0 4px 12px rgba(0,0,0,.1);
@@ -697,6 +716,7 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 #chat-nav {
   display:flex; border-top:1px solid #eee;
   background:#fff; padding:8px 0; flex-shrink:0;
+  /* margin-top: -176px; */
 }
 .nav-item {
   flex:1; display:flex; flex-direction:column; align-items:center;
