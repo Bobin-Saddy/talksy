@@ -43,10 +43,10 @@ export const loader = async ({ request }) => {
     welcomeImg: "https://ui-avatars.com/api/?name=Support&background=FFD600&color=fff",
     headerTitle: "Live Support",
     headerSubtitle: "Online now",
-    welcomeText: "Hi there 👋",
-    welcomeSubtext: "We are here to help you! Ask us anything.",
+    welcomeText: "Hi 👋",
+    welcomeSubtext: "How can we help you?",
     replyTimeText: "Typically replies in 5 minutes",
-    startConversationText: "Send us a message",
+    startConversationText: "Contact us",
     onboardingTitle: "Start a conversation",
     onboardingSubtitle: "Please provide your details to begin.",
     launcherIcon: "bubble",
@@ -204,7 +204,7 @@ export default function UltimateSettings() {
                <Field label="Hero Title" value={formState.welcomeText} onChange={(v) => handleChange('welcomeText', v)} />
                <AreaField label="Hero Description" value={formState.welcomeSubtext} onChange={(v) => handleChange('welcomeSubtext', v)} />
                <hr style={{ margin: '20px 0', border: '0', borderTop: '1px solid #F3F4F6' }} />
-               <Field label="Card Button Text" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
+               <Field label="Contact Card Title" value={formState.startConversationText} onChange={(v) => handleChange('startConversationText', v)} />
                <Field label="Reply Status Text" value={formState.replyTimeText} onChange={(v) => handleChange('replyTimeText', v)} />
                <Field label="Onboarding Title" value={formState.onboardingTitle} onChange={(v) => handleChange('onboardingTitle', v)} />
                <AreaField label="Onboarding Subtitle" value={formState.onboardingSubtitle} onChange={(v) => handleChange('onboardingSubtitle', v)} />
@@ -259,17 +259,74 @@ export default function UltimateSettings() {
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', textAlign: 'center' }}>
-                <div style={{ background: formState.heroBgColor, padding: '40px 30px 30px', color: formState.heroTextColor }}>
-                    <h1 style={{ fontSize: '30px', fontWeight: '600', marginBottom: '10px' }}>{formState.welcomeText}</h1>
-                    <p style={{ fontSize: formState.baseFontSize, color: formState.heroTextColor, lineHeight: '1.5', opacity: 0.8 }}>{formState.welcomeSubtext}</p>
+                <div style={{ background: formState.heroBgColor, padding: '30px 25px 20px', color: formState.heroTextColor }}>
+                    <h1 style={{ fontSize: '26px', fontWeight: '600', marginBottom: '8px' }}>{formState.welcomeText}</h1>
+                    <p style={{ fontSize: formState.baseFontSize, color: formState.heroTextColor, lineHeight: '1.4', opacity: 0.8 }}>{formState.welcomeSubtext}</p>
                 </div>
                 
+                {/* Updated Contact Card Preview */}
                 <div style={{ 
                     background: formState.messageBgColor, 
-                    margin: '0 25px 40px', 
-                    padding: '25px', 
-                    borderRadius: '24px', 
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.04)', 
+                    margin: '0 20px 16px', 
+                    padding: '20px', 
+                    borderRadius: '16px', 
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.06)', 
+                    border: `1px solid ${formState.widgetBorderColor}`,
+                    textAlign: 'left'
+                }}>
+                    <div style={{ marginBottom: '12px' }}>
+                        <div style={{ fontWeight: '600', color: formState.cardTitleColor, fontSize: '16px', marginBottom: '6px' }}>
+                            {formState.startConversationText}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: formState.cardSubtitleColor }}>
+                            <div style={{ width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%' }}></div>
+                            <span>We are online</span>
+                        </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <div style={{ 
+                            flex: 1, 
+                            background: formState.primaryColor, 
+                            color: 'white', 
+                            padding: '10px', 
+                            borderRadius: '10px', 
+                            fontSize: '13px', 
+                            fontWeight: '600',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px'
+                        }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            <span>Chat now</span>
+                        </div>
+                        <div style={{ 
+                            width: '42px',
+                            background: '#FFD600', 
+                            padding: '10px', 
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1e293b" strokeWidth="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                <polyline points="22,6 12,13 2,6"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Search Card Preview */}
+                <div style={{ 
+                    background: formState.messageBgColor, 
+                    margin: '0 20px 16px', 
+                    padding: '20px', 
+                    borderRadius: '16px', 
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.06)', 
                     border: `1px solid ${formState.widgetBorderColor}`,
                     display: 'flex',
                     alignItems: 'center',
@@ -277,33 +334,63 @@ export default function UltimateSettings() {
                     textAlign: 'left'
                 }}>
                     <div>
-                        <div style={{ fontWeight: '600', color: formState.cardTitleColor, fontSize: '16px', marginBottom: '4px' }}>{formState.startConversationText}</div>
-                        <div style={{ fontSize: '13px', color: formState.cardSubtitleColor }}>{formState.replyTimeText}</div>
+                        <div style={{ fontWeight: '600', color: formState.cardTitleColor, fontSize: '16px', marginBottom: '4px' }}>Search</div>
+                        <div style={{ fontSize: '13px', color: formState.cardSubtitleColor }}>Find products, orders & more</div>
                     </div>
-                    <div style={{ width: '42px', height: '42px', background: formState.primaryColor, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="3.5"><path d="m9 18 6-6-6-6"/></svg>
+                    <div style={{ width: '38px', height: '38px', background: formState.primaryColor, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="3"><path d="m9 18 6-6-6-6"/></svg>
                     </div>
                 </div>
 
-                <div style={{ padding: '0 40px' }}>
-                    <div style={{ fontWeight: '600', color: formState.onboardingTextColor, fontSize: '20px', marginBottom: '8px' }}>{formState.onboardingTitle}</div>
-                    <div style={{ fontSize: '14px', color: formState.onboardingTextColor, opacity: 0.7 }}>{formState.onboardingSubtitle}</div>
+                {/* FAQ Preview */}
+                <div style={{ padding: '0 20px', textAlign: 'left' }}>
+                    {[1, 2].map(i => (
+                        <div key={i} style={{
+                            background: 'white',
+                            border: `1px solid ${formState.widgetBorderColor}`,
+                            borderRadius: '12px',
+                            marginBottom: '10px',
+                            padding: '12px 14px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: formState.cardTitleColor }}>
+                                {i === 1 ? 'How to track order?' : 'Return policy?'}
+                            </span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={formState.primaryColor} strokeWidth="2">
+                                <path d="M6 9l6 6 6-6"/>
+                            </svg>
+                        </div>
+                    ))}
                 </div>
             </div>
 
-            <div style={{ height: '85px', borderTop: `1px solid ${formState.widgetBorderColor}`, display: 'flex', alignItems: 'center', justifyContent: 'space-around', paddingBottom: '10px', background: '#FFF' }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{ color: formState.primaryColor, marginBottom: '4px' }}>
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                    </div>
-                    <div style={{ fontSize: '11px', fontWeight: '600', color: formState.primaryColor }}>Home</div>
-                </div>
-                <div style={{ textAlign: 'center', opacity: 0.3 }}>
-                    <div style={{ color: '#9CA3AF', marginBottom: '4px' }}>
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    </div>
-                    <div style={{ fontSize: '11px', fontWeight: '600' }}>Messages</div>
-                </div>
+            <div style={{ height: '80px', borderTop: `1px solid ${formState.widgetBorderColor}`, display: 'flex', alignItems: 'center', justifyContent: 'space-around', paddingBottom: '8px', background: '#FFF' }}>
+                <NavIcon active={true} color={formState.primaryColor} label="Home">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
+                </NavIcon>
+                <NavIcon label="Message">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                </NavIcon>
+                <NavIcon label="Track">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                </NavIcon>
+                <NavIcon label="Help">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                </NavIcon>
             </div>
           </div>
 
@@ -386,6 +473,19 @@ const AreaField = ({ label, value, onChange }) => (
     <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', fontWeight: '600', marginBottom: '8px' }}>{label}</label>
     <textarea value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: '14px', minHeight: '80px', resize: 'none' }} />
   </div>
+);
+
+const NavIcon = ({ children, active, color, label }) => (
+    <div style={{ 
+        textAlign: 'center', 
+        opacity: active ? 1 : 0.3,
+        color: active ? color : '#9CA3AF'
+    }}>
+        <div style={{ marginBottom: '4px' }}>
+            {children}
+        </div>
+        <div style={{ fontSize: '11px', fontWeight: '600' }}>{label}</div>
+    </div>
 );
 
 const Toast = ({ message }) => (
