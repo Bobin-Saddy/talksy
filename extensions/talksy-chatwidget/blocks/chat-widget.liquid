@@ -771,7 +771,7 @@ button#remove-image-btn { position:absolute; background:#f3f4f6; border:none; pa
 
   async function pollAdminStatus() {
     try {
-      const res  = await fetch(`${BASE_URL}/api/admin-status?shop=${shop}`);
+      const res  = await fetch(`${BASE_URL}/app/admin-status?shop=${shop}`);
       const data = await res.json();                // { online: true|false }
       applyStatus(data.online);
     } catch (_) {

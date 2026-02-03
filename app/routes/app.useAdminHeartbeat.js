@@ -3,7 +3,7 @@ import { useEffect, useRef, useCallback } from "react";
 /* ── config ── */
 const HEARTBEAT_INTERVAL_MS = 30_000;   // 30 seconds between pings
 const BASE_URL              = "https://talksy-production-2e93.up.railway.app";
-const ENDPOINT              = `${BASE_URL}/api/admin-heartbeat`;
+const ENDPOINT              = `${BASE_URL}/app/admin-heartbeat`;
 
 export function useAdminHeartbeat(shop) {
   const intervalRef = useRef(null);
