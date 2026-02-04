@@ -29,11 +29,11 @@ export const action = async ({ request }) => {
 export const loader = async ({ request }) => {
   const origin = request.headers.get("Origin");
   const headers = corsHeaders(origin);
-
   const url = new URL(request.url);
   const shop = url.searchParams.get("shop");
 
   if (!shop) {
+    console.log("❌ No shop param found");
     return json({ online: false }, { headers });
   }
 
@@ -41,19 +41,19 @@ export const loader = async ({ request }) => {
     where: { shop },
   });
 
-  if (!record) {
+  if (!record || !record.isOnline) {
     return json({ online: false }, { headers });
   }
 
-  if (!record.isOnline) {
-    return json({ online: false }, { headers });
-  }
+  const lastHeartbeatTime = new Date(record.lastHeartbeat).getTime();
+  const now = Date.now();
+  const elapsed = now - lastHeartbeatTime;
 
-  const elapsed =
-    Date.now() - new Date(record.lastHeartbeat).getTime();
+  // Debugging ke liye console log
+  console.log(`Checking status for ${shop}: Elapsed ${elapsed}ms`);
 
   if (elapsed >= STALE_THRESHOLD_MS) {
-    return json({ online: false }, { headers });
+    return json({ online: false, reason: "stale" }, { headers });
   }
 
   return json({ online: true }, { headers });
