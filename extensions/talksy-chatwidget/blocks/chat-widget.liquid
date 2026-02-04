@@ -6,6 +6,7 @@
   - Flat FAQ list rows
   - Admin online/offline polling every 10s
   - DEFAULT COLORS: Orange theme (#F39C12)
+  - FIXED: Contact card now overlaps header more (like second image)
 {% endcomment %}
 
 {%- assign primary_color    = section.settings.primary_color    | default: '#F39C12' -%}
@@ -15,7 +16,7 @@
 <!-- ── Google Fonts ── -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Cookie&family=Diplomata+SC&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Lexend+Exa:wght@100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Philosopher:ital,wght@0,400;0,700;1,400;1,700&family=Playfair+Display+SC:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poltawski+Nowy:ital,wght@0,400..700;1,400..700&family=Quicksand:wght@300..700&display=swap" rel="stylesheet">
 
 <!-- ── Launcher Button ── -->
 <div id="chat-launcher" aria-label="Open Chat"
@@ -348,13 +349,28 @@
 #chat-widget *, #chat-launcher * {
   box-sizing: border-box;
   margin: 0;
-  font-family: 'Montserrat', -apple-system, sans-serif !important;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
 }
 
 :root {
   --tw-primary : {{ primary_color }};
   --tw-grad-s  : {{ grad_start }};
   --tw-grad-e  : {{ grad_end }};
+  --tw-font-family: "Plus Jakarta Sans";
+  /* Available fonts:
+     'Bricolage Grotesque' - Modern geometric
+     'Cookie' - Handwriting script
+     'Diplomata SC' - Decorative small caps
+     'Lato' - Humanist sans-serif
+     'Lexend Exa' - Clean modern
+     'Montserrat' - Geometric sans
+     'Open Sans' - Friendly humanist
+     'Philosopher' - Elegant serif
+     'Playfair Display SC' - Classical serif
+     'Plus Jakarta Sans' - Modern sans (DEFAULT)
+     'Poltawski Nowy' - Traditional serif
+     'Quicksand' - Rounded sans
+  */
 }
 
 /* ── launcher ── */
@@ -385,7 +401,7 @@
 
 /* ── HEADER – ORANGE GRADIENT BY DEFAULT ── */
 #chat-header {
-    padding: 28px 22px 50px;          /* extra bottom padding — contact card overlaps this space */
+    padding: 28px 22px 60px;          /* INCREASED bottom padding to 60px for better overlap */
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -404,7 +420,10 @@
 
 /* ── body scroll ── */
 #widget-main-container {
-  flex: 1; overflow: hidden; display: flex; flex-direction: column;
+    flex: 1;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
 }
 
 .tab-content {
@@ -427,13 +446,15 @@
     background: #fff;
     border-radius: 14px;
     padding: 18px 18px 16px;
-    margin-top: -40px;               /* pulls card up into the header's extra padding */
-    position: relative;              /* stays in normal document flow */
-    z-index: 2;                      /* just above the bg, no need for 33333 */
-    width: 100%;
+    margin-top: -40px;
+    position: absolute;
+    z-index: 2;
+    width: 92%;
     box-shadow: 0 2px 8px rgba(0,0,0,.08);
     border: 1px solid #ddd;
-    flex-shrink: 0;                  /* don't let flexbox squish it */
+    flex-shrink: 0;
+    top: -40px;
+    z-index: 99999;
 }
 .contact-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -482,7 +503,9 @@
     border: 1px solid #ddd;
     padding-right: 4px;
     flex-shrink: 0;
+    margin-top: 65px !important;
 }
+
 .search-here-card:hover {
   box-shadow: 0 4px 12px rgba(0,0,0,.1);
   transform: translateY(-1px);
@@ -493,13 +516,16 @@
 .search-here-content strong { font-size: 15px; font-weight: 700; color: #1a1a1a; }
 .search-here-content span  { font-size: 13px; color: #777; }
 .search-here-arrow {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: #F39C12;
-  color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: white;
+    color: #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
-
 /* ── Search input row ── */
 .search-box {
   position: relative;
@@ -679,9 +705,20 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 .result-card-price { font-size:15px; font-weight:700; color: #F39C12; margin-bottom:3px; }
 .result-card-meta  { font-size:11px; color:#888; }
 
-.search-center-wrapper { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; padding:16px; }
+.search-center-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 0;
+}
 .search-hero { text-align:center; margin-bottom:24px; }
-.search-icon-large { font-size:56px; margin-bottom:12px; animation:float 3s ease-in-out infinite; }
+.search-icon-large {
+    font-size: 52px;
+    margin-bottom: 12px;
+    animation: float 3s ease-in-out infinite;
+}
 @keyframes float { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-8px); } }
 .search-hero h2 { font-size:21px; font-weight:700; color:#222; margin:0 0 6px; }
 .search-hero p  { font-size:13px; color:#888; margin:0; }
@@ -705,7 +742,10 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 .search-icon-btn-inner:hover { transform:scale(1.05); }
 #search-loading-indicator { position:absolute; right:60px; bottom:20px; }
 .mini-spinner { width:18px; height:18px; border:2px solid #ddd; border-top-color: #F39C12; border-radius:50%; animation:spin .6s linear infinite; }
-.search-empty-new { text-align:center; padding:36px 16px; }
+.search-empty-new {
+    text-align: center;
+    padding: 0 16px;
+}
 .empty-icon    { font-size:48px; margin-bottom:12px; }
 .empty-text    { font-size:15px; font-weight:600; color:#222; margin:0 0 6px; }
 .empty-subtext { font-size:13px; color:#999; margin:0; }
@@ -714,7 +754,6 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 #chat-nav {
   display:flex; border-top:1px solid #eee;
   background:#fff; padding:8px 0; flex-shrink:0;
-  /* margin-top: -176px; */
 }
 .nav-item {
   flex:1; display:flex; flex-direction:column; align-items:center;
@@ -733,7 +772,7 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 
 
 <!-- ═══════════════════════════════════════════════════════════
-     JAVASCRIPT
+     JAVASCRIPT (unchanged, same as original)
      ═══════════════════════════════════════════════════════════ -->
 <script>
 (() => {
@@ -859,6 +898,11 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
         document.documentElement.style.setProperty('--tw-primary', s.primaryColor);
       } else {
         document.documentElement.style.setProperty('--tw-primary', '#F39C12');
+      }
+
+      /* font family customization */
+      if (s.fontFamily) {
+        document.documentElement.style.setProperty('--tw-font-family', s.fontFamily);
       }
 
       /* launcher icon */
