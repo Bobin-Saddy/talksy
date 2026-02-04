@@ -1,12 +1,10 @@
 {% comment %}
-  Talksy Chat Widget v2.2
-  - Orange gradient header by DEFAULT (matching second screenshot)
-  - Contact card: white bg, inline online/offline status (green/red dot)
-  - "Search here" card with subtitle + orange arrow
-  - Flat FAQ list rows
-  - Admin online/offline polling every 10s
-  - DEFAULT COLORS: Orange theme (#F39C12)
-  - FIXED: Contact card now overlaps header more (like second image)
+  Talksy Chat Widget v2.3
+  - Fixed: FAQ items on home page navigate to FAQ tab and auto-expand answer
+  - Fixed: Admin online/offline status polling (checks every 10s with 60s stale threshold)
+  - Orange gradient header by DEFAULT
+  - Contact card overlaps header
+  - Plus Jakarta Sans font
 {% endcomment %}
 
 {%- assign primary_color    = section.settings.primary_color    | default: '#F39C12' -%}
@@ -342,7 +340,7 @@
 
 
 <!-- ═══════════════════════════════════════════════════════════
-     STYLES - DEFAULT ORANGE THEME
+     STYLES
      ═══════════════════════════════════════════════════════════ -->
 <style>
 /* ── reset ── */
@@ -357,20 +355,6 @@
   --tw-grad-s  : {{ grad_start }};
   --tw-grad-e  : {{ grad_end }};
   --tw-font-family: "Plus Jakarta Sans";
-  /* Available fonts:
-     'Bricolage Grotesque' - Modern geometric
-     'Cookie' - Handwriting script
-     'Diplomata SC' - Decorative small caps
-     'Lato' - Humanist sans-serif
-     'Lexend Exa' - Clean modern
-     'Montserrat' - Geometric sans
-     'Open Sans' - Friendly humanist
-     'Philosopher' - Elegant serif
-     'Playfair Display SC' - Classical serif
-     'Plus Jakarta Sans' - Modern sans (DEFAULT)
-     'Poltawski Nowy' - Traditional serif
-     'Quicksand' - Rounded sans
-  */
 }
 
 /* ── launcher ── */
@@ -401,7 +385,7 @@
 
 /* ── HEADER – ORANGE GRADIENT BY DEFAULT ── */
 #chat-header {
-    padding: 28px 22px 60px;          /* INCREASED bottom padding to 60px for better overlap */
+    padding: 28px 22px 60px;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -441,20 +425,19 @@
   background: #f5f5f5;
 }
 
-/* ── Contact card ── (white, inline status, overlaps header via negative margin) */
+/* ── Contact card ── */
 .contact-card {
     background: #fff;
     border-radius: 14px;
     padding: 18px 18px 16px;
     margin-top: -40px;
     position: absolute;
-    z-index: 2;
+    z-index: 99999;
     width: 92%;
     box-shadow: 0 2px 8px rgba(0,0,0,.08);
     border: 1px solid #ddd;
     flex-shrink: 0;
     top: -40px;
-    z-index: 99999;
 }
 .contact-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -468,7 +451,7 @@
 }
 .status-dot {
   width: 9px; height: 9px; border-radius: 50%;
-  background: #22c55e;
+  background: #ef4444;
   transition: background .4s;
 }
 #status-text {
@@ -526,6 +509,7 @@
     justify-content: center;
     flex-shrink: 0;
 }
+
 /* ── Search input row ── */
 .search-box {
   position: relative;
@@ -579,7 +563,13 @@
 .faq-item.open .faq-arrow { transform: rotate(90deg); }
 
 /* ── Chat tab ── */
-.step-container { flex:1; display:flex; flex-direction:column; height:100%; overflow:hidden; }
+.step-container {
+    display: flex;
+    flex-direction: column;
+    height: 427px !important;
+    overflow: scroll;
+    scrollbar-width: none;
+}
 #chat-messages  { flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:12px; background:#f5f5f5; }
 .msg            { max-width:82%; display:flex; flex-direction:column; }
 .msg.user       { align-self:flex-end; }
@@ -736,7 +726,7 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
   position:absolute; left:8px; top:16px;
   width:28px; height:28px; background: #F39C12;
   border:none; border-radius:10px; color:#fff;
-  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; display:flex; align-items: center; justify-content:center;
   transition:.2s; box-shadow:0 3px 10px rgba(0,0,0,.15);
 }
 .search-icon-btn-inner:hover { transform:scale(1.05); }
@@ -772,7 +762,7 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 
 
 <!-- ═══════════════════════════════════════════════════════════
-     JAVASCRIPT (unchanged, same as original)
+     JAVASCRIPT
      ═══════════════════════════════════════════════════════════ -->
 <script>
 (() => {
@@ -797,7 +787,7 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
   let currentConfig  = {};
   let seenMsgs       = new Set();
   let faqData        = [];
-  let adminOnline    = true;
+  let adminOnline    = false;
 
   /* ── localStorage keys ── */
   const SK = {
@@ -828,18 +818,23 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 
   async function pollAdminStatus() {
     try {
-      const res  = await fetch(`${BASE_URL}/app/admin-status?shop=${shop}`);
+      const res  = await fetch(`${BASE_URL}/app/admin-status?shop=${encodeURIComponent(shop)}`);
+      if (!res.ok) {
+        applyStatus(false);
+        return;
+      }
       const data = await res.json();
-      applyStatus(data.online);
-    } catch (_) {
+      applyStatus(data.online === true);
+    } catch (err) {
+      console.error('Admin status poll error:', err);
       applyStatus(false);
     }
   }
 
   function startStatusPolling() {
-    pollAdminStatus();
+    pollAdminStatus();  // immediate first check
     if (statusInterval) clearInterval(statusInterval);
-    statusInterval = setInterval(pollAdminStatus, 10000);
+    statusInterval = setInterval(pollAdminStatus, 10000);  // every 10 seconds
   }
 
   /* ── form validation ── */
@@ -859,25 +854,22 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
     defaultCustom: '<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:30px;height:30px;object-fit:contain;"/>'
   };
 
-  /* ── load remote settings (BUT USE ORANGE AS FALLBACK) ── */
+  /* ── load remote settings ── */
   async function loadSettings() {
     try {
       const r = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
       const s = await r.json();
       currentConfig = s;
 
-      /* gradient header - ORANGE BY DEFAULT */
       const hdr = document.getElementById("chat-header");
       if (s.headerGradientStart && s.headerGradientEnd) {
         hdr.style.background = `linear-gradient(135deg, ${s.headerGradientStart}, ${s.headerGradientEnd})`;
       } else {
-        // Force orange gradient as default
         hdr.style.background = "linear-gradient(135deg, #F39C12, #E67E22)";
       }
 
       hdr.style.color = s.headerTextColor || "#fff";
 
-      /* also set color directly on title + subtitle — belt-and-suspenders */
       const textColor = s.headerTextColor || "#fff";
       document.getElementById("header-title-text").style.color    = textColor;
       document.getElementById("header-subtitle-text").style.color = textColor;
@@ -885,27 +877,22 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
       document.getElementById("header-subtitle-text").innerText = s.welcomeSubtext || "How can we help you?";
       document.getElementById("contact-title").innerText        = s.startConversationText || "Contact us";
 
-      /* search-here card text */
       if (s.searchCardTitle)    document.getElementById("search-card-title").innerText    = s.searchCardTitle;
       if (s.searchCardSubtitle) document.getElementById("search-card-subtitle").innerText = s.searchCardSubtitle;
 
-      /* onboarding */
       document.getElementById("onboarding-form-title").innerText    = s.onboardingTitle    || "Identify Yourself";
       document.getElementById("onboarding-form-subtitle").innerText = s.onboardingSubtitle || "How should we address you?";
 
-      /* primary colour → CSS var (ORANGE DEFAULT) */
       if (s.primaryColor) {
         document.documentElement.style.setProperty('--tw-primary', s.primaryColor);
       } else {
         document.documentElement.style.setProperty('--tw-primary', '#F39C12');
       }
 
-      /* font family customization */
       if (s.fontFamily) {
         document.documentElement.style.setProperty('--tw-font-family', s.fontFamily);
       }
 
-      /* launcher icon */
       if (s.launcherIcon === 'custom' && s.customLauncherImg)
         document.getElementById("launcher-icon").innerHTML = `<img src="${s.customLauncherImg}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>`;
       else
@@ -913,7 +900,6 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 
     } catch (e) { 
       console.error("loadSettings", e); 
-      // Even if settings fail to load, ensure orange is used
       document.documentElement.style.setProperty('--tw-primary', '#F39C12');
     }
   }
@@ -1019,7 +1005,6 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
     document.getElementById("no-results-state").style.display         = "none";
     document.querySelector(".search-hero").style.display               = "block";
 
-    /* log search */
     try {
       await fetch(`${BASE_URL}/app/chat/search-log`, {
         method: "POST",
@@ -1158,6 +1143,7 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
       cat.faqs.filter(f => f.isActive).forEach(faq => {
         const item = document.createElement("div");
         item.className = "faq-item";
+        item.setAttribute('data-faq-id', faq.id);  // Store FAQ ID for later reference
         item.innerHTML = `
           <div class="faq-question">${faq.question}</div>
           <div class="faq-arrow">
@@ -1165,14 +1151,21 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
               <path d="m9 18 6-6-6-6"/>
             </svg>
           </div>`;
+        
+        // NEW: Navigate to FAQ tab and expand this specific FAQ
         item.onclick = () => {
-          item.classList.toggle('open');
-          if (item.classList.contains('open') && !item.querySelector('.faq-answer')) {
-            const ans = document.createElement('div');
-            ans.className = 'faq-answer';
-            ans.innerHTML = `<div class="faq-answer-text">${faq.answer}</div>`;
-            item.appendChild(ans);
-          }
+          // Switch to FAQ tab
+          document.querySelector('[data-tab="faq"]').click();
+          
+          // Wait for tab to render, then find and expand the matching FAQ
+          setTimeout(() => {
+            const faqTabItem = document.querySelector(`#faq-categories-list .faq-item[data-faq-id="${faq.id}"]`);
+            if (faqTabItem && !faqTabItem.classList.contains('open')) {
+              faqTabItem.click();
+              // Scroll into view
+              faqTabItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
         };
         c.appendChild(item);
       });
@@ -1194,7 +1187,7 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
       let html = `<div class="faq-category-title"><span>${cat.title}</span><span class="faq-category-badge" style="background:${primaryColor}">${active.length}</span></div>`;
       active.forEach(faq => {
         const id = `faq-${faq.id}`;
-        html += `<div class="faq-item" onclick="window.toggleFaq('${id}')">
+        html += `<div class="faq-item" data-faq-id="${faq.id}" onclick="window.toggleFaq('${id}')">
           <div class="faq-question">${faq.question}</div>
           <div class="faq-arrow" id="${id}-arrow">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
@@ -1210,12 +1203,19 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
   }
 
   window.toggleFaq = function(id) {
+    const item  = document.querySelector(`[data-faq-id]`);
     const ans   = document.getElementById(`${id}-answer`);
     const arrow = document.getElementById(`${id}-arrow`);
     if (ans && arrow) {
       const open = ans.style.display === 'block';
       ans.style.display = open ? 'none' : 'block';
-      arrow.parentElement.classList.toggle('open', !open);
+      if (arrow.parentElement) {
+        if (open) {
+          arrow.parentElement.classList.remove('open');
+        } else {
+          arrow.parentElement.classList.add('open');
+        }
+      }
     }
   };
 
@@ -1234,9 +1234,8 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 
     const hsi = document.getElementById("home-search-input");
     const hsb = document.getElementById("home-search-btn");
-    /* "Search for help" on Home → goes to FAQ (Help) tab and filters FAQs */
+    
     function goSearch(q) {
-      // 1. make sure FAQs are loaded first
       if (!faqData.length) {
         loadFAQs().then(() => switchToFAQ(q));
       } else {
@@ -1244,9 +1243,7 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
       }
     }
     function switchToFAQ(q) {
-      // 2. click the Help (faq) nav item to switch tab
       document.querySelector('[data-tab="faq"]').click();
-      // 3. after tab switch paint, set the FAQ search input and fire filter
       setTimeout(() => {
         const faqInput = document.getElementById("faq-search-input");
         if (faqInput) {
