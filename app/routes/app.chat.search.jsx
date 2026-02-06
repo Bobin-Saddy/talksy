@@ -1,7 +1,7 @@
 // app/routes/app.chat.search.jsx - WITH PLAN LIMITS
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
-import { canSearchUsers } from "./app/utils/planLimits.server";
+import { canSearchUsers } from "./app.planLimits";
 
 const headers = { 
   "Access-Control-Allow-Origin": "*",

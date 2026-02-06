@@ -1,7 +1,7 @@
 // app/routes/app.chat.reply.jsx - WITH PLAN LIMITS
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
-import { canCreateChat } from "./app/utils/planLimits.server";
+import { canCreateChat } from "./app.planLimits";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
