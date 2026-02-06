@@ -7,7 +7,7 @@ import enTranslations from "@shopify/polaris/locales/en.json";
 import "@shopify/polaris/build/esm/styles.css";
 import { authenticate } from "../shopify.server";
 import { useEffect } from "react";
-import { getUsageStats } from "./app.planLimits";
+import { getUsageStats } from "../planLimits.server";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);

@@ -1,5 +1,5 @@
 // app/utils/planLimits.server.js
-import prisma from "../db.server";
+import prisma from "./db.server";
 
 // Plan definitions (must match subscription page)
 export const PLAN_LIMITS = {

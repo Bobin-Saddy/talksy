@@ -4,7 +4,7 @@
 
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
-import { cleanupOldChats } from "./app.planLimits";
+import { cleanupOldChats } from "../planLimits.server";
 
 export const loader = async ({ request }) => {
   // Verify this is being called by your cron service
