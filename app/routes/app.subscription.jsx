@@ -1,6 +1,6 @@
-// app/routes/app.subscription.jsx - FIXED BILLING
+// app/routes/app.subscription.jsx - FIXED BILLING WITH NOTIFICATIONS
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useNavigate, Form } from "react-router";
+import { useLoaderData, useNavigate, Form, useSearchParams } from "react-router";
 import {
   Page,
   Layout,
@@ -261,6 +261,13 @@ export const action = async ({ request }) => {
 
 export default function Subscription() {
   const { currentPlan, subscription, chatCount, plans } = useLoaderData();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Get success/error messages from URL
+  const success = searchParams.get('success');
+  const error = searchParams.get('error');
+  const upgradedPlan = searchParams.get('plan');
 
   const currentPlanConfig = PLANS[currentPlan];
   const usagePercentage = currentPlanConfig.limits.maxChats > 0 
@@ -273,6 +280,48 @@ export default function Subscription() {
       subtitle="Choose the plan that fits your business needs"
     >
       <Layout>
+        {/* Success/Error Banners */}
+        {success === 'true' && upgradedPlan && (
+          <Layout.Section>
+            <Banner
+              title="Subscription activated!"
+              tone="success"
+              onDismiss={() => navigate('/app/subscription')}
+            >
+              Your {PLANS[upgradedPlan]?.name} plan is now active. Enjoy your new features!
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {success === 'downgraded' && (
+          <Layout.Section>
+            <Banner
+              title="Plan downgraded"
+              tone="info"
+              onDismiss={() => navigate('/app/subscription')}
+            >
+              You've been downgraded to the Free plan. Your paid features will remain active until the end of your billing period.
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {error && (
+          <Layout.Section>
+            <Banner
+              title="Something went wrong"
+              tone="critical"
+              onDismiss={() => navigate('/app/subscription')}
+            >
+              {error === 'no-plan' && 'No plan was specified.'}
+              {error === 'no-subscription' && 'No pending subscription found.'}
+              {error === 'verification-failed' && 'Could not verify your subscription with Shopify.'}
+              {error === 'confirmation-failed' && 'Failed to confirm your subscription.'}
+              {!['no-plan', 'no-subscription', 'verification-failed', 'confirmation-failed'].includes(error) && 
+                'An unexpected error occurred. Please try again or contact support.'}
+            </Banner>
+          </Layout.Section>
+        )}
+
         {/* Current Plan Status */}
         <Layout.Section>
           <Card>

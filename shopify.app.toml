@@ -3,7 +3,6 @@ client_id = "177dd497355fe743fa747f74896d9015"
 application_url = "https://talksy-production-2e93.up.railway.app/"
 embedded = true
 
-
 [access_scopes]
 scopes = "write_products,write_content"
 
@@ -21,12 +20,15 @@ redirect_urls = [
 api_version = "2026-01"
 
 [[webhooks.subscriptions]]
-topics = [ "app/uninstalled" ]
+topics = [ 
+  "app/uninstalled",
+  "app_subscriptions/update"
+]
 compliance_topics = [ "customers/redact", "customers/data_request", "shop/redact" ]
-uri = "https://hkdk.events/wosrrl2b1hj10n"
+uri = "https://talksy-production-2e93.up.railway.app/webhooks/subscription"
 
 [app_proxy]
-url =  "https://talksy-production-2e93.up.railway.app/api/proxy"
+url = "https://talksy-production-2e93.up.railway.app/api/proxy"
 subpath = "store-pickup"
 prefix = "apps"
 

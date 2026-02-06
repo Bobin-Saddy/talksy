@@ -1,4 +1,4 @@
-// app/utils/planLimits.server.js - FIXED VERSION
+// app/utils/planLimits.server.js - FIXED VERSION WITH UPSERT
 import prisma from "./db.server";
 
 // Plan definitions (must match subscription page)
@@ -31,23 +31,20 @@ export const PLAN_LIMITS = {
 
 /**
  * Get current subscription and limits for a shop
+ * ✅ FIXED: Uses upsert to prevent race conditions
  */
 export async function getShopLimits(shop) {
-  let subscription = await prisma.subscription.findUnique({
+  // Use upsert to atomically get-or-create subscription
+  const subscription = await prisma.subscription.upsert({
     where: { shop },
+    update: {}, // Don't modify if it exists
+    create: {
+      shop,
+      plan: "FREE",
+      status: "active",
+      currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    },
   });
-
-  // If no subscription exists, create a free one
-  if (!subscription) {
-    subscription = await prisma.subscription.create({
-      data: {
-        shop,
-        plan: "FREE",
-        status: "active",
-        currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-      },
-    });
-  }
 
   const limits = PLAN_LIMITS[subscription.plan] || PLAN_LIMITS.FREE;
 
@@ -156,7 +153,7 @@ export async function cleanupOldChats(shop) {
   if (unlimited || !days) return { deleted: 0 };
 
   const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.setDate() - days);
+  cutoffDate.setDate(cutoffDate.getDate() - days);
 
   const result = await prisma.chatSession.deleteMany({
     where: {
@@ -171,7 +168,7 @@ export async function cleanupOldChats(shop) {
 }
 
 /**
- * Get usage statistics for a shop - FIXED WITH ERROR HANDLING
+ * Get usage statistics for a shop
  */
 export async function getUsageStats(shop) {
   const { limits, plan } = await getShopLimits(shop);
