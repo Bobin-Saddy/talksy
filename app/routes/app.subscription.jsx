@@ -88,22 +88,17 @@ export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Get current subscription from database
-  let subscription = await prisma.subscription.findUnique({
+  // Use upsert to handle race conditions - creates if not exists, returns existing if it does
+  const subscription = await prisma.subscription.upsert({
     where: { shop },
+    update: {}, // Don't modify if it exists
+    create: {
+      shop,
+      plan: "FREE",
+      status: "active",
+      currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year for free
+    },
   });
-
-  // If no subscription exists, create a free one
-  if (!subscription) {
-    subscription = await prisma.subscription.create({
-      data: {
-        shop,
-        plan: "FREE",
-        status: "active",
-        currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year for free
-      },
-    });
-  }
 
   // Get usage stats
   const chatCount = await prisma.chatSession.count({
