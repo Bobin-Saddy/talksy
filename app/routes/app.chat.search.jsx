@@ -1,7 +1,7 @@
-// app/routes/app.chat.search.jsx - FIXED WITH BETTER ERROR HANDLING
-
+// app/routes/app.chat.search.jsx - WITH PLAN LIMITS
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
+import { canSearchUsers } from "./app/utils/planLimits.server";
 
 const headers = { 
   "Access-Control-Allow-Origin": "*",
@@ -81,6 +81,26 @@ export const loader = async ({ request }) => {
   }
 
   try {
+    // ✅ CHECK PLAN LIMITS FOR SEARCH
+    const searchLimit = await canSearchUsers(shop, 10);
+    
+    if (!searchLimit.allowed) {
+      return json(
+        { 
+          error: "PLAN_LIMIT_REACHED",
+          message: "Search feature requires a paid plan. Please upgrade to continue.",
+          upgradeUrl: "/app/subscription",
+          results: {
+            products: [],
+            pages: [],
+            orders: [],
+            collections: []
+          }
+        }, 
+        { status: 403, headers }
+      );
+    }
+
     // Get shop credentials
     const { accessToken } = await getShopifyCredentials(shop);
 
@@ -91,12 +111,15 @@ export const loader = async ({ request }) => {
       collections: []
     };
 
+    // ✅ Use plan-limited search count
+    const maxResults = searchLimit.limit;
+
     // ✅ Search Products using GraphQL
     if (type === "all" || type === "products") {
       try {
         const productQuery = `
-          query searchProducts($query: String!) {
-            products(first: 10, query: $query) {
+          query searchProducts($query: String!, $first: Int!) {
+            products(first: $first, query: $query) {
               edges {
                 node {
                   id
@@ -131,12 +154,14 @@ export const loader = async ({ request }) => {
           shop, 
           accessToken, 
           productQuery, 
-          { query: `title:*${query}*` }
+          { 
+            query: `title:*${query}*`,
+            first: maxResults 
+          }
         );
         
         if (productData.data?.products?.edges) {
           results.products = productData.data.products.edges.map(({ node }) => {
-            // Use onlineStoreUrl if available, otherwise construct URL with myshopify.com
             let productUrl = node.onlineStoreUrl;
             if (!productUrl) {
               productUrl = getStoreUrl(shop, `/products/${node.handle}`);
@@ -163,8 +188,8 @@ export const loader = async ({ request }) => {
     if (type === "all" || type === "pages") {
       try {
         const pageQuery = `
-          query searchPages($query: String!) {
-            pages(first: 10, query: $query) {
+          query searchPages($query: String!, $first: Int!) {
+            pages(first: $first, query: $query) {
               edges {
                 node {
                   id
@@ -182,7 +207,10 @@ export const loader = async ({ request }) => {
           shop, 
           accessToken, 
           pageQuery, 
-          { query: `title:*${query}*` }
+          { 
+            query: `title:*${query}*`,
+            first: maxResults 
+          }
         );
         
         if (pageData.data?.pages?.edges) {
@@ -203,8 +231,8 @@ export const loader = async ({ request }) => {
     if (type === "all" || type === "orders") {
       try {
         const orderQuery = `
-          query searchOrders($query: String!) {
-            orders(first: 10, query: $query) {
+          query searchOrders($query: String!, $first: Int!) {
+            orders(first: $first, query: $query) {
               edges {
                 node {
                   id
@@ -240,7 +268,10 @@ export const loader = async ({ request }) => {
           shop, 
           accessToken, 
           orderQuery, 
-          { query: `name:*${query}* OR email:*${query}*` }
+          { 
+            query: `name:*${query}* OR email:*${query}*`,
+            first: maxResults 
+          }
         );
         
         if (orderData.data?.orders?.edges) {
@@ -270,8 +301,8 @@ export const loader = async ({ request }) => {
     if (type === "all" || type === "collections") {
       try {
         const collectionQuery = `
-          query searchCollections($query: String!) {
-            collections(first: 10, query: $query) {
+          query searchCollections($query: String!, $first: Int!) {
+            collections(first: $first, query: $query) {
               edges {
                 node {
                   id
@@ -293,7 +324,10 @@ export const loader = async ({ request }) => {
           shop, 
           accessToken, 
           collectionQuery, 
-          { query: `title:*${query}*` }
+          { 
+            query: `title:*${query}*`,
+            first: maxResults 
+          }
         );
         
         if (collectionData.data?.collections?.edges) {
@@ -313,11 +347,17 @@ export const loader = async ({ request }) => {
     }
 
     console.log("✅ Search completed successfully");
-    return json({ success: true, results }, { headers });
+    return json({ 
+      success: true, 
+      results,
+      planInfo: {
+        searchLimit: searchLimit.planLimit,
+        resultsReturned: maxResults,
+      }
+    }, { headers });
   } catch (error) {
     console.error("Search Error:", error);
     
-    // Better error response
     return json({ 
       success: false,
       error: error.message,

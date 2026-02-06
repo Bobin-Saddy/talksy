@@ -275,3 +275,17 @@ model SearchLog {
   @@index([createdAt])
   @@index([searchType])
 }
+
+model Subscription {
+  id                  String   @id @default(cuid())
+  shop                String   @unique
+  plan                String   @default("FREE") // FREE, STANDARD, PREMIUM
+  status              String   @default("active") // active, trialing, cancelled, expired
+  billingId           String?  // Shopify charge ID
+  currentPeriodStart  DateTime @default(now())
+  currentPeriodEnd    DateTime
+  trialEndsAt         DateTime?
+  cancelledAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}

@@ -1,25 +1,29 @@
 {% comment %}
-  Talksy Chat Widget v2.3
-  - Fixed: FAQ items on home page navigate to FAQ tab and auto-expand answer
-  - Fixed: Admin online/offline status polling (checks every 10s with 60s stale threshold)
-  - Orange gradient header by DEFAULT
-  - Contact card overlaps header
-  - Plus Jakarta Sans font
+  Talksy Chat Widget v2.6 - AUTO-SCROLL FIXED
+  - Auto-scroll works when latest search results appear
+  - Previous search results cleared before new search
+  - Search state persists on tab change
+  - Search query and results saved in localStorage
+  - All previous fixes maintained (orange colors, responsive, etc.)
 {% endcomment %}
 
 {%- assign primary_color    = section.settings.primary_color    | default: '#F39C12' -%}
 {%- assign grad_start       = section.settings.grad_start       | default: '#F39C12' -%}
 {%- assign grad_end         = section.settings.grad_end         | default: '#E67E22' -%}
+{{ 'talksy-chat.css' | asset_url | stylesheet_tag }}
 
 <!-- ── Google Fonts ── -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Cookie&family=Diplomata+SC&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Lexend+Exa:wght@100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Philosopher:ital,wght@0,400;0,700;1,400;1,700&family=Playfair+Display+SC:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poltawski+Nowy:ital,wght@0,400..700;1,400..700&family=Quicksand:wght@300..700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
 
 <!-- ── Launcher Button ── -->
 <div id="chat-launcher" aria-label="Open Chat"
      style="background:#ffffff; color:{{ primary_color }};">
-  <div id="launcher-icon">
+  <div id="launcher-icon" style="display: flex;">
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -44,14 +48,18 @@
       <p  id="header-subtitle-text" class="header-subtitle">How can we help you?</p>
     </div>
     <button id="chat-close" title="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
-<path d="M9 9.708L12.246 12.954C12.3393 13.0473 12.454 13.0973 12.59 13.104C12.726 13.1107 12.8473 13.0607 12.954 12.954C13.0607 12.8473 13.114 12.7293 13.114 12.6C13.114 12.4707 13.0607 12.3527 12.954 12.246L9.708 9L12.954 5.754C13.0473 5.66067 13.0973 5.546 13.104 5.41C13.1107 5.274 13.0607 5.15267 12.954 5.046C12.8473 4.93933 12.7293 4.886 12.6 4.886C12.4707 4.886 12.3527 4.93933 12.246 5.046L9 8.292L5.754 5.046C5.66067 4.95267 5.546 4.90267 5.41 4.896C5.274 4.88933 5.15267 4.93933 5.046 5.046C4.93933 5.15267 4.886 5.27067 4.886 5.4C4.886 5.52933 4.93933 5.64733 5.046 5.754L8.292 9L5.046 12.246C4.95267 12.3393 4.90267 12.4543 4.896 12.591C4.88933 12.7263 4.93933 12.8473 5.046 12.954C5.15267 13.0607 5.27067 13.114 5.4 13.114C5.52933 13.114 5.64733 13.0607 5.754 12.954L9 9.708ZM9.003 18C7.75833 18 6.58833 17.764 5.493 17.292C4.39767 16.8193 3.44467 16.178 2.634 15.368C1.82333 14.558 1.18167 13.606 0.709 12.512C0.236333 11.418 0 10.2483 0 9.003C0 7.75767 0.236333 6.58767 0.709 5.493C1.181 4.39767 1.82133 3.44467 2.63 2.634C3.43867 1.82333 4.391 1.18167 5.487 0.709C6.583 0.236333 7.753 0 8.997 0C10.241 0 11.411 0.236333 12.507 0.709C13.6023 1.181 14.5553 1.82167 15.366 2.631C16.1767 3.44033 16.8183 4.39267 17.291 5.488C17.7637 6.58333 18 7.753 18 8.997C18 10.241 17.764 11.411 17.292 12.507C16.82 13.603 16.1787 14.556 15.368 15.366C14.5573 16.176 13.6053 16.8177 12.512 17.291C11.4187 17.7643 10.249 18.0007 9.003 18ZM9 17C11.2333 17 13.125 16.225 14.675 14.675C16.225 13.125 17 11.2333 17 9C17 6.76667 16.225 4.875 14.675 3.325C13.125 1.775 11.2333 1 9 1C6.76667 1 4.875 1.775 3.325 3.325C1.775 4.875 1 6.76667 1 9C1 11.2333 1.775 13.125 3.325 14.675C4.875 16.225 6.76667 17 9 17Z" fill="white"/>
-</svg>
+<img 
+  src="{{ 'material-symbols-light_cancel-outline-rounded.svg' | asset_url }}" 
+  alt="Cancel Icon"
+  width="20"
+  height="20"
+>
+
     </button>
   </div>
 
   <!-- ── SCROLLABLE BODY ── -->
-  <div id="widget-main-container">
+  <div id="widget-main-container" style="overflow-y: auto !important; height: 100%;">
 
     <!-- ════════ HOME TAB ════════ -->
     <div id="tab-home" class="tab-content">
@@ -60,27 +68,14 @@
         <!-- Contact-us card -->
         <div class="contact-card">
           <div class="contact-header">
-            <strong id="contact-title">Contact us</strong>
+            <strong id="contact-title">Need Help?</strong>
             <div class="online-status" id="online-status-badge">
               <span class="status-dot" id="status-dot"></span>
               <span id="status-text">We are online</span>
             </div>
           </div>
           <button class="chat-now-btn" id="chat-now-btn">
-       
-<svg width="21" height="21" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g clip-path="url(#clip0_432_342)">
-<path d="M15.5 8.5H9.5M16.5 3.5C17.0304 3.5 17.5391 3.71071 17.9142 4.08579C18.2893 4.46086 18.5 4.96957 18.5 5.5V15.5C18.5 16.0304 18.2893 16.5391 17.9142 16.9142C17.5391 17.2893 17.0304 17.5 16.5 17.5L13.501 17.499L11.207 19.793C11.0348 19.9652 10.8057 20.0686 10.5627 20.0839C10.3197 20.0992 10.0794 20.0253 9.887 19.876L9.793 19.793L7.499 17.499L4.5 17.5C3.96957 17.5 3.46086 17.2893 3.08579 16.9142C2.71071 16.5391 2.5 16.0304 2.5 15.5V5.5C2.5 4.96957 2.71071 4.46086 3.08579 4.08579C3.46086 3.71071 3.96957 3.5 4.5 3.5H16.5Z" stroke="white" stroke-linecap="round" stroke-linejoin="round"/>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M6.499 9.5C6.999 9.5 7.499 9 7.499 8.5C7.499 8 6.999 7.5 6.499 7.5C5.999 7.5 5.5 8 5.5 8.5C5.5 9 5.999 9.5 6.499 9.5ZM6.499 13.5C6.999 13.5 7.499 13 7.499 12.5C7.499 12 6.999 11.5 6.499 11.5C5.999 11.5 5.5 12 5.5 12.5C5.5 13 5.999 13.5 6.499 13.5Z" fill="white"/>
-<path d="M15.5 12.5H9.5" stroke="white" stroke-linecap="round" stroke-linejoin="round"/>
-</g>
-<defs>
-<clipPath id="clip0_432_342">
-<rect width="21" height="21" fill="white"/>
-</clipPath>
-</defs>
-</svg>
-
+          <img src="{{ 'chat.svg' | asset_url }}" alt="Chat Icon">
             <span>Chat Now</span>
           </button>
         </div>
@@ -88,8 +83,8 @@
         <!-- Search-here card -->
         <div class="search-here-card" id="search-here-trigger">
           <div class="search-here-content">
-            <strong id="search-card-title">Search here</strong>
-            <span id="search-card-subtitle">This is Search</span>
+           <strong id="search-card-title">Search Anything</strong>
+<span id="search-card-subtitle">Find products, orders, pages, and more</span>
           </div>
           <div class="search-here-arrow">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -103,15 +98,10 @@
         <div class="search-box">
           <input type="text" id="home-search-input"
                  placeholder="Search for help" autocomplete="off" />
-          <button class="search-icon-round" id="home-search-btn">
-           
+      <button class="search-icon-round" id="home-search-btn">
+  <img src="{{ 'search.svg' | asset_url }}" alt="Search Icon">
+</button>
 
-<svg width="14" height="15" viewBox="0 0 14 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M6.5625 3.44922C6.44647 3.44922 6.33519 3.49663 6.25314 3.58102C6.17109 3.66541 6.125 3.77987 6.125 3.89922C6.125 4.01857 6.17109 4.13303 6.25314 4.21742C6.33519 4.30181 6.44647 4.34922 6.5625 4.34922C7.29737 4.34922 8.00214 4.64949 8.52178 5.18396C9.04141 5.71844 9.33333 6.44335 9.33333 7.19922C9.33333 7.31857 9.37943 7.43302 9.46147 7.51742C9.54352 7.60181 9.6548 7.64922 9.77083 7.64922C9.88687 7.64922 9.99815 7.60181 10.0802 7.51742C10.1622 7.43302 10.2083 7.31857 10.2083 7.19922C10.2083 6.70671 10.114 6.21903 9.93075 5.76402C9.7475 5.30901 9.4789 4.89558 9.14029 4.54736C8.80168 4.19913 8.3997 3.92292 7.9573 3.7345C7.5149 3.54608 7.04074 3.44914 6.56192 3.44922" fill="white"/>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M1.16602 7.19979C1.16602 4.13439 3.58218 1.65039 6.56185 1.65039C9.54152 1.65039 11.9577 4.13439 11.9577 7.19919C11.9601 8.51646 11.5046 9.79121 10.6732 10.7932L12.7038 12.8812C12.7456 12.9227 12.7789 12.9723 12.8019 13.0272C12.8248 13.0821 12.8369 13.1411 12.8375 13.2009C12.838 13.2606 12.8269 13.3199 12.805 13.3752C12.783 13.4305 12.7505 13.4808 12.7095 13.5231C12.6684 13.5653 12.6196 13.5988 12.5658 13.6214C12.5121 13.6441 12.4545 13.6555 12.3964 13.655C12.3383 13.6545 12.2809 13.6421 12.2275 13.6186C12.1741 13.595 12.1258 13.5607 12.0854 13.5178L10.0543 11.4292C9.08024 12.283 7.84163 12.7508 6.56185 12.748C3.58218 12.748 1.16602 10.2646 1.16602 7.19979ZM6.56185 2.55039C5.96221 2.54048 5.36664 2.6534 4.80985 2.88258C4.25306 3.11175 3.74617 3.4526 3.31871 3.88527C2.89125 4.31793 2.55177 4.83376 2.32005 5.4027C2.08832 5.97165 1.96898 6.58234 1.96898 7.19919C1.96898 7.81604 2.08832 8.42673 2.32005 8.99568C2.55177 9.56462 2.89125 10.0805 3.31871 10.5131C3.74617 10.9458 4.25306 11.2866 4.80985 11.5158C5.36664 11.745 5.96221 11.8579 6.56185 11.848C7.16149 11.8579 7.75705 11.745 8.31385 11.5158C8.87064 11.2866 9.37753 10.9458 9.80499 10.5131C10.2324 10.0805 10.5719 9.56462 10.8037 8.99568C11.0354 8.42673 11.1547 7.81604 11.1547 7.19919C11.1547 6.58234 11.0354 5.97165 10.8037 5.4027C10.5719 4.83376 10.2324 4.31793 9.80499 3.88527C9.37753 3.4526 8.87064 3.11175 8.31385 2.88258C7.75705 2.6534 7.16149 2.54048 6.56185 2.55039Z" fill="white"/>
-</svg>
-
-          </button>
         </div>
 
         <!-- FAQ list (flat rows) -->
@@ -195,731 +185,236 @@
     </div><!-- #tab-faq -->
 
     <!-- ════════ SEARCH TAB ════════ -->
-    <div id="tab-search" class="tab-content" style="display:none;">
-      <div class="search-container-new">
+<div id="tab-search" class="tab-content" style="display:none;">
+  <div class="search-container-new">
 
-        <!-- results (hidden until query runs) -->
-        <div id="search-results-wrapper" style="display:none;">
-          <div class="results-header"><h3>✨ Search Results</h3></div>
+    <!-- ══════ PREVIOUS SEARCH RESULTS (TOP) ══════ -->
+    <div id="previous-search-wrapper" style="display:none;">
+      <div class="previous-search-header">
+        <h3>🕐 Previous Search</h3>
+        <span class="previous-query-text" id="previous-query-text"></span>
+      </div>
 
-          <!-- Products -->
-          <div id="products-results-section" class="results-section" style="display:none;">
-            <div class="section-header">
-              <span class="section-icon">🛍️</span>
-              <span class="section-title">Products</span>
-              <span class="section-count" id="products-count">0</span>
-            </div>
-            <div class="scroll-wrapper">
-              <button class="scroll-btn scroll-left" onclick="scrollSection('products','left')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-              </button>
-              <div class="horizontal-scroll" id="products-scroll"></div>
-              <button class="scroll-btn scroll-right" onclick="scrollSection('products','right')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Collections -->
-          <div id="collections-results-section" class="results-section" style="display:none;">
-            <div class="section-header">
-              <span class="section-icon">📁</span>
-              <span class="section-title">Collections</span>
-              <span class="section-count" id="collections-count">0</span>
-            </div>
-            <div class="scroll-wrapper">
-              <button class="scroll-btn scroll-left" onclick="scrollSection('collections','left')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-              </button>
-              <div class="horizontal-scroll" id="collections-scroll"></div>
-              <button class="scroll-btn scroll-right" onclick="scrollSection('collections','right')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Pages -->
-          <div id="pages-results-section" class="results-section" style="display:none;">
-            <div class="section-header">
-              <span class="section-icon">📄</span>
-              <span class="section-title">Pages</span>
-              <span class="section-count" id="pages-count">0</span>
-            </div>
-            <div class="scroll-wrapper">
-              <button class="scroll-btn scroll-left" onclick="scrollSection('pages','left')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-              </button>
-              <div class="horizontal-scroll" id="pages-scroll"></div>
-              <button class="scroll-btn scroll-right" onclick="scrollSection('pages','right')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Orders -->
-          <div id="orders-results-section" class="results-section" style="display:none;">
-            <div class="section-header">
-              <span class="section-icon">📦</span>
-              <span class="section-title">Orders</span>
-              <span class="section-count" id="orders-count">0</span>
-            </div>
-            <div class="scroll-wrapper">
-              <button class="scroll-btn scroll-left" onclick="scrollSection('orders','left')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-              </button>
-              <div class="horizontal-scroll" id="orders-scroll"></div>
-              <button class="scroll-btn scroll-right" onclick="scrollSection('orders','right')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-              </button>
-            </div>
-          </div>
-        </div><!-- #search-results-wrapper -->
-
-        <!-- hero + textarea -->
-        <div class="search-center-wrapper">
-          <div class="search-hero">
-            <div class="search-icon-large">🔍</div>
-            <h2>What are you looking for?</h2>
-            <p>Search products, collections, pages & orders</p>
-          </div>
-          <div class="search-textarea-wrapper">
-            <textarea id="store-search-input-new"
-                      placeholder="Type your search query and press Enter…"
-                      rows="3" autocomplete="off"></textarea>
-            <button id="search-icon-btn" class="search-icon-btn-inner" title="Search">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2.5">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
-              </svg>
-            </button>
-            <div id="search-loading-indicator" style="display:none;">
-              <div class="mini-spinner"></div>
-            </div>
-          </div>
+      <div id="prev-products-results-section" class="results-section" style="display:none;">
+        <div class="section-header">
+          <span class="section-icon">🛍️</span>
+          <span class="section-title">Products</span>
+          <span class="section-count" id="prev-products-count">0</span>
         </div>
-
-        <!-- empty / no-results states -->
-        <div id="search-empty-state" class="search-empty-new">
-          <div class="empty-icon">🎯</div>
-          <p class="empty-text">Type your query and press Enter to search</p>
-        </div>
-        <div id="no-results-state" class="search-empty-new" style="display:none;">
-          <div class="empty-icon">😕</div>
-          <p class="empty-text">No results found</p>
-          <p class="empty-subtext">Try different keywords or check spelling</p>
+        <div class="scroll-wrapper">
+          <button class="scroll-btn scroll-left" onclick="scrollSection('prev-products','left')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="horizontal-scroll" id="prev-products-scroll"></div>
+          <button class="scroll-btn scroll-right" onclick="scrollSection('prev-products','right')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
         </div>
       </div>
-    </div><!-- #tab-search -->
+
+      <div id="prev-collections-results-section" class="results-section" style="display:none;">
+        <div class="section-header">
+          <span class="section-icon">📁</span>
+          <span class="section-title">Collections</span>
+          <span class="section-count" id="prev-collections-count">0</span>
+        </div>
+        <div class="scroll-wrapper">
+          <button class="scroll-btn scroll-left" onclick="scrollSection('prev-collections','left')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="horizontal-scroll" id="prev-collections-scroll"></div>
+          <button class="scroll-btn scroll-right" onclick="scrollSection('prev-collections','right')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="prev-pages-results-section" class="results-section" style="display:none;">
+        <div class="section-header">
+          <span class="section-icon">📄</span>
+          <span class="section-title">Pages</span>
+          <span class="section-count" id="prev-pages-count">0</span>
+        </div>
+        <div class="scroll-wrapper">
+          <button class="scroll-btn scroll-left" onclick="scrollSection('prev-pages','left')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="horizontal-scroll" id="prev-pages-scroll"></div>
+          <button class="scroll-btn scroll-right" onclick="scrollSection('prev-pages','right')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="prev-orders-results-section" class="results-section" style="display:none;">
+        <div class="section-header">
+          <span class="section-icon">📦</span>
+          <span class="section-title">Orders</span>
+          <span class="section-count" id="prev-orders-count">0</span>
+        </div>
+        <div class="scroll-wrapper">
+          <button class="scroll-btn scroll-left" onclick="scrollSection('prev-orders','left')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="horizontal-scroll" id="prev-orders-scroll"></div>
+          <button class="scroll-btn scroll-right" onclick="scrollSection('prev-orders','right')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div><!-- #previous-search-wrapper -->
+
+    <!-- ══════ LATEST SEARCH RESULTS (MIDDLE) ══════ -->
+    <div id="search-results-wrapper" style="display:none;">
+      <div class="results-header"><h3>✨ Latest Search Results</h3></div>
+
+      <div id="products-results-section" class="results-section" style="display:none;">
+        <div class="section-header">
+          <span class="section-icon">🛍️</span>
+          <span class="section-title">Products</span>
+          <span class="section-count" id="products-count">0</span>
+        </div>
+        <div class="scroll-wrapper">
+          <button class="scroll-btn scroll-left" onclick="scrollSection('products','left')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="horizontal-scroll" id="products-scroll"></div>
+          <button class="scroll-btn scroll-right" onclick="scrollSection('products','right')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="collections-results-section" class="results-section" style="display:none;">
+        <div class="section-header">
+          <span class="section-icon">📁</span>
+          <span class="section-title">Collections</span>
+          <span class="section-count" id="collections-count">0</span>
+        </div>
+        <div class="scroll-wrapper">
+          <button class="scroll-btn scroll-left" onclick="scrollSection('collections','left')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="horizontal-scroll" id="collections-scroll"></div>
+          <button class="scroll-btn scroll-right" onclick="scrollSection('collections','right')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="pages-results-section" class="results-section" style="display:none;">
+        <div class="section-header">
+          <span class="section-icon">📄</span>
+          <span class="section-title">Pages</span>
+          <span class="section-count" id="pages-count">0</span>
+        </div>
+        <div class="scroll-wrapper">
+          <button class="scroll-btn scroll-left" onclick="scrollSection('pages','left')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="horizontal-scroll" id="pages-scroll"></div>
+          <button class="scroll-btn scroll-right" onclick="scrollSection('pages','right')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="orders-results-section" class="results-section" style="display:none;">
+        <div class="section-header">
+          <span class="section-icon">📦</span>
+          <span class="section-title">Orders</span>
+          <span class="section-count" id="orders-count">0</span>
+        </div>
+        <div class="scroll-wrapper">
+          <button class="scroll-btn scroll-left" onclick="scrollSection('orders','left')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="horizontal-scroll" id="orders-scroll"></div>
+          <button class="scroll-btn scroll-right" onclick="scrollSection('orders','right')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div><!-- #search-results-wrapper -->
+
+    <!-- ══════ EMPTY STATE (WHEN NO SEARCHES) ══════ -->
+    <div id="search-empty-state" class="search-empty-new">
+      <div class="search-hero">
+        <div class="search-icon-large">🔍</div>
+        <h2>What are you looking for?</h2>
+        <p>Search products, collections, pages & orders</p>
+      </div>
+    </div>
+
+    <!-- ══════ NO RESULTS STATE ══════ -->
+    <div id="no-results-state" class="search-empty-new" style="display:none;">
+      <div class="empty-icon">😕</div>
+      <p class="empty-text">No results found</p>
+      <p class="empty-subtext">Try different keywords or check spelling</p>
+    </div>
+
+    <!-- ══════ SEARCH FIELD (FIXED AT BOTTOM) ══════ -->
+    <div class="search-bottom-fixed">
+      <div class="search-textarea-wrapper">
+        <textarea id="store-search-input-new"
+                  placeholder="Search Anything"
+                  rows="2" autocomplete="off"></textarea>
+        <button id="search-icon-btn" class="search-icon-btn-inner" title="Search">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div id="search-loading-indicator" style="display:none;">
+          <div class="mini-spinner"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 
   </div><!-- #widget-main-container -->
 
   <!-- ══════ BOTTOM NAV ══════ -->
   <div id="chat-nav">
     <div class="nav-item active" data-tab="home">
-    
-
-
-<svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M10.999 3.70898C11.3047 3.70898 11.5643 3.79722 11.7959 3.97363L11.7998 3.97559L17.3037 8.10352C17.4675 8.22361 17.5959 8.37592 17.6914 8.56641C17.7865 8.75624 17.8334 8.95406 17.833 9.16602V17.417C17.833 17.7874 17.7068 18.093 17.4404 18.3594C17.1741 18.6257 16.8693 18.7514 16.5 18.751H13.749C13.6158 18.7509 13.528 18.7108 13.4512 18.6338C13.3926 18.575 13.3548 18.5101 13.3398 18.4248L13.333 18.333V13.751C13.333 13.3652 13.1965 13.0179 12.9219 12.7441C12.6823 12.5054 12.3873 12.3712 12.0596 12.3408L11.917 12.334H10.083C9.69714 12.334 9.34999 12.4704 9.07617 12.7451C8.80344 13.0188 8.66703 13.3645 8.66602 13.749V18.334C8.66602 18.4674 8.62642 18.5561 8.54883 18.6338C8.47119 18.7114 8.38291 18.7512 8.25098 18.751H5.49902C5.12863 18.7509 4.82408 18.6248 4.55859 18.3594C4.29303 18.0938 4.16653 17.7885 4.16602 17.417V9.16699C4.16606 8.95468 4.2133 8.75655 4.30859 8.56641C4.40418 8.37571 4.53213 8.22354 4.69531 8.10352L10.1992 3.97559L10.2021 3.97363C10.4337 3.79721 10.6935 3.70905 10.999 3.70898Z" stroke="#5C5C5C"/>
-</svg>
-
-
-
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
       <span>Home</span>
     </div>
     <div class="nav-item" data-tab="chat">
-   
-
-
-<svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g clip-path="url(#clip0_432_390)">
-<path d="M16.2382 8.90411H9.95247M17.2858 3.66602C17.8415 3.66602 18.3744 3.88676 18.7674 4.2797C19.1603 4.67263 19.381 5.20556 19.381 5.76125V16.2374C19.381 16.7931 19.1603 17.3261 18.7674 17.719C18.3744 18.1119 17.8415 18.3327 17.2858 18.3327L14.144 18.3316L11.7408 20.7349C11.5604 20.9152 11.3204 21.0236 11.0658 21.0396C10.8112 21.0556 10.5595 20.9782 10.3579 20.8218L10.2594 20.7349L7.85619 18.3316L4.71438 18.3327C4.15869 18.3327 3.62575 18.1119 3.23282 17.719C2.83989 17.3261 2.61914 16.7931 2.61914 16.2374V5.76125C2.61914 5.20556 2.83989 4.67263 3.23282 4.2797C3.62575 3.88676 4.15869 3.66602 4.71438 3.66602H17.2858Z" stroke="#5C5C5C" stroke-linecap="round" stroke-linejoin="round"/>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M6.80829 9.95266C7.3321 9.95266 7.85591 9.42885 7.85591 8.90504C7.85591 8.38123 7.3321 7.85742 6.80829 7.85742C6.28448 7.85742 5.76172 8.38123 5.76172 8.90504C5.76172 9.42885 6.28448 9.95266 6.80829 9.95266ZM6.80829 14.1431C7.3321 14.1431 7.85591 13.6193 7.85591 13.0955C7.85591 12.5717 7.3321 12.0479 6.80829 12.0479C6.28448 12.0479 5.76172 12.5717 5.76172 13.0955C5.76172 13.6193 6.28448 14.1431 6.80829 14.1431Z" fill="#5C5C5C"/>
-<path d="M16.2388 13.0938H9.95312" stroke="#5C5C5C" stroke-linecap="round" stroke-linejoin="round"/>
-</g>
-<defs>
-<clipPath id="clip0_432_390">
-<rect width="22" height="22" fill="white"/>
-</clipPath>
-</defs>
-</svg>
-
-
-
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
       <span>Message</span>
     </div>
     <div class="nav-item" data-tab="search">
- 
-<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect x="0.5" y="0.5" width="19" height="19" rx="9.5" stroke="#5C5C5C"/>
-<path d="M9.65625 6.90625C9.56508 6.90625 9.47765 6.94247 9.41318 7.00693C9.34872 7.0714 9.3125 7.15883 9.3125 7.25C9.3125 7.34117 9.34872 7.4286 9.41318 7.49307C9.47765 7.55753 9.56508 7.59375 9.65625 7.59375C10.2336 7.59375 10.7874 7.82312 11.1957 8.2314C11.604 8.63969 11.8333 9.19343 11.8333 9.77083C11.8333 9.862 11.8695 9.94944 11.934 10.0139C11.9985 10.0784 12.0859 10.1146 12.1771 10.1146C12.2683 10.1146 12.3557 10.0784 12.4202 10.0139C12.4846 9.94944 12.5208 9.862 12.5208 9.77083C12.5208 9.39461 12.4467 9.02208 12.3027 8.6745C12.1587 8.32692 11.9477 8.01111 11.6817 7.7451C11.4156 7.4791 11.0998 7.2681 10.7522 7.12417C10.4046 6.98024 10.032 6.90619 9.65579 6.90625" fill="#5C5C5C"/>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M5.41602 9.77038C5.41602 7.42875 7.31443 5.53125 9.6556 5.53125C11.9968 5.53125 13.8952 7.42875 13.8952 9.76992C13.8971 10.7762 13.5392 11.7499 12.8859 12.5153L14.4814 14.1103C14.5142 14.142 14.5404 14.1799 14.5585 14.2219C14.5765 14.2638 14.586 14.3089 14.5864 14.3546C14.5869 14.4002 14.5782 14.4455 14.5609 14.4877C14.5436 14.53 14.5181 14.5684 14.4859 14.6007C14.4536 14.6329 14.4153 14.6585 14.373 14.6758C14.3308 14.6931 14.2855 14.7018 14.2399 14.7014C14.1942 14.7011 14.1491 14.6916 14.1072 14.6736C14.0652 14.6556 14.0273 14.6294 13.9956 14.5966L12.3996 13.0012C11.6343 13.6534 10.6611 14.0107 9.6556 14.0086C7.31443 14.0086 5.41602 12.1115 5.41602 9.77038ZM9.6556 6.21875C9.18445 6.21118 8.71651 6.29744 8.27903 6.4725C7.84155 6.64757 7.44328 6.90794 7.10742 7.23845C6.77156 7.56895 6.50482 7.96299 6.32275 8.3976C6.14068 8.83221 6.04692 9.29871 6.04692 9.76992C6.04692 10.2411 6.14068 10.7076 6.32275 11.1422C6.50482 11.5768 6.77156 11.9709 7.10742 12.3014C7.44328 12.6319 7.84155 12.8923 8.27903 13.0673C8.71651 13.2424 9.18445 13.3287 9.6556 13.3211C10.1267 13.3287 10.5947 13.2424 11.0322 13.0673C11.4696 12.8923 11.8679 12.6319 12.2038 12.3014C12.5396 11.9709 12.8064 11.5768 12.9884 11.1422C13.1705 10.7076 13.2643 10.2411 13.2643 9.76992C13.2643 9.29871 13.1705 8.83221 12.9884 8.3976C12.8064 7.96299 12.5396 7.56895 12.2038 7.23845C11.8679 6.90794 11.4696 6.64757 11.0322 6.4725C10.5947 6.29744 10.1267 6.21118 9.6556 6.21875Z" fill="#5C5C5C"/>
-</svg>
-
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.35-4.35"/>
+      </svg>
       <span>Search</span>
     </div>
-    <div class="nav-item" data-tab="faq">
-      
-<svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M11.0257 15.7942C11.2286 15.7942 11.3997 15.7245 11.539 15.5852C11.6783 15.4458 11.748 15.2747 11.748 15.0718C11.748 14.8689 11.6777 14.6978 11.5372 14.5585C11.3978 14.4192 11.2267 14.3495 11.0238 14.3495C10.8209 14.3495 10.6498 14.4195 10.5105 14.5594C10.3712 14.6994 10.3018 14.8705 10.3024 15.0728C10.3024 15.2756 10.3721 15.4468 10.5114 15.5861C10.652 15.7254 10.8234 15.7951 11.0257 15.7951M11.0028 19.25C9.86242 19.25 8.78992 19.0337 7.78525 18.601C6.78119 18.1677 5.90761 17.5798 5.1645 16.8373C4.42139 16.0948 3.83319 15.2222 3.39992 14.2193C2.96664 13.2165 2.75 12.1443 2.75 11.0028C2.75 9.8612 2.96664 8.78869 3.39992 7.78525C3.83258 6.78119 4.41956 5.90761 5.16083 5.1645C5.90211 4.42139 6.77508 3.83319 7.77975 3.39992C8.78442 2.96664 9.85692 2.75 10.9972 2.75C12.1376 2.75 13.2101 2.96664 14.2148 3.39992C15.2188 3.83258 16.0924 4.41986 16.8355 5.16175C17.5786 5.90364 18.1668 6.77661 18.6001 7.78067C19.0334 8.78472 19.25 9.85692 19.25 10.9972C19.25 12.1376 19.0337 13.2101 18.601 14.2148C18.1683 15.2194 17.5804 16.093 16.8373 16.8355C16.0942 17.578 15.2216 18.1662 14.2193 18.6001C13.2171 19.034 12.1449 19.2506 11.0028 19.25ZM11 18.3333C13.0472 18.3333 14.7812 17.6229 16.2021 16.2021C17.6229 14.7812 18.3333 13.0472 18.3333 11C18.3333 8.95278 17.6229 7.21875 16.2021 5.79792C14.7812 4.37708 13.0472 3.66667 11 3.66667C8.95278 3.66667 7.21875 4.37708 5.79792 5.79792C4.37708 7.21875 3.66667 8.95278 3.66667 11C3.66667 13.0472 4.37708 14.7812 5.79792 16.2021C7.21875 17.6229 8.95278 18.3333 11 18.3333ZM11.0568 7.09408C11.5213 7.09408 11.9209 7.238 12.2558 7.52583C12.5919 7.81367 12.76 8.17392 12.76 8.60658C12.76 8.94269 12.6653 9.24642 12.4758 9.51775C12.2876 9.78908 12.0694 10.0393 11.8213 10.2685C11.5072 10.5533 11.2307 10.8665 10.9918 11.2081C10.7528 11.5503 10.6156 11.9271 10.5802 12.3383C10.5686 12.4581 10.6061 12.5583 10.6929 12.639C10.7785 12.7191 10.8793 12.7591 10.9954 12.7591C11.1182 12.7591 11.2218 12.7181 11.3062 12.6363C11.3899 12.5538 11.4431 12.4566 11.4657 12.3448C11.5268 12.0361 11.6496 11.7614 11.8342 11.5207C12.0181 11.2805 12.2204 11.0532 12.441 10.8387C12.7582 10.5233 13.0396 10.1796 13.2853 9.80742C13.5315 9.43586 13.6547 9.02122 13.6547 8.5635C13.6547 7.89067 13.3992 7.33517 12.8883 6.897C12.3781 6.45944 11.7792 6.24067 11.0917 6.24067C10.582 6.24067 10.1075 6.35983 9.66808 6.59817C9.22931 6.8365 8.87822 7.1665 8.61483 7.58817C8.55494 7.68961 8.53569 7.79442 8.55708 7.90258C8.57847 8.01075 8.63653 8.09295 8.73125 8.14917C8.85225 8.21272 8.97447 8.22739 9.09792 8.19317C9.22136 8.15894 9.33014 8.08806 9.42425 7.9805C9.62775 7.7275 9.86731 7.51667 10.1429 7.348C10.4179 7.17811 10.7226 7.09408 11.0568 7.09408Z" fill="#5C5C5C"/>
-</svg>
+<div class="nav-item" data-tab="faq">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    
+    <path d="M9 9c0-1.7 1.3-3 3-3s3 1.3 3 3c0 2-3 2.5-3 5" />
+    
+    <circle cx="12" cy="17" r="0.5" fill="currentColor"/>
+  </svg>
+  <span>FAQ's</span>
+</div>
 
-      <span>Help</span>
-    </div>
   </div>
-
+<a href="https://apps.shopify.com/talksy" target="_blank" class="powered-by-talksy" >Powered by talksy</a>
 </div><!-- #chat-widget -->
 
-
-<!-- ═══════════════════════════════════════════════════════════
-     STYLES
-     ═══════════════════════════════════════════════════════════ -->
-<style>
-/* ── reset ── */
-#chat-widget *, #chat-launcher * {
-  box-sizing: border-box;
-  margin: 0;
-  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-}
-
-:root {
-  --tw-primary : {{ primary_color }};
-  --tw-grad-s  : {{ grad_start }};
-  --tw-grad-e  : {{ grad_end }};
-  --tw-font-family: "Plus Jakarta Sans";
-}
-
-/* ── launcher ── */
-#chat-launcher {
-  position: fixed; bottom: 25px; right: 25px;
-  width: 62px; height: 62px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; z-index: 999999;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.22);
-  transition: transform .3s;
-}
-#chat-launcher:hover { transform: scale(1.08); }
-
-/* ── widget frame ── */
-#chat-widget {
-  position: fixed; bottom: 100px; right: 25px;
-  width: 380px; height: 680px;
-  max-height: calc(100vh - 130px);
-  background: #fff; border-radius: 24px;
-  display: flex; flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 15px 50px rgba(0,0,0,0.18);
-  z-index: 999998;
-  transition: all .4s cubic-bezier(.165,.84,.44,1);
-}
-.chat-hidden  { opacity:0; transform:translateY(30px) scale(.9); pointer-events:none; }
-.chat-visible { opacity:1; transform:translateY(0)   scale(1);   pointer-events:all;  }
-
-/* ── HEADER – ORANGE GRADIENT BY DEFAULT ── */
-#chat-header {
-    padding: 28px 22px 60px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    flex-shrink: 0;
-    border-radius: 24px 24px 0 0;
-    background: linear-gradient(167deg,rgba(227, 131, 25, 1) 0%, rgba(235, 156, 30, 1) 50%, rgba(227, 131, 25, 1) 100%);
-}
-.header-title {
-    font-size: 26px;
-    font-weight: 600;
-    margin-bottom: 4px;
-    color: inherit;
-}
-.header-subtitle {
-    font-size: 16px;
-    font-weight: 500;
-    color: white !important;
-}
-#chat-close {
-  background: none; border: none; cursor: pointer;
-  color: #fff; opacity: .85; transition: .2s;
-  display: flex; align-items: center; justify-content: center;
-}
-#chat-close:hover { opacity: 1; }
-
-/* ── body scroll ── */
-#widget-main-container {
-    flex: 1;
-    overflow: visible;
-    display: flex;
-    flex-direction: column;
-}
-
-.tab-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow: visible;
-    position: relative;
-}
-.home-scroll-area {
-    /* flex: 1; */
-    overflow-y: auto;
-    padding: 18px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    background: #f5f5f5;
-    height: 428px;
-    scrollbar-width: none;
-}
-
-/* ── Contact card ── */
-.contact-card {
-    background: #fff;
-    border-radius: 14px;
-    padding: 12px 18px 16px;
-    margin-top: -40px;
-    position: absolute;
-    z-index: 99999;
-    width: 92%;
-    box-shadow: 0 2px 8px rgba(0,0,0,.08);
-    border: 1px solid #ddd;
-    flex-shrink: 0;
-    top: -23px;
-}
-.contact-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 13px !important;
-}
-.contact-header strong {
-    font-size: 15px;
-    font-weight: 600;
-    color: black;
-}
-.online-status {
-  display: flex; align-items: center; gap: 6px;
-}
-.status-dot {
-  width: 9px; height: 9px; border-radius: 50%;
-  background: #ef4444;
-  transition: background .4s;
-}
-#status-text {
-    font-size: 12px;
-    color: #5C5C5C;
-    font-weight: 500;
-}
-/* ── Chat Now button (ORANGE) ── */
-.chat-now-btn {
-    width: 100%;
-    background: #F39C12;
-    color: #fff;
-    border: none;
-    padding: 7px 16px;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: filter .2s, transform .15s;
-}
-.chat-now-btn:hover { filter: brightness(.92); transform: translateY(-1px); }
-
-/* ── Search-here card ── */
-.search-here-card {
-    background: #fff;
-    border-radius: 14px;
-    padding: 16px 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    box-shadow: 0 1px 4px rgba(0,0,0,.07);
-    transition: box-shadow .2s, transform .15s;
-    border: 1px solid #ddd;
-    padding-right: 4px;
-    flex-shrink: 0;
-    margin-top: 82px !important;
-}
-
-.search-here-card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,.1);
-  transform: translateY(-1px);
-}
-.search-here-content {
-  display: flex; flex-direction: column; gap: 2px;
-}
-.search-here-content strong {
-    font-size: 15px;
-    font-weight: 600;
-    color: black;
-}
-.search-here-content span {
-    font-size: 13px;
-    font-weight: 500;
-    color: #5C5C5C;
-}
-.search-here-arrow {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: #E8912B;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-/* ── Search input row ── */
-.search-box {
-  position: relative;
-}
-#home-search-input {
-  width: 100%;
-  padding: 13px 48px 13px 16px;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  font-size: 14px;
-  outline: none;
-  background: #fff;
-  transition: border-color .2s;
-}
-#home-search-input:focus { border-color: #F39C12; }
-.search-icon-round {
-  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  width: 36px; height: 36px; border-radius: 50%;
-  background: #F39C12;
-  color: #fff; border: none; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: filter .2s;
-}
-.search-icon-round:hover { filter: brightness(.9); }
-
-/* ── FAQ flat list ── */
-.faq-list { display: flex; flex-direction: column; }
-.faq-item {
-    background: #fff;
-    padding: 14px 16px;
-    display: block;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    border-bottom: 1px solid #eee;
-    transition: background .15s;
-    position: relative;
-}
-
-.faq-item:first-child { border-radius: 12px 12px 0 0; }
-.faq-item:last-child  { border-radius: 0 0 12px 12px; border-bottom: none; }
-.faq-item:hover { background: #fafafa; }
-.faq-question { font-size: 14px; font-weight: 500; color: #222; flex: 1; padding-right: 12px; }
-.faq-arrow {
-    color: #999;
-    display: flex;
-    align-items: center;
-    transition: transform .25s;
-    position: absolute;
-    right: 6px;
-    top: 16px;
-}
-.faq-answer {
-  max-height: 0; overflow: hidden;
-  transition: max-height .3s ease, padding .2s;
-  background: #fff;
-}
-.faq-item.open .faq-answer {
-    max-height: 300px;
-    padding: 0 16px 14px 0;
-}
-.faq-answer-text {
-    font-size: 14px;
-    line-height: 1.7;
-    color: #64748b;
-    padding-left: 0 !important;
-}
-
-.faq-item.open .faq-arrow { transform: rotate(90deg); }
-
-/* ── Chat tab ── */
-.step-container {
-    display: flex;
-    flex-direction: column;
-    height: 427px !important;
-    overflow: scroll;
-    scrollbar-width: none;
-}
-#chat-messages  { flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:12px; background:#f5f5f5; }
-.msg            { max-width:82%; display:flex; flex-direction:column; }
-.msg.user       { align-self:flex-end; }
-.msg.bot        { align-self:flex-start; }
-.msg-content    { padding:11px 15px; border-radius:18px; font-size:14px; line-height:1.5; word-wrap:break-word; }
-
-.registration-form { padding:30px; text-align:center; background:#fff; }
-.registration-form h3 { font-size:20px; font-weight:700; margin-bottom:6px; color:#1a1a1a; }
-.registration-form p  { font-size:14px; color:#777; margin-bottom:22px; }
-.input-group { display:flex; flex-direction:column; gap:10px; }
-.input-group input { padding:13px; border:1px solid #ddd; border-radius:12px; outline:none; font-size:14px; }
-.input-group button {
-    padding: 14px;
-    border: none;
-    border-radius: 12px !important;
-    color: #fff;
-    font-weight: 700;
-    cursor: pointer;
-    margin-top: 8px;
-    background: #F39C12;
-    transition: filter .2s;
-}
-
-.input-group button:disabled { opacity:.5; cursor:not-allowed; background:#aaa; }
-.input-group button:not(:disabled):hover { filter:brightness(.9); }
-
-#chat-footer { padding:12px; background:#fff; border-top:1px solid #eee; flex-shrink:0; position:relative; }
-.input-wrapper {
-    display: flex;
-    align-items: center;
-    background: #f3f4f6;
-    border-radius: 14px;
-    padding: 5px 10px;
-    gap: 6px;
-    border: 1px solid #ccc;
-}
-#chat-input { flex:1; border:none; background:transparent; outline:none; padding:10px 4px; font-size:14px; }
-.tool-btn  { background:none; border:none; cursor:pointer; font-size:1.25em; color:#999; }
-#chat-send {
-  color:#fff; border:none; border-radius:10px;
-  padding:9px; cursor:pointer; display:flex; align-items:center;
-  background: #F39C12;
-}
-#chat-input:focus {
-    outline: none;
-    box-shadow: none;
-}
-
-/* image preview */
-#image-preview-container { padding:12px; background:#fff; }
-div#image-preview-wrapper { position:relative; }
-img#image-preview { width:100%; height:140px; object-fit:cover; border-radius:10px; }
-button#send-image-btn { background:#F39C12; color:#fff; border:none; padding:10px; border-radius:10px; width:100%; margin:6px 0 0; cursor:pointer; font-weight:600; }
-button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#fff; border:none; padding:4px 8px; border-radius:50%; right:8px; top:8px; cursor:pointer; font-size:18px; line-height:1; }
-
-/* emoji picker */
-.hidden-picker { display:none !important; }
-#emoji-picker {
-  position:absolute; bottom:75px; left:12px; right:12px;
-  background:#fff; border:1px solid #eee; border-radius:16px;
-  padding:10px; display:grid; grid-template-columns:repeat(6,1fr);
-  gap:8px; z-index:100; box-shadow:0 8px 22px rgba(0,0,0,.1);
-}
-
-/* ── FAQ full tab ── */
-.faq-container {
-    /* flex: 1; */
-    display: flex;
-    flex-direction: column;
-    height: 428px;
-    overflow: scroll;
-    background: #f5f5f5;
-    scrollbar-width: none !important;
-}
-.faq-search { padding:12px 16px; background:#fff; border-bottom:1px solid #eee; flex-shrink:0; }
-.faq-search input { width:100%; padding:11px 14px; border:1px solid #ddd; border-radius:10px; font-size:14px; outline:none; }
-.faq-search input:focus { border-color: #F39C12; }
-.faq-scroll-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
-    overflow: scroll;
-    scrollbar-width: none !important;
-}
-.faq-loading { text-align:center; padding:40px 20px; color:#888; }
-.loading-spinner {
-  width:36px; height:36px; margin:0 auto 12px;
-  border:3px solid #eee; border-top-color: #F39C12;
-  border-radius:50%; animation:spin .7s linear infinite;
-}
-@keyframes spin { to { transform:rotate(360deg); } }
-.faq-category { margin-bottom:20px; background:#fff; border-radius:12px; padding:16px; }
-.faq-category-title {
-  font-size:16px; font-weight:700; color:#222;
-  margin-bottom:10px; padding-bottom:8px;
-  border-bottom:2px solid #eee;
-  display:flex; align-items:center; justify-content:space-between;
-}
-.faq-category-badge {
-  background: #F39C12; color:#fff;
-  padding:3px 10px; border-radius:18px; font-size:11px; font-weight:600;
-}
-
-/* ── Search tab ── */
-.search-container-new {
-  flex:1; display:flex; flex-direction:column;
-  height:100%; overflow-y:auto;
-  background: linear-gradient(135deg, #f7f7f7, #fff);
-  padding:18px;
-}
-.results-header h3 { font-size:17px; font-weight:700; color:#222; margin:0 0 16px; text-align:center; }
-.results-section { margin-bottom:20px; }
-.section-header { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
-.section-icon  { font-size:18px; }
-.section-title { font-size:15px; font-weight:600; color:#222; flex:1; }
-.section-count { background: #F39C12; color:#fff; padding:2px 9px; border-radius:10px; font-size:11px; font-weight:600; }
-.scroll-wrapper { position:relative; display:flex; align-items:center; gap:6px; }
-.scroll-btn {
-  background:#fff; border:2px solid #F39C12;
-  border-radius:50%; width:32px; height:32px;
-  display:flex; align-items:center; justify-content:center;
-  cursor:pointer; flex-shrink:0; transition:.2s; z-index:2;
-}
-.scroll-btn:hover { background: #F39C12; }
-.scroll-btn:hover svg { stroke:#fff; }
-.scroll-btn svg { stroke: #F39C12; transition:stroke .2s; }
-.horizontal-scroll {
-  display:flex; gap:10px; overflow-x:auto;
-  padding:6px 2px; scroll-behavior:smooth;
-  flex:1; scrollbar-width:none; -ms-overflow-style:none;
-}
-.horizontal-scroll::-webkit-scrollbar { display:none; }
-.horizontal-scroll.few-results { justify-content:center; }
-.result-card {
-  min-width:180px; max-width:180px;
-  background:#fff; border-radius:12px; overflow:hidden;
-  box-shadow:0 2px 8px rgba(0,0,0,.08);
-  cursor:pointer; transition:.2s; flex-shrink:0;
-}
-.result-card:hover { transform:translateY(-3px); box-shadow:0 4px 14px rgba(0,0,0,.12); }
-.result-card-image { width:100%; height:120px; object-fit:cover; background:#f0f0f0; }
-.result-card-content { padding:10px; }
-.result-card-type {
-  display:inline-block; background: #F39C12;
-  color:#fff; padding:2px 7px; border-radius:4px;
-  font-size:10px; font-weight:600; text-transform:uppercase; margin-bottom:6px;
-}
-.result-card-title {
-  font-size:13px; font-weight:600; color:#222; margin-bottom:4px;
-  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-}
-.result-card-price { font-size:15px; font-weight:700; color: #F39C12; margin-bottom:3px; }
-.result-card-meta  { font-size:11px; color:#888; }
-
-.search-center-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    padding: 0;
-    gap: 19px;
-}
-
-.search-hero { text-align:center; margin-bottom:24px; }
-.search-icon-large {
-    font-size: 36px;
-    margin-bottom: 12px;
-    animation: float 3s ease-in-out infinite;
-}
-@keyframes float { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-8px); } }
-.search-hero h2 { font-size:21px; font-weight:700; color:#222; margin:0 0 6px; }
-.search-hero p  { font-size:13px; color:#888; margin:0; }
-.search-textarea-wrapper { width:100%; max-width:380px; position:relative; }
-#store-search-input-new {
-  width:100%; padding:14px 18px 18px 44px;
-  border:2px solid #ddd; border-radius:16px;
-  font-size:14px; outline:none; background:#fff;
-  box-shadow:0 3px 10px rgba(0,0,0,.05);
-  resize:none; line-height:1.5; min-height:74px;
-  transition: border-color .3s;
-}
-#store-search-input-new:focus { border-color: #F39C12; }
-.search-icon-btn-inner {
-  position:absolute; left:8px; top:16px;
-  width:28px; height:28px; background: #F39C12;
-  border:none; border-radius:10px; color:#fff;
-  cursor:pointer; display:flex; align-items: center; justify-content:center;
-  transition:.2s; box-shadow:0 3px 10px rgba(0,0,0,.15);
-}
-.search-icon-btn-inner:hover { transform:scale(1.05); }
-#search-loading-indicator { position:absolute; right:60px; bottom:20px; }
-.mini-spinner { width:18px; height:18px; border:2px solid #ddd; border-top-color: #F39C12; border-radius:50%; animation:spin .6s linear infinite; }
-.search-empty-new {
-    text-align: center;
-    padding: 0 16px;
-}
-.empty-icon    { font-size:48px; margin-bottom:12px; }
-.empty-text    { font-size:15px; font-weight:600; color:#222; margin:0 0 6px; }
-.empty-subtext { font-size:13px; color:#999; margin:0; }
-
-/* ── Bottom nav ── */
-#chat-nav {
-  display:flex; border-top:1px solid #eee;
-  background:#fff; padding:8px 0; flex-shrink:0;
-}
-.nav-item {
-  flex:1; display:flex; flex-direction:column; align-items:center;
-  padding:6px 4px; cursor:pointer; font-size:11px;
-  color:#aaa; gap:3px; transition:.2s;
-}
-.nav-item.active {
-    color: #F39C12;
-    font-weight: 700;
-    border-top: 2px solid #F39C12;
-}
-.nav-item.active svg { stroke: #F39C12; }
-
-/* ── mobile ── */
-@media screen and (max-width:480px){
-  #chat-widget { width:100%; height:100%; max-height:100vh; bottom:0; right:0; border-radius:0; }
-  #chat-launcher { bottom:20px; right:20px; width:56px; height:56px; }
-}
-@media screen and (max-width:375px){
-.faq-container {
-    /* flex: 1; */
-    display: flex;
-    flex-direction: column;
-    height: 579px;
-    overflow: scroll;
-    background: #f5f5f5;
-    scrollbar-width: none !important;
-}
-}
-@media screen and (max-width:1299px){
-.step-container {
-    display: flex;
-    flex-direction: column;
-    height: 406px !important;
-    overflow: scroll;
-    scrollbar-width: none;
-}
-.search-center-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    padding: 0;
-    gap: 7px;
-}
-.faq-container {
-    /* flex: 1; */
-    display: flex;
-    flex-direction: column;
-    height: 406px;
-    overflow: scroll;
-    background: #f5f5f5;
-    scrollbar-width: none !important;
-}
-}
-</style>
-
-
-<!-- ═══════════════════════════════════════════════════════════
-     JAVASCRIPT
-     ═══════════════════════════════════════════════════════════ -->
 <script>
 (() => {
   /* ── config ── */
@@ -943,19 +438,26 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
   let currentConfig  = {};
   let seenMsgs       = new Set();
   let faqData        = [];
-  let adminOnline    = false;
+  let adminOnline    = true;
+  
+  // Store last search query and results
+  let lastSearchQuery = '';
+  let lastSearchResults = null;
+  let previousSearchQuery = '';
+  let previousSearchResults = null;
 
   /* ── localStorage keys ── */
   const SK = {
     SID   : `chat_session_${shop}`,
     EMAIL : `chat_email_${shop}`,
     FNAME : `chat_fname_${shop}`,
-    LNAME : `chat_lname_${shop}`
+    LNAME : `chat_lname_${shop}`,
+    SEARCH_QUERY: `chat_search_query_${shop}`,
+    SEARCH_RESULTS: `chat_search_results_${shop}`
   };
 
   /* ─────────────────────────────────────────────
      ADMIN ONLINE / OFFLINE STATUS
-     Polls GET /app/admin-status?shop=… every 10s
      ───────────────────────────────────────────── */
   function applyStatus(online) {
     adminOnline = online;
@@ -974,23 +476,18 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 
   async function pollAdminStatus() {
     try {
-      const res  = await fetch(`${BASE_URL}/app/admin-status?shop=${encodeURIComponent(shop)}`);
-      if (!res.ok) {
-        applyStatus(false);
-        return;
-      }
+      const res  = await fetch(`${BASE_URL}/app/admin-status?shop=${shop}`);
       const data = await res.json();
-      applyStatus(data.online === true);
-    } catch (err) {
-      console.error('Admin status poll error:', err);
+      applyStatus(data.online);
+    } catch (_) {
       applyStatus(false);
     }
   }
 
   function startStatusPolling() {
-    pollAdminStatus();  // immediate first check
+    pollAdminStatus();
     if (statusInterval) clearInterval(statusInterval);
-    statusInterval = setInterval(pollAdminStatus, 10000);  // every 10 seconds
+    statusInterval = setInterval(pollAdminStatus, 10000);
   }
 
   /* ── form validation ── */
@@ -1045,10 +542,6 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
         document.documentElement.style.setProperty('--tw-primary', '#F39C12');
       }
 
-      if (s.fontFamily) {
-        document.documentElement.style.setProperty('--tw-font-family', s.fontFamily);
-      }
-
       if (s.launcherIcon === 'custom' && s.customLauncherImg)
         document.getElementById("launcher-icon").innerHTML = `<img src="${s.customLauncherImg}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>`;
       else
@@ -1098,7 +591,7 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
     document.getElementById("chat-chat-step").style.display        = "flex";
   }
 
-  /* ── messages ── */
+  /* ── messages - ORANGE COLOR FOR USER MESSAGES ── */
   async function fetchMessages() {
     const sid = localStorage.getItem(SK.SID);
     if (!sid) return;
@@ -1109,22 +602,60 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
     } catch (_) {}
   }
 
-  function renderMsg(m) {
-    if (seenMsgs.has(m.id)) return;
-    seenMsgs.add(m.id);
-    const div   = document.createElement("div");
-    const isBot = (m.sender === 'admin' || m.sender === 'bot');
-    div.className = `msg ${isBot ? 'bot' : 'user'}`;
-    const bg    = isBot ? (currentConfig.messageBgColor || "#fff") : (currentConfig.primaryColor || "#F39C12");
-    const color = isBot ? "#1e293b" : "#fff";
-    const bdr   = isBot ? `1px solid ${currentConfig.widgetBorderColor || '#eee'}` : 'none';
-    div.innerHTML = `<div class="msg-content" style="background:${bg};color:${color};border:${bdr}">
-      ${m.message ? `<div>${m.message}</div>` : ''}
-      ${m.fileUrl  ? `<img src="${m.fileUrl}" style="max-width:100%;border-radius:10px;margin-top:6px;display:block;" />` : ''}
-    </div>`;
-    msgBox.appendChild(div);
-    msgBox.scrollTop = msgBox.scrollHeight;
-  }
+function renderMsg(m) {
+  if (seenMsgs.has(m.id)) return;
+  seenMsgs.add(m.id);
+  const div   = document.createElement("div");
+  const isBot = (m.sender === 'admin' || m.sender === 'bot');
+  div.className = `msg ${isBot ? 'bot' : 'user'}`;
+  
+  const bg    = isBot ? (currentConfig.messageBgColor || "#fff") : "#F39C12";
+  const color = isBot ? "#1e293b" : "#fff";
+  const bdr   = isBot ? `1px solid ${currentConfig.widgetBorderColor || '#eee'}` : 'none';
+  
+  div.innerHTML = `<div class="msg-content" style="background:${bg};color:${color};border:${bdr}">
+    ${m.message ? `<div>${m.message}</div>` : ''}
+    ${m.fileUrl ? `<img src="${m.fileUrl}" class="msg-image" style="max-width:100%;border-radius:10px;margin-top:6px;display:block;cursor:pointer;" onclick="window.openImagePopup('${m.fileUrl}')" />` : ''}
+  </div>`;
+  msgBox.appendChild(div);
+  msgBox.scrollTop = msgBox.scrollHeight;
+}
+
+window.openImagePopup = function(imageUrl) {
+  const popup = document.createElement('div');
+  popup.id = 'image-popup-overlay';
+  popup.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+    cursor: pointer;
+  `;
+  
+  popup.innerHTML = `
+    <div style="position:relative;max-width:90%;max-height:90%;padding:20px;">
+      <button onclick="document.getElementById('image-popup-overlay').remove()" 
+              style="position:absolute;top:10px;right:10px;background:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.2);">
+        ×
+      </button>
+      <img src="${imageUrl}" style="max-width:100%;max-height:90vh;border-radius:10px;display:block;" />
+    </div>
+  `;
+  
+  popup.addEventListener('click', (e) => {
+    if (e.target === popup) {
+      popup.remove();
+    }
+  });
+  
+  document.body.appendChild(popup);
+};
 
   async function postMessage(txt = "", file = null) {
     const sid     = localStorage.getItem(SK.SID);
@@ -1142,24 +673,187 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
           fname   : localStorage.getItem(SK.FNAME)
         })
       });
-      fetchMessages();
-    } catch (_) {}
+      await fetchMessages();
+    } catch (err) {
+      console.error("Post message error:", err);
+      throw err;
+    }
   }
 
-  /* ── search ── */
-  async function performSearchNew(query) {
-    if (!query || query.length < 2) {
-      document.getElementById("search-results-wrapper").style.display = "none";
-      document.getElementById("search-empty-state").style.display     = "block";
-      document.getElementById("no-results-state").style.display       = "none";
-      document.querySelector(".search-hero").style.display             = "block";
+  /* ─────────────────────────────────────────────
+     SEARCH FUNCTIONALITY - WITH AUTO-SCROLL FIX
+     ───────────────────────────────────────────── */
+  
+  function clearSearchResults() {
+    document.getElementById("products-results-section").style.display = "none";
+    document.getElementById("collections-results-section").style.display = "none";
+    document.getElementById("pages-results-section").style.display = "none";
+    document.getElementById("orders-results-section").style.display = "none";
+    
+    document.getElementById("products-scroll").innerHTML = '';
+    document.getElementById("collections-scroll").innerHTML = '';
+    document.getElementById("pages-scroll").innerHTML = '';
+    document.getElementById("orders-scroll").innerHTML = '';
+    
+    document.getElementById("products-count").textContent = '0';
+    document.getElementById("collections-count").textContent = '0';
+    document.getElementById("pages-count").textContent = '0';
+    document.getElementById("orders-count").textContent = '0';
+  }
+  
+  function clearPreviousSearchResults() {
+    document.getElementById("previous-search-wrapper").style.display = "none";
+    document.getElementById("prev-products-results-section").style.display = "none";
+    document.getElementById("prev-collections-results-section").style.display = "none";
+    document.getElementById("prev-pages-results-section").style.display = "none";
+    document.getElementById("prev-orders-results-section").style.display = "none";
+    
+    document.getElementById("prev-products-scroll").innerHTML = '';
+    document.getElementById("prev-collections-scroll").innerHTML = '';
+    document.getElementById("prev-pages-scroll").innerHTML = '';
+    document.getElementById("prev-orders-scroll").innerHTML = '';
+    
+    document.getElementById("prev-products-count").textContent = '0';
+    document.getElementById("prev-collections-count").textContent = '0';
+    document.getElementById("prev-pages-count").textContent = '0';
+    document.getElementById("prev-orders-count").textContent = '0';
+  }
+  
+  function saveSearch(query, results) {
+    try {
+      localStorage.setItem(SK.SEARCH_QUERY, query);
+      localStorage.setItem(SK.SEARCH_RESULTS, JSON.stringify(results));
+      lastSearchQuery = query;
+      lastSearchResults = results;
+    } catch (e) {
+      console.error('Failed to save search:', e);
+    }
+  }
+  
+  function loadSavedSearch() {
+    try {
+      const savedQuery = localStorage.getItem(SK.SEARCH_QUERY);
+      const savedResults = localStorage.getItem(SK.SEARCH_RESULTS);
+      
+      if (savedQuery && savedResults) {
+        lastSearchQuery = savedQuery;
+        lastSearchResults = JSON.parse(savedResults);
+        
+        const searchInput = document.getElementById("store-search-input-new");
+        if (searchInput) {
+          searchInput.value = savedQuery;
+        }
+        
+        if (lastSearchResults) {
+          renderSearchResultsNew(lastSearchResults);
+        }
+        
+        return true;
+      }
+    } catch (e) {
+      console.error('Failed to load saved search:', e);
+    }
+    return false;
+  }
+  
+  function clearSavedSearch() {
+    localStorage.removeItem(SK.SEARCH_QUERY);
+    localStorage.removeItem(SK.SEARCH_RESULTS);
+    lastSearchQuery = '';
+    lastSearchResults = null;
+  }
+
+  /* ✅ FIXED AUTO-SCROLL FUNCTION - Scrolls to bottom when latest results appear */
+  function scrollToSearchResults() {
+    const mainContainer = document.getElementById("widget-main-container");
+    
+    if (!mainContainer) {
+      console.error('❌ Scroll container not found');
       return;
     }
 
+    // When previous search is shown, latest results are at bottom
+    // So we need to scroll all the way down to show latest results
+    
+    // Strategy 1: Immediate scroll to bottom (0ms)
+    requestAnimationFrame(() => {
+      mainContainer.scrollTop = mainContainer.scrollHeight;
+    });
+
+    // Strategy 2: After DOM render (200ms)
+    setTimeout(() => {
+      const scrollTarget = mainContainer.scrollHeight;
+      mainContainer.scrollTo({
+        top: scrollTarget,
+        behavior: 'smooth'
+      });
+    }, 200);
+
+    // Strategy 3: After images load (500ms)
+    setTimeout(() => {
+      const scrollTarget = mainContainer.scrollHeight;
+      mainContainer.scrollTo({
+        top: scrollTarget,
+        behavior: 'smooth'
+      });
+    }, 500);
+
+    // Strategy 4: Final scroll with force (1000ms)
+    setTimeout(() => {
+      const scrollTarget = mainContainer.scrollHeight;
+      
+      // Try smooth scroll first
+      mainContainer.scrollTo({
+        top: scrollTarget,
+        behavior: 'smooth'
+      });
+      
+      // Verify and force if needed
+      setTimeout(() => {
+        const currentPos = mainContainer.scrollTop;
+        const maxScroll = scrollTarget - mainContainer.clientHeight;
+        
+        // If not at bottom, force scroll
+        if (Math.abs(currentPos - maxScroll) > 100) {
+          console.log('Forcing scroll to bottom:', scrollTarget);
+          mainContainer.scrollTop = scrollTarget;
+        }
+      }, 600);
+    }, 1000);
+    
+    // Strategy 5: Extra final check (2000ms) - for slow connections
+    setTimeout(() => {
+      const finalTarget = mainContainer.scrollHeight;
+      if (mainContainer.scrollTop < finalTarget - mainContainer.clientHeight - 50) {
+        console.log('Final force scroll to bottom');
+        mainContainer.scrollTop = finalTarget;
+      }
+    }, 2000);
+  }
+
+  async function performSearchNew(query) {
+    if (!query || query.length < 2) {
+      clearSearchResults();
+      clearPreviousSearchResults();
+      clearSavedSearch();
+      document.getElementById("search-results-wrapper").style.display = "none";
+      document.getElementById("previous-search-wrapper").style.display = "none";
+      document.getElementById("search-empty-state").style.display = "flex";
+      document.getElementById("no-results-state").style.display = "none";
+      return;
+    }
+
+    if (lastSearchQuery && lastSearchResults && lastSearchQuery !== query) {
+      previousSearchQuery = lastSearchQuery;
+      previousSearchResults = lastSearchResults;
+      renderPreviousSearchResults(previousSearchResults, previousSearchQuery);
+    }
+
+    clearSearchResults();
+
     document.getElementById("search-loading-indicator").style.display = "flex";
-    document.getElementById("search-empty-state").style.display       = "none";
-    document.getElementById("no-results-state").style.display         = "none";
-    document.querySelector(".search-hero").style.display               = "block";
+    document.getElementById("search-empty-state").style.display = "none";
+    document.getElementById("no-results-state").style.display = "none";
 
     try {
       await fetch(`${BASE_URL}/app/chat/search-log`, {
@@ -1168,7 +862,7 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
         body: JSON.stringify({
           shop, query, searchType: "frontend",
           userEmail : localStorage.getItem(SK.EMAIL) || 'anonymous',
-          sessionId : localStorage.getItem(SK.SID)   || 'no-session',
+          sessionId : localStorage.getItem(SK.SID) || 'no-session',
           firstName : localStorage.getItem(SK.FNAME) || '',
           lastName  : localStorage.getItem(SK.LNAME) || '',
           createdAt : new Date()
@@ -1177,20 +871,27 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
     } catch (_) {}
 
     try {
-      const res  = await fetch(`${BASE_URL}/app/chat/search?shop=${encodeURIComponent(shop)}&query=${encodeURIComponent(query)}&type=all`);
+      const res = await fetch(`${BASE_URL}/app/chat/search?shop=${encodeURIComponent(shop)}&query=${encodeURIComponent(query)}&type=all`);
       const data = await res.json();
       document.getElementById("search-loading-indicator").style.display = "none";
+      
       if (!data.success) {
-        document.getElementById("no-results-state").style.display = "block";
-        document.querySelector(".search-hero").style.display       = "none";
+        document.getElementById("no-results-state").style.display = "flex";
+        document.getElementById("search-results-wrapper").style.display = "none";
         return;
       }
-      document.querySelector(".search-hero").style.display = "none";
+      
+      document.getElementById("no-results-state").style.display = "none";
+      
+      saveSearch(query, data.results);
       renderSearchResultsNew(data.results);
+      
+      // ✅ TRIGGER AUTO-SCROLL AFTER RESULTS RENDER
+      scrollToSearchResults();
+      
     } catch (_) {
       document.getElementById("search-loading-indicator").style.display = "none";
-      document.getElementById("no-results-state").style.display         = "block";
-      document.querySelector(".search-hero").style.display               = "none";
+      document.getElementById("no-results-state").style.display = "flex";
     }
   }
 
@@ -1216,7 +917,6 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
         wrap.style.display = "block";
         count.textContent  = items.length;
         scroll.innerHTML   = items.map(cardFn).join('');
-        scroll.classList.toggle('few-results', items.length <= 2);
         const lb = wrap.querySelector('.scroll-left');
         const rb = wrap.querySelector('.scroll-right');
         if (items.length <= 1) { if(lb) lb.style.display='none'; if(rb) rb.style.display='none'; }
@@ -1272,6 +972,88 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
     );
   }
 
+  function renderPreviousSearchResults(results, query) {
+    if (!results || !query) {
+      clearPreviousSearchResults();
+      return;
+    }
+
+    const has = (results.products    && results.products.length)    ||
+                (results.collections && results.collections.length) ||
+                (results.pages       && results.pages.length)       ||
+                (results.orders      && results.orders.length);
+    
+    if (!has) {
+      clearPreviousSearchResults();
+      return;
+    }
+
+    document.getElementById("previous-search-wrapper").style.display = "block";
+    document.getElementById("previous-query-text").textContent = `"${query}"`;
+
+    function fillPrev(section, items, cardFn) {
+      const wrap  = document.getElementById(`prev-${section}-results-section`);
+      const count = document.getElementById(`prev-${section}-count`);
+      const scroll= document.getElementById(`prev-${section}-scroll`);
+      if (items && items.length) {
+        wrap.style.display = "block";
+        count.textContent  = items.length;
+        scroll.innerHTML   = items.map(cardFn).join('');
+        const lb = wrap.querySelector('.scroll-left');
+        const rb = wrap.querySelector('.scroll-right');
+        if (items.length <= 1) { if(lb) lb.style.display='none'; if(rb) rb.style.display='none'; }
+        else { if(lb) lb.style.display='flex'; if(rb) lb.style.display='flex'; }
+      } else {
+        wrap.style.display = "none";
+      }
+    }
+
+    const primaryColor = currentConfig.primaryColor || '#F39C12';
+
+    fillPrev('products', results.products, p =>
+      `<div class="result-card" onclick="window.open('${p.url}','_blank')">
+        ${p.image ? `<img src="${p.image}" class="result-card-image" alt="${p.title}"/>` : '<div class="result-card-image"></div>'}
+        <div class="result-card-content">
+          <div class="result-card-title">${p.title}</div>
+          <div class="result-card-price" style="color:${primaryColor}">${p.currency} ${parseFloat(p.price).toFixed(2)}</div>
+        </div>
+      </div>`
+    );
+
+    fillPrev('collections', results.collections, c =>
+      `<div class="result-card" onclick="window.open('${c.url}','_blank')">
+        ${c.image ? `<img src="${c.image}" class="result-card-image" alt="${c.title}"/>` : '<div class="result-card-image"></div>'}
+        <div class="result-card-content">
+          <div class="result-card-title">${c.title}</div>
+          <div class="result-card-meta">${c.productCount || 0} products</div>
+        </div>
+      </div>`
+    );
+
+    fillPrev('pages', results.pages, pg =>
+      `<div class="result-card" onclick="window.open('${pg.url}','_blank')">
+        <div class="result-card-image"></div>
+        <div class="result-card-content">
+          <div class="result-card-type" style="background:${primaryColor}">Page</div>
+          <div class="result-card-title">${pg.title}</div>
+          ${pg.description ? `<div class="result-card-meta">${pg.description.substring(0,55)}…</div>` : ''}
+        </div>
+      </div>`
+    );
+
+    fillPrev('orders', results.orders, o =>
+      `<div class="result-card">
+        <div class="result-card-image"></div>
+        <div class="result-card-content">
+          <div class="result-card-type" style="background:${primaryColor}">Order</div>
+          <div class="result-card-title">${o.orderNumber}</div>
+          <div class="result-card-price" style="color:${primaryColor}">${o.currency} ${parseFloat(o.total).toFixed(2)}</div>
+          <div class="result-card-meta">${o.email}</div>
+        </div>
+      </div>`
+    );
+  }
+
   window.scrollSection = function(section, dir) {
     const el = document.getElementById(`${section}-scroll`);
     el.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' });
@@ -1299,29 +1081,23 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
       cat.faqs.filter(f => f.isActive).forEach(faq => {
         const item = document.createElement("div");
         item.className = "faq-item";
-        item.setAttribute('data-faq-id', faq.id);  // Store FAQ ID for later reference
         item.innerHTML = `
-          <div class="faq-question">${faq.question}</div>
-          <div class="faq-arrow">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="m9 18 6-6-6-6"/>
-            </svg>
+          <div class="faq-item-header">
+            <div class="faq-question">${faq.question}</div>
+            <div class="faq-arrow">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </div>
           </div>`;
-        
-        // NEW: Navigate to FAQ tab and expand this specific FAQ
         item.onclick = () => {
-          // Switch to FAQ tab
-          document.querySelector('[data-tab="faq"]').click();
-          
-          // Wait for tab to render, then find and expand the matching FAQ
-          setTimeout(() => {
-            const faqTabItem = document.querySelector(`#faq-categories-list .faq-item[data-faq-id="${faq.id}"]`);
-            if (faqTabItem && !faqTabItem.classList.contains('open')) {
-              faqTabItem.click();
-              // Scroll into view
-              faqTabItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          }, 100);
+          item.classList.toggle('open');
+          if (item.classList.contains('open') && !item.querySelector('.faq-answer')) {
+            const ans = document.createElement('div');
+            ans.className = 'faq-answer';
+            ans.innerHTML = `<div class="faq-answer-text">${faq.answer}</div>`;
+            item.appendChild(ans);
+          }
         };
         c.appendChild(item);
       });
@@ -1340,13 +1116,15 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
       const catDiv = document.createElement('div');
       catDiv.className = 'faq-category';
       const primaryColor = currentConfig.primaryColor || '#F39C12';
-      let html = `<div class="faq-category-title"><span>${cat.title}</span><span class="faq-category-badge" style="background:${primaryColor}">${active.length}</span></div>`;
+      let html = `<div class="faq-category-title"><span>${cat.title}</span><span class="faq-category-badge" style="background:${primaryColor} !important">${active.length}</span></div>`;
       active.forEach(faq => {
         const id = `faq-${faq.id}`;
-        html += `<div class="faq-item" data-faq-id="${faq.id}" onclick="window.toggleFaq('${id}')">
-          <div class="faq-question">${faq.question}</div>
-          <div class="faq-arrow" id="${id}-arrow">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+        html += `<div class="faq-item" onclick="window.toggleFaq('${id}')">
+          <div class="faq-item-header">
+            <div class="faq-question">${faq.question}</div>
+            <div class="faq-arrow" id="${id}-arrow">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+            </div>
           </div>
           <div class="faq-answer" id="${id}-answer" style="display:none;">
             <div class="faq-answer-text">${faq.answer}</div>
@@ -1359,19 +1137,12 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
   }
 
   window.toggleFaq = function(id) {
-    const item  = document.querySelector(`[data-faq-id]`);
     const ans   = document.getElementById(`${id}-answer`);
-    const arrow = document.getElementById(`${id}-arrow`);
-    if (ans && arrow) {
+    const item  = ans?.closest('.faq-item');
+    if (ans && item) {
       const open = ans.style.display === 'block';
       ans.style.display = open ? 'none' : 'block';
-      if (arrow.parentElement) {
-        if (open) {
-          arrow.parentElement.classList.remove('open');
-        } else {
-          arrow.parentElement.classList.add('open');
-        }
-      }
+      item.classList.toggle('open', !open);
     }
   };
 
@@ -1382,15 +1153,38 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
 
     searchBtn && searchBtn.addEventListener('click', () => {
       const q = searchInput.value.trim();
-      if (q) performSearchNew(q);
+      if (q) {
+        performSearchNew(q);
+      } else {
+        clearSearchResults();
+        clearPreviousSearchResults();
+        clearSavedSearch();
+        document.getElementById("search-results-wrapper").style.display = "none";
+        document.getElementById("search-empty-state").style.display = "block";
+        document.getElementById("no-results-state").style.display = "none";
+        document.querySelector(".search-hero").style.display = "block";
+      }
     });
     searchInput && searchInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const q = searchInput.value.trim(); if (q) performSearchNew(q); }
+      if (e.key === 'Enter' && !e.shiftKey) { 
+        e.preventDefault(); 
+        const q = searchInput.value.trim(); 
+        if (q) {
+          performSearchNew(q);
+        } else {
+          clearSearchResults();
+          clearPreviousSearchResults();
+          clearSavedSearch();
+          document.getElementById("search-results-wrapper").style.display = "none";
+          document.getElementById("search-empty-state").style.display = "block";
+          document.getElementById("no-results-state").style.display = "none";
+          document.querySelector(".search-hero").style.display = "block";
+        }
+      }
     });
 
     const hsi = document.getElementById("home-search-input");
     const hsb = document.getElementById("home-search-btn");
-    
     function goSearch(q) {
       if (!faqData.length) {
         loadFAQs().then(() => switchToFAQ(q));
@@ -1436,7 +1230,7 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
   launcher.onclick = () => {
     const open = widget.classList.toggle("chat-visible");
     widget.classList.toggle("chat-hidden", !open);
-    document.getElementById("launcher-icon").style.display       = open ? "none"  : "block";
+    document.getElementById("launcher-icon").style.display       = open ? "none"  : "flex";
     document.getElementById("close-launcher-icon").style.display = open ? "flex"  : "none";
   };
 
@@ -1449,14 +1243,27 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
       nav.classList.add('active');
 
-      if (tab === 'chat') { fetchMessages(); setTimeout(() => msgBox.scrollTop = msgBox.scrollHeight, 80); }
-      if (tab === 'faq'  && !faqData.length) loadFAQs();
+      if (tab === 'chat') { 
+        fetchMessages(); 
+        setTimeout(() => msgBox.scrollTop = msgBox.scrollHeight, 80); 
+      }
+      if (tab === 'faq' && !faqData.length) loadFAQs();
+      
       if (tab === 'search') {
-        document.getElementById("store-search-input-new").value       = "";
-        document.getElementById("search-results-wrapper").style.display = "none";
-        document.getElementById("search-empty-state").style.display     = "block";
-        document.getElementById("no-results-state").style.display       = "none";
-        document.querySelector(".search-hero").style.display            = "block";
+        const hasSavedSearch = loadSavedSearch();
+        if (!hasSavedSearch) {
+          document.getElementById("store-search-input-new").value = "";
+          clearSearchResults();
+          clearPreviousSearchResults();
+          document.getElementById("search-results-wrapper").style.display = "none";
+          document.getElementById("search-empty-state").style.display = "block";
+          document.getElementById("no-results-state").style.display = "none";
+          document.querySelector(".search-hero").style.display = "block";
+        } else {
+          if (previousSearchQuery && previousSearchResults) {
+            renderPreviousSearchResults(previousSearchResults, previousSearchQuery);
+          }
+        }
       }
     };
   });
@@ -1496,19 +1303,87 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
   /* ── file / image ── */
   const fInput = document.getElementById("chat-file-input");
   document.getElementById("file-btn").onclick = () => fInput.click();
-  fInput.onchange = e => {
+  
+  fInput.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
     const reader = new FileReader();
-    reader.onload = ev => {
+    reader.onload = async (ev) => {
       selectedImg = ev.target.result;
-      document.getElementById("image-preview").src = selectedImg;
-      document.getElementById("image-preview-container").style.display = "block";
+      
+      const loaderDiv = document.createElement("div");
+      loaderDiv.className = "msg user";
+      loaderDiv.id = "upload-loader-msg";
+      loaderDiv.innerHTML = `
+        <div class="msg-content" style="background:#F39C12;color:#fff;border:none;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="upload-spinner"></div>
+            <span>Uploading image...</span>
+          </div>
+        </div>
+      `;
+      msgBox.appendChild(loaderDiv);
+      msgBox.scrollTop = msgBox.scrollHeight;
+
+      try {
+        await postMessage("", selectedImg);
+        
+        const loader = document.getElementById("upload-loader-msg");
+        if (loader) loader.remove();
+        
+        selectedImg = null;
+        fInput.value = "";
+        
+      } catch (err) {
+        console.error("Upload error:", err);
+        
+        const loader = document.getElementById("upload-loader-msg");
+        if (loader) loader.remove();
+        
+        const errorDiv = document.createElement("div");
+        errorDiv.className = "msg user";
+        errorDiv.innerHTML = `
+          <div class="msg-content" style="background:#ef4444;color:#fff;border:none;">
+            <span>❌ Upload failed. Please try again.</span>
+          </div>
+        `;
+        msgBox.appendChild(errorDiv);
+        msgBox.scrollTop = msgBox.scrollHeight;
+        
+        setTimeout(() => errorDiv.remove(), 3000);
+      }
     };
-    reader.readAsDataURL(e.target.files[0]);
+    reader.readAsDataURL(file);
   };
-  document.getElementById("send-image-btn").onclick = () => {
-    postMessage("", selectedImg); selectedImg = null;
-    document.getElementById("image-preview-container").style.display = "none";
+  
+  document.getElementById("send-image-btn").onclick = async () => {
+    if (!selectedImg) {
+      alert("No image selected");
+      return;
+    }
+    
+    const sendBtn = document.getElementById("send-image-btn");
+    const originalHTML = sendBtn.innerHTML;
+    
+    try {
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<span class="img-loader"></span> Uploading...';
+      
+      await postMessage("", selectedImg);
+      
+      selectedImg = null;
+      document.getElementById("image-preview-container").style.display = "none";
+      
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Failed to send image. Please try again.");
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = originalHTML;
+    }
   };
+  
   document.getElementById("remove-image-btn").onclick = () => {
     selectedImg = null;
     document.getElementById("image-preview-container").style.display = "none";
@@ -1534,6 +1409,11 @@ button#remove-image-btn { position:absolute; background:rgba(0,0,0,.6); color:#f
     await loadFAQs();
     await checkExistingSession();
     startStatusPolling();
+    
+    const currentTab = document.querySelector('.nav-item.active')?.dataset.tab;
+    if (currentTab === 'search') {
+      loadSavedSearch();
+    }
   }
   initialize();
 
