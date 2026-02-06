@@ -120,57 +120,20 @@ export const action = async ({ request }) => {
   const formData = await request.formData();
   const selectedPlan = formData.get("plan");
 
+  console.log("🔵 Action triggered - Selected plan:", selectedPlan); // ADD THIS
+
   if (selectedPlan === "FREE") {
-    // Downgrade to free - cancel any active subscription
-    try {
-      const currentSub = await prisma.subscription.findUnique({
-        where: { shop },
-      });
-
-      if (currentSub?.billingId) {
-        // Cancel using GraphQL
-        await admin.graphql(
-          `#graphql
-          mutation AppSubscriptionCancel($id: ID!) {
-            appSubscriptionCancel(id: $id) {
-              appSubscription {
-                id
-                status
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }`,
-          {
-            variables: {
-              id: currentSub.billingId,
-            },
-          }
-        );
-      }
-    } catch (error) {
-      console.error("Error canceling subscription:", error);
-    }
-
-    await prisma.subscription.update({
-      where: { shop },
-      data: {
-        plan: "FREE",
-        status: "active",
-        billingId: null,
-        cancelledAt: new Date(),
-      },
-    });
-    
-    return redirect("/app/subscription?success=downgraded");
+    // ... existing FREE plan code
   }
 
   // For paid plans, create subscription via GraphQL
   const planConfig = PLANS[selectedPlan];
   
+  console.log("🔵 Creating subscription for:", planConfig.name); // ADD THIS
+  
   try {
+    console.log("🔵 Calling GraphQL API..."); // ADD THIS
+    
     const response = await admin.graphql(
       `#graphql
       mutation AppSubscriptionCreate(
@@ -201,8 +164,8 @@ export const action = async ({ request }) => {
       {
         variables: {
           name: `${planConfig.name} Plan`,
-          returnUrl: `https://${shop}/admin/apps/${process.env.SHOPIFY_APP_HANDLE || 'talksy'}/app/subscription/confirm?plan=${selectedPlan}`,
-          test: process.env.NODE_ENV === "development", // Use test mode in dev
+          returnUrl: `https://${shop}/admin/apps/talksy/app/subscription/confirm?plan=${selectedPlan}`,
+          test: true, // ALWAYS USE TRUE FOR TESTING
           trialDays: planConfig.trialDays || 0,
           lineItems: [
             {
@@ -223,20 +186,27 @@ export const action = async ({ request }) => {
 
     const result = await response.json();
     
+    console.log("🔵 GraphQL Response:", JSON.stringify(result, null, 2)); // ADD THIS
+    
     // Check for errors
     if (result.data?.appSubscriptionCreate?.userErrors?.length > 0) {
       const errorMsg = result.data.appSubscriptionCreate.userErrors[0].message;
+      console.error("❌ GraphQL Error:", errorMsg); // ADD THIS
       throw new Error(errorMsg);
     }
 
     const subscriptionData = result.data?.appSubscriptionCreate;
     
     if (!subscriptionData?.appSubscription?.id) {
+      console.error("❌ No subscription ID returned"); // ADD THIS
       throw new Error("Failed to create subscription - no ID returned");
     }
 
     const subscriptionId = subscriptionData.appSubscription.id;
     const confirmationUrl = subscriptionData.confirmationUrl;
+
+    console.log("🔵 Subscription created:", subscriptionId); // ADD THIS
+    console.log("🔵 Confirmation URL:", confirmationUrl); // ADD THIS
 
     // Save pending subscription
     await prisma.subscription.update({
@@ -248,10 +218,13 @@ export const action = async ({ request }) => {
       },
     });
 
+    console.log("🔵 Redirecting to:", confirmationUrl); // ADD THIS
+
     // Redirect to Shopify's billing confirmation page
     return redirect(confirmationUrl);
   } catch (error) {
-    console.error("Billing error:", error);
+    console.error("❌ Billing error:", error);
+    console.error("❌ Error stack:", error.stack); // ADD THIS
     return json({ 
       error: error.message,
       details: "Failed to create billing subscription. Please try again."

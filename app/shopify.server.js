@@ -18,6 +18,7 @@ const shopify = shopifyApp({
   distribution: AppDistribution.AppStore,
   future: {
     expiringOfflineAccessTokens: true,
+    unstable_managedPricingSupport: true, // ✅ ADD THIS LINE
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
