@@ -115,7 +115,7 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { session, billing } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = session.shop;
   const formData = await request.formData();
   const selectedPlan = formData.get("plan");
@@ -128,16 +128,32 @@ export const action = async ({ request }) => {
       });
 
       if (currentSub?.billingId) {
-        // Cancel the Shopify subscription
-        await billing.cancel({
-          subscriptionId: currentSub.billingId,
-        });
+        // Cancel using GraphQL
+        await admin.graphql(
+          `#graphql
+          mutation AppSubscriptionCancel($id: ID!) {
+            appSubscriptionCancel(id: $id) {
+              appSubscription {
+                id
+                status
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }`,
+          {
+            variables: {
+              id: currentSub.billingId,
+            },
+          }
+        );
       }
     } catch (error) {
       console.error("Error canceling subscription:", error);
     }
 
-    // Update database to free plan
     await prisma.subscription.update({
       where: { shop },
       data: {
@@ -151,19 +167,76 @@ export const action = async ({ request }) => {
     return redirect("/app/subscription?success=downgraded");
   }
 
-  // For paid plans, create Shopify billing charge
+  // For paid plans, create subscription via GraphQL
   const planConfig = PLANS[selectedPlan];
   
   try {
-    // Use the correct Shopify billing API
-    const billingResponse = await billing.request({
-      plan: planConfig.name,
-      amount: planConfig.price,
-      currencyCode: "USD",
-      interval: "EVERY_30_DAYS", // ✅ FIXED: Use string instead of billing.Interval
-      trialDays: planConfig.trialDays || 0,
-      returnUrl: `https://${shop}/admin/apps/chat-widget/app/subscription/confirm?plan=${selectedPlan}`,
-    });
+    const response = await admin.graphql(
+      `#graphql
+      mutation AppSubscriptionCreate(
+        $name: String!
+        $returnUrl: URL!
+        $test: Boolean
+        $trialDays: Int
+        $lineItems: [AppSubscriptionLineItemInput!]!
+      ) {
+        appSubscriptionCreate(
+          name: $name
+          returnUrl: $returnUrl
+          test: $test
+          trialDays: $trialDays
+          lineItems: $lineItems
+        ) {
+          appSubscription {
+            id
+            status
+          }
+          confirmationUrl
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      {
+        variables: {
+          name: `${planConfig.name} Plan`,
+          returnUrl: `https://${shop}/admin/apps/${process.env.SHOPIFY_APP_HANDLE || 'talksy'}/app/subscription/confirm?plan=${selectedPlan}`,
+          test: process.env.NODE_ENV === "development", // Use test mode in dev
+          trialDays: planConfig.trialDays || 0,
+          lineItems: [
+            {
+              plan: {
+                appRecurringPricingDetails: {
+                  price: { 
+                    amount: planConfig.price, 
+                    currencyCode: "USD" 
+                  },
+                  interval: "EVERY_30_DAYS",
+                }
+              }
+            }
+          ]
+        }
+      }
+    );
+
+    const result = await response.json();
+    
+    // Check for errors
+    if (result.data?.appSubscriptionCreate?.userErrors?.length > 0) {
+      const errorMsg = result.data.appSubscriptionCreate.userErrors[0].message;
+      throw new Error(errorMsg);
+    }
+
+    const subscriptionData = result.data?.appSubscriptionCreate;
+    
+    if (!subscriptionData?.appSubscription?.id) {
+      throw new Error("Failed to create subscription - no ID returned");
+    }
+
+    const subscriptionId = subscriptionData.appSubscription.id;
+    const confirmationUrl = subscriptionData.confirmationUrl;
 
     // Save pending subscription
     await prisma.subscription.update({
@@ -171,17 +244,17 @@ export const action = async ({ request }) => {
       data: {
         plan: selectedPlan,
         status: "pending",
-        billingId: billingResponse.id,
+        billingId: subscriptionId,
       },
     });
 
     // Redirect to Shopify's billing confirmation page
-    return redirect(billingResponse.confirmationUrl);
+    return redirect(confirmationUrl);
   } catch (error) {
     console.error("Billing error:", error);
     return json({ 
       error: error.message,
-      details: "Failed to create billing subscription. Check your Shopify app configuration."
+      details: "Failed to create billing subscription. Please try again."
     }, { status: 500 });
   }
 };
