@@ -1,4 +1,4 @@
-// app/routes/app.subscription.jsx
+// app/routes/app.subscription.jsx - FIXED BILLING
 import { json, redirect } from "@remix-run/node";
 import { useLoaderData, useNavigate, Form } from "react-router";
 import {
@@ -85,7 +85,7 @@ const PLANS = {
 };
 
 export const loader = async ({ request }) => {
-  const { session, billing } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
   // Get current subscription from database
@@ -108,7 +108,7 @@ export const loader = async ({ request }) => {
   // Get usage stats
   const chatCount = await prisma.chatSession.count({
     where: { shop },
-  });
+  }).catch(() => 0);
 
   return json({
     shop,
@@ -126,15 +126,33 @@ export const action = async ({ request }) => {
   const selectedPlan = formData.get("plan");
 
   if (selectedPlan === "FREE") {
-    // Downgrade to free
+    // Downgrade to free - cancel any active subscription
+    try {
+      const currentSub = await prisma.subscription.findUnique({
+        where: { shop },
+      });
+
+      if (currentSub?.billingId) {
+        // Cancel the Shopify subscription
+        await billing.cancel({
+          subscriptionId: currentSub.billingId,
+        });
+      }
+    } catch (error) {
+      console.error("Error canceling subscription:", error);
+    }
+
+    // Update database to free plan
     await prisma.subscription.update({
       where: { shop },
       data: {
         plan: "FREE",
         status: "active",
         billingId: null,
+        cancelledAt: new Date(),
       },
     });
+    
     return redirect("/app/subscription?success=downgraded");
   }
 
@@ -142,14 +160,14 @@ export const action = async ({ request }) => {
   const planConfig = PLANS[selectedPlan];
   
   try {
+    // Use the correct Shopify billing API
     const billingResponse = await billing.request({
-      plan: selectedPlan,
-      isTest: true, // Set to false in production
+      plan: planConfig.name,
       amount: planConfig.price,
       currencyCode: "USD",
-      interval: billing.Interval.Every30Days,
+      interval: "EVERY_30_DAYS", // ✅ FIXED: Use string instead of billing.Interval
       trialDays: planConfig.trialDays || 0,
-      returnUrl: `https://${shop}/admin/apps/${process.env.SHOPIFY_APP_HANDLE}/app/subscription/confirm?plan=${selectedPlan}`,
+      returnUrl: `https://${shop}/admin/apps/chat-widget/app/subscription/confirm?plan=${selectedPlan}`,
     });
 
     // Save pending subscription
@@ -162,16 +180,19 @@ export const action = async ({ request }) => {
       },
     });
 
+    // Redirect to Shopify's billing confirmation page
     return redirect(billingResponse.confirmationUrl);
   } catch (error) {
     console.error("Billing error:", error);
-    return json({ error: error.message }, { status: 500 });
+    return json({ 
+      error: error.message,
+      details: "Failed to create billing subscription. Check your Shopify app configuration."
+    }, { status: 500 });
   }
 };
 
 export default function Subscription() {
   const { currentPlan, subscription, chatCount, plans } = useLoaderData();
-  const navigate = useNavigate();
 
   const currentPlanConfig = PLANS[currentPlan];
   const usagePercentage = currentPlanConfig.limits.maxChats > 0 
