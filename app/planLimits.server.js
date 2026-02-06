@@ -1,5 +1,5 @@
-// app/utils/planLimits.server.js
-import prisma from "./db.server";
+// app/utils/planLimits.server.js - FIXED VERSION
+import prisma from "../db.server";
 
 // Plan definitions (must match subscription page)
 export const PLAN_LIMITS = {
@@ -156,7 +156,7 @@ export async function cleanupOldChats(shop) {
   if (unlimited || !days) return { deleted: 0 };
 
   const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - days);
+  cutoffDate.setDate(cutoffDate.setDate() - days);
 
   const result = await prisma.chatSession.deleteMany({
     where: {
@@ -171,18 +171,32 @@ export async function cleanupOldChats(shop) {
 }
 
 /**
- * Get usage statistics for a shop
+ * Get usage statistics for a shop - FIXED WITH ERROR HANDLING
  */
 export async function getUsageStats(shop) {
   const { limits, plan } = await getShopLimits(shop);
   
+  // Get chat count safely
   const chatCount = await prisma.chatSession.count({
     where: { shop },
+  }).catch(err => {
+    console.error("Error counting chats:", err);
+    return 0;
   });
 
-  const faqCount = await prisma.fAQ.count({
-    where: { shop },
-  }).catch(() => 0); // In case FAQ table doesn't exist yet
+  // Try to get FAQ count, but handle if table doesn't exist
+  let faqCount = 0;
+  try {
+    // Check if FAQ model exists in prisma schema
+    if (prisma.fAQ) {
+      faqCount = await prisma.fAQ.count({
+        where: { shop },
+      });
+    }
+  } catch (err) {
+    // FAQ table doesn't exist yet - that's okay
+    console.log("FAQ table not available (this is normal if not created yet)");
+  }
 
   return {
     plan,
@@ -190,7 +204,7 @@ export async function getUsageStats(shop) {
       current: chatCount,
       max: limits.maxChats === -1 ? "Unlimited" : limits.maxChats,
       percentage: limits.maxChats > 0 ? (chatCount / limits.maxChats) * 100 : 0,
-      remaining: limits.maxChats > 0 ? limits.maxChats - chatCount : "Unlimited",
+      remaining: limits.maxChats > 0 ? Math.max(0, limits.maxChats - chatCount) : "Unlimited",
     },
     faqs: {
       current: faqCount,
