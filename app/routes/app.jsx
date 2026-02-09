@@ -1,13 +1,14 @@
-// app/routes/app.jsx - FIXED WITH ERROR HANDLING
+// app/routes/app.jsx - COMPLETE WITH PLAN-BASED NAVIGATION & ACCESS CONTROL
 import { Outlet, useLoaderData, useRouteError } from "react-router";
-import { boundary } from "@shopify/shopify-app-react-router/server";
-import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
+import { boundary } from "@shopify/shopify-app-remix/server";
+import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-remix/react";
 import { AppProvider as PolarisAppProvider, Badge } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import "@shopify/polaris/build/esm/styles.css";
 import { authenticate } from "../shopify.server";
 import { useEffect } from "react";
 import { getUsageStats } from "../planLimits.server";
+import { json } from "@remix-run/node";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -22,6 +23,7 @@ export const loader = async ({ request }) => {
     // Provide default usage if stats fail
     usage = {
       plan: "FREE",
+      status: "active",
       chats: {
         current: 0,
         max: 100,
@@ -42,18 +44,24 @@ export const loader = async ({ request }) => {
     };
   }
   
-  return { 
+  return json({ 
     apiKey: process.env.SHOPIFY_API_KEY || "",
     usage,
-  };
+  });
 };
 
 export default function App() {
   const { apiKey, usage } = useLoaderData();
   
-  // Calculate if user is approaching limit (only if usage is available)
+  // Calculate if user is approaching limit
   const isApproachingLimit = usage && typeof usage.chats.percentage === 'number' && usage.chats.percentage > 80;
   const isAtLimit = usage && typeof usage.chats.percentage === 'number' && usage.chats.percentage >= 100;
+
+  // ✅ Check both plan AND status for access control
+  const hasActiveSubscription = usage && (usage.status === "active" || usage.status === "trialing");
+  const isPaidPlan = usage && hasActiveSubscription && (usage.plan === "STANDARD" || usage.plan === "PREMIUM");
+  const canManageFAQs = usage && hasActiveSubscription && usage.faqs.canManage;
+  const canCustomizeWidget = usage && hasActiveSubscription && usage.features.canCustomizeWidget;
 
   // Heartbeat Logic 🚀
   useEffect(() => {
@@ -76,12 +84,28 @@ export default function App() {
     <ShopifyAppProvider embedded apiKey={apiKey}>
       <PolarisAppProvider i18n={enTranslations}>
         <s-app-nav>
+          {/* Always show Chats */}
           <s-link href="/app/chat/admin">Chats</s-link>
-          <s-link href="/app/admin/search">Search</s-link>
-          <s-link href="/app/settings">Settings</s-link>
-          <s-link href="/app/faq">FAQs</s-link>
+          
+          {/* Only show Search for paid plans with active subscription */}
+          {isPaidPlan && (
+            <s-link href="/app/admin/search">Search</s-link>
+          )}
+          
+          {/* Only show Settings for paid plans with active subscription */}
+          {canCustomizeWidget && (
+            <s-link href="/app/settings">Settings</s-link>
+          )}
+          
+          {/* Only show FAQs for paid plans with active subscription */}
+          {canManageFAQs && (
+            <s-link href="/app/faq">FAQs</s-link>
+          )}
+          
+          {/* Always show Subscription */}
           <s-link href="/app/subscription">
             Subscription
+            {/* Badge for approaching limit */}
             {usage && isApproachingLimit && !isAtLimit && usage.chats.remaining !== "Unlimited" && (
               <span style={{ marginLeft: "8px" }}>
                 <Badge tone="warning">
@@ -89,16 +113,59 @@ export default function App() {
                 </Badge>
               </span>
             )}
+            {/* Badge for limit reached */}
             {usage && isAtLimit && (
               <span style={{ marginLeft: "8px" }}>
                 <Badge tone="critical">Limit Reached</Badge>
               </span>
             )}
+            {/* Badge for pending subscription */}
+            {usage && usage.status === "pending" && (
+              <span style={{ marginLeft: "8px" }}>
+                <Badge tone="attention">Pending</Badge>
+              </span>
+            )}
           </s-link>
         </s-app-nav>
         
-        {/* Show banner if approaching or at limit */}
-        {usage && (isApproachingLimit || isAtLimit) && (
+        {/* Banner for pending subscriptions */}
+        {usage && usage.status === "pending" && (
+          <div style={{ 
+            padding: "12px 20px", 
+            backgroundColor: "#FFF4E5",
+            borderBottom: "1px solid #ddd",
+            textAlign: "center"
+          }}>
+            <span style={{ fontWeight: 600 }}>
+              ⏳ Your {usage.plan} subscription is pending approval.
+            </span>
+            {" "}
+            <a href="/app/subscription" style={{ color: "#005BD3", textDecoration: "underline" }}>
+              Complete payment to activate
+            </a>
+          </div>
+        )}
+        
+        {/* Banner for inactive subscriptions */}
+        {usage && usage.plan !== "FREE" && !hasActiveSubscription && usage.status !== "pending" && (
+          <div style={{ 
+            padding: "12px 20px", 
+            backgroundColor: "#FED3D1",
+            borderBottom: "1px solid #ddd",
+            textAlign: "center"
+          }}>
+            <span style={{ fontWeight: 600 }}>
+              ❌ Your subscription is {usage.status}.
+            </span>
+            {" "}
+            <a href="/app/subscription" style={{ color: "#005BD3", textDecoration: "underline" }}>
+              Reactivate your plan
+            </a>
+          </div>
+        )}
+        
+        {/* Banner for approaching or at limit */}
+        {usage && hasActiveSubscription && (isApproachingLimit || isAtLimit) && (
           <div style={{ 
             padding: "12px 20px", 
             backgroundColor: isAtLimit ? "#FED3D1" : "#FFF4E5",

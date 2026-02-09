@@ -1,7 +1,6 @@
-// app/utils/planLimits.server.js - FIXED VERSION WITH UPSERT
-import prisma from "./db.server";
+// app/utils/planLimits.server.js - COMPLETE WITH ACCESS CONTROL
+import prisma from "../db.server";
 
-// Plan definitions (must match subscription page)
 export const PLAN_LIMITS = {
   FREE: {
     maxChats: 100,
@@ -20,7 +19,7 @@ export const PLAN_LIMITS = {
     canCreateCustomFAQPage: false,
   },
   PREMIUM: {
-    maxChats: -1, // Unlimited
+    maxChats: -1,
     maxSearchUsers: -1,
     chatHistoryDays: -1,
     canManageFAQs: true,
@@ -29,15 +28,10 @@ export const PLAN_LIMITS = {
   },
 };
 
-/**
- * Get current subscription and limits for a shop
- * ✅ FIXED: Uses upsert to prevent race conditions
- */
 export async function getShopLimits(shop) {
-  // Use upsert to atomically get-or-create subscription
   const subscription = await prisma.subscription.upsert({
     where: { shop },
-    update: {}, // Don't modify if it exists
+    update: {},
     create: {
       shop,
       plan: "FREE",
@@ -52,16 +46,67 @@ export async function getShopLimits(shop) {
     subscription,
     limits,
     plan: subscription.plan,
+    status: subscription.status,
   };
 }
 
 /**
- * Check if shop can create new chat session
+ * ✅ Check if user has access to a feature based on plan AND subscription status
  */
+export async function checkFeatureAccess(shop, feature) {
+  const { subscription, limits } = await getShopLimits(shop);
+  
+  const hasActiveSubscription = subscription.status === "active" || subscription.status === "trialing";
+  
+  if (subscription.plan !== "FREE" && !hasActiveSubscription) {
+    return { 
+      hasAccess: false, 
+      reason: "subscription_inactive",
+      status: subscription.status,
+      redirectTo: `/app/subscription?error=subscription-inactive&status=${subscription.status}`
+    };
+  }
+
+  switch (feature) {
+    case "search":
+      if (subscription.plan === "FREE") {
+        return { 
+          hasAccess: false, 
+          reason: "upgrade_required",
+          redirectTo: "/app/subscription?error=upgrade-required&feature=search"
+        };
+      }
+      return { hasAccess: true };
+
+    case "settings":
+      if (!limits.canCustomizeWidget) {
+        return { 
+          hasAccess: false, 
+          reason: "upgrade_required",
+          redirectTo: "/app/subscription?error=upgrade-required&feature=settings"
+        };
+      }
+      return { hasAccess: true };
+
+    case "faqs":
+      if (!limits.canManageFAQs) {
+        return { 
+          hasAccess: false, 
+          reason: "upgrade_required",
+          redirectTo: "/app/subscription?error=upgrade-required&feature=faqs"
+        };
+      }
+      return { hasAccess: true };
+
+    default:
+      return { hasAccess: true };
+  }
+}
+
 export async function canCreateChat(shop) {
   const { limits } = await getShopLimits(shop);
   
-  if (limits.maxChats === -1) return { allowed: true }; // Unlimited
+  if (limits.maxChats === -1) return { allowed: true };
 
   const chatCount = await prisma.chatSession.count({
     where: { shop },
@@ -77,9 +122,6 @@ export async function canCreateChat(shop) {
   };
 }
 
-/**
- * Check if shop can search users
- */
 export async function canSearchUsers(shop, requestedLimit = 10) {
   const { limits } = await getShopLimits(shop);
   
@@ -96,9 +138,6 @@ export async function canSearchUsers(shop, requestedLimit = 10) {
   };
 }
 
-/**
- * Check if shop can manage FAQs
- */
 export async function canManageFAQs(shop) {
   const { limits } = await getShopLimits(shop);
   
@@ -108,9 +147,6 @@ export async function canManageFAQs(shop) {
   };
 }
 
-/**
- * Check if shop can customize widget
- */
 export async function canCustomizeWidget(shop) {
   const { limits } = await getShopLimits(shop);
   
@@ -120,9 +156,6 @@ export async function canCustomizeWidget(shop) {
   };
 }
 
-/**
- * Check if shop can create custom FAQ pages
- */
 export async function canCreateCustomFAQPage(shop) {
   const { limits } = await getShopLimits(shop);
   
@@ -132,9 +165,6 @@ export async function canCreateCustomFAQPage(shop) {
   };
 }
 
-/**
- * Get chat history retention period
- */
 export async function getChatHistoryDays(shop) {
   const { limits } = await getShopLimits(shop);
   
@@ -144,9 +174,6 @@ export async function getChatHistoryDays(shop) {
   };
 }
 
-/**
- * Clean up old chat sessions based on plan limits
- */
 export async function cleanupOldChats(shop) {
   const { days, unlimited } = await getChatHistoryDays(shop);
   
@@ -167,13 +194,9 @@ export async function cleanupOldChats(shop) {
   return { deleted: result.count };
 }
 
-/**
- * Get usage statistics for a shop
- */
 export async function getUsageStats(shop) {
-  const { limits, plan } = await getShopLimits(shop);
+  const { limits, plan, status } = await getShopLimits(shop);
   
-  // Get chat count safely
   const chatCount = await prisma.chatSession.count({
     where: { shop },
   }).catch(err => {
@@ -181,22 +204,20 @@ export async function getUsageStats(shop) {
     return 0;
   });
 
-  // Try to get FAQ count, but handle if table doesn't exist
   let faqCount = 0;
   try {
-    // Check if FAQ model exists in prisma schema
     if (prisma.fAQ) {
       faqCount = await prisma.fAQ.count({
         where: { shop },
       });
     }
   } catch (err) {
-    // FAQ table doesn't exist yet - that's okay
     console.log("FAQ table not available (this is normal if not created yet)");
   }
 
   return {
     plan,
+    status,
     chats: {
       current: chatCount,
       max: limits.maxChats === -1 ? "Unlimited" : limits.maxChats,
