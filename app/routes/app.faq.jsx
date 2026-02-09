@@ -1,7 +1,7 @@
 // app/routes/app.faq.jsx - Enhanced with Live Preview, Dynamic Page Creation & Advanced Customization
 import { useState, useEffect, useCallback } from "react";
 import { useLoaderData } from "react-router";
-import { json } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
 import {
   Page,
   Layout,

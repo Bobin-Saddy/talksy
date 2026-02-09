@@ -1,7 +1,7 @@
 // app/routes/app.search-analytics.jsx - FIXED SCROLL & URLS
 
-import { json } from "@remix-run/node";
-import { useLoaderData, useSearchParams, Form } from "react-router";
+import { json, redirect } from "@remix-run/node";
+import { useLoaderData, useSearchParams, Form } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { useState } from "react";
