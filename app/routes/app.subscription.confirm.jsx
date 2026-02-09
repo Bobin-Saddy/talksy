@@ -1,4 +1,4 @@
-// app/routes/app.subscription.confirm.jsx - FIXED WITHOUT trialDays
+// app/routes/app.subscription.confirm.jsx - FIXED
 import { redirect } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
@@ -7,7 +7,7 @@ export const loader = async ({ request }) => {
   try {
     const { session, admin } = await authenticate.admin(request);
     const shop = session.shop;
-    
+
     // Get the plan from URL params
     const url = new URL(request.url);
     const planKey = url.searchParams.get("plan");
@@ -73,7 +73,7 @@ export const loader = async ({ request }) => {
 
     const status = statusMap[appSubscription.status] || "pending";
 
-    // ✅ FIXED: Update subscription without trialDays
+    // ✅ Update subscription without trialDays
     await prisma.subscription.update({
       where: { shop },
       data: {
@@ -91,19 +91,17 @@ export const loader = async ({ request }) => {
     // Redirect back to the embedded app with proper host parameter
     const host = url.searchParams.get("host");
     const embedded = url.searchParams.get("embedded");
-    
+
     if (host) {
       return redirect(`/app/subscription?success=true&plan=${planKey}&host=${host}&embedded=${embedded || '1'}`);
     } else {
       return redirect(`/app/subscription?success=true&plan=${planKey}`);
     }
-
   } catch (error) {
     console.error("❌ Error confirming subscription:", error);
-    
     const url = new URL(request.url);
     const host = url.searchParams.get("host");
-    
+
     if (host) {
       return redirect(`/app/subscription?error=confirmation-failed&host=${host}&embedded=1`);
     } else {
