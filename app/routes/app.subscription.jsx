@@ -1,5 +1,5 @@
-// app/routes/app.subscription.jsx - COMPLETE FIXED VERSION
-import { json, redirect } from "@react-router/node";
+// app/routes/app.subscription.jsx - FIXED BILLING WITH APP BRIDGE REDIRECT
+import { json, redirect } from "@remix-run/node";
 import { useLoaderData, useNavigate, Form, useSearchParams, useActionData } from "react-router";
 import { useEffect } from "react";
 import {
@@ -27,6 +27,7 @@ const PLANS = {
     interval: "forever",
     features: [
       "100 free user chats included",
+      "Search up to 100 chat users",
       "Chat history available for 30 days",
     ],
     limits: {
@@ -130,6 +131,7 @@ export const action = async ({ request }) => {
       });
 
       if (currentSub?.billingId) {
+        // Cancel using GraphQL
         await admin.graphql(
           `#graphql
           mutation AppSubscriptionCancel($id: ID!) {
@@ -171,23 +173,24 @@ export const action = async ({ request }) => {
   // For paid plans, create subscription via GraphQL
   const planConfig = PLANS[selectedPlan];
   
-  console.log("🔵 Creating LIVE subscription for:", planConfig.name);
+  console.log("🔵 Creating subscription for:", planConfig.name);
   
   try {
     console.log("🔵 Calling GraphQL API...");
     
-    // ✅ PRODUCTION BILLING - NO TEST MODE
     const response = await admin.graphql(
       `#graphql
       mutation AppSubscriptionCreate(
         $name: String!
         $returnUrl: URL!
+        $test: Boolean
         $trialDays: Int
         $lineItems: [AppSubscriptionLineItemInput!]!
       ) {
         appSubscriptionCreate(
           name: $name
           returnUrl: $returnUrl
+          test: $test
           trialDays: $trialDays
           lineItems: $lineItems
         ) {
@@ -205,7 +208,8 @@ export const action = async ({ request }) => {
       {
         variables: {
           name: `${planConfig.name} Plan`,
-          returnUrl: `https://${shop}/admin/apps/${process.env.SHOPIFY_APP_HANDLE || 'talksy'}/app/subscription/confirm?plan=${selectedPlan}`,
+          returnUrl: `${process.env.SHOPIFY_APP_URL}app/subscription/confirm?plan=${selectedPlan}`,
+          test: true,
           trialDays: planConfig.trialDays || 0,
           lineItems: [
             {
@@ -228,6 +232,7 @@ export const action = async ({ request }) => {
     
     console.log("🔵 GraphQL Response:", JSON.stringify(result, null, 2));
     
+    // Check for errors
     if (result.data?.appSubscriptionCreate?.userErrors?.length > 0) {
       const errorMsg = result.data.appSubscriptionCreate.userErrors[0].message;
       console.error("❌ GraphQL Error:", errorMsg);
@@ -244,9 +249,10 @@ export const action = async ({ request }) => {
     const subscriptionId = subscriptionData.appSubscription.id;
     const confirmationUrl = subscriptionData.confirmationUrl;
 
-    console.log("✅ LIVE Subscription created:", subscriptionId);
+    console.log("🔵 Subscription created:", subscriptionId);
     console.log("🔵 Confirmation URL:", confirmationUrl);
 
+    // Save pending subscription
     await prisma.subscription.update({
       where: { shop },
       data: {
@@ -256,8 +262,9 @@ export const action = async ({ request }) => {
       },
     });
 
-    console.log("🔵 Redirecting to billing confirmation...");
+    console.log("🔵 Redirecting to:", confirmationUrl);
 
+    // ✅ Return the confirmation URL for App Bridge redirect
     return json({ 
       confirmationUrl,
       redirect: true 
@@ -292,8 +299,6 @@ export default function Subscription() {
   const success = searchParams.get('success');
   const error = searchParams.get('error');
   const upgradedPlan = searchParams.get('plan');
-  const feature = searchParams.get('feature');
-  const statusParam = searchParams.get('status');
 
   const currentPlanConfig = PLANS[currentPlan];
   const usagePercentage = currentPlanConfig.limits.maxChats > 0 
@@ -306,7 +311,7 @@ export default function Subscription() {
       subtitle="Choose the plan that fits your business needs"
     >
       <Layout>
-        {/* ========== SUCCESS BANNERS ========== */}
+        {/* Success/Error Banners */}
         {success === 'true' && upgradedPlan && (
           <Layout.Section>
             <Banner
@@ -331,41 +336,7 @@ export default function Subscription() {
           </Layout.Section>
         )}
 
-        {/* ========== ERROR BANNERS ========== */}
-        
-        {/* Upgrade Required Banner */}
-        {error === 'upgrade-required' && (
-          <Layout.Section>
-            <Banner
-              title="Upgrade Required"
-              tone="warning"
-              onDismiss={() => navigate('/app/subscription')}
-            >
-              {feature === 'search' && 'The Search feature is only available on Standard and Premium plans.'}
-              {feature === 'settings' && 'Widget customization is only available on Standard and Premium plans.'}
-              {feature === 'faqs' && 'FAQ management is only available on Standard and Premium plans.'}
-              {!feature && 'This feature requires a Standard or Premium plan.'}
-              {' '}Please upgrade to access this feature.
-            </Banner>
-          </Layout.Section>
-        )}
-
-        {/* Subscription Inactive Banner */}
-        {error === 'subscription-inactive' && (
-          <Layout.Section>
-            <Banner
-              title="Subscription Inactive"
-              tone="critical"
-              onDismiss={() => navigate('/app/subscription')}
-            >
-              Your subscription is currently {statusParam || 'inactive'}. 
-              Please complete your payment or reactivate your subscription to access paid features.
-            </Banner>
-          </Layout.Section>
-        )}
-
-        {/* Other Errors */}
-        {error && error !== 'upgrade-required' && error !== 'subscription-inactive' && (
+        {error && (
           <Layout.Section>
             <Banner
               title="Something went wrong"
@@ -382,38 +353,7 @@ export default function Subscription() {
           </Layout.Section>
         )}
 
-        {/* ========== STATUS BANNERS ========== */}
-        
-        {/* Payment Pending Banner */}
-        {subscription.status === "pending" && currentPlan !== "FREE" && (
-          <Layout.Section>
-            <Banner
-              title="Payment Pending"
-              tone="warning"
-            >
-              Your {PLANS[currentPlan]?.name} plan is awaiting payment confirmation. 
-              Please complete the checkout process to activate your subscription features.
-            </Banner>
-          </Layout.Section>
-        )}
-
-        {/* Subscription Inactive Banner (for cancelled/expired/frozen) */}
-        {currentPlan !== "FREE" && 
-         subscription.status !== "active" && 
-         subscription.status !== "trialing" && 
-         subscription.status !== "pending" && (
-          <Layout.Section>
-            <Banner
-              title="Subscription Inactive"
-              tone="critical"
-            >
-              Your subscription is currently {subscription.status}. 
-              Paid features are disabled. Please reactivate your plan or downgrade to Free.
-            </Banner>
-          </Layout.Section>
-        )}
-
-        {/* ========== CURRENT PLAN STATUS ========== */}
+        {/* Current Plan Status */}
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
@@ -433,18 +373,6 @@ export default function Subscription() {
                 )}
                 {subscription.status === "active" && currentPlan !== "FREE" && (
                   <Badge tone="success">Active</Badge>
-                )}
-                {subscription.status === "pending" && (
-                  <Badge tone="attention">Pending Payment</Badge>
-                )}
-                {subscription.status === "cancelled" && (
-                  <Badge tone="critical">Cancelled</Badge>
-                )}
-                {subscription.status === "expired" && (
-                  <Badge tone="critical">Expired</Badge>
-                )}
-                {subscription.status === "frozen" && (
-                  <Badge tone="warning">Frozen</Badge>
                 )}
               </InlineStack>
 
@@ -494,7 +422,7 @@ export default function Subscription() {
           </Card>
         </Layout.Section>
 
-        {/* ========== PRICING CARDS ========== */}
+        {/* Pricing Cards */}
         <Layout.Section>
           <div style={{ 
             display: "grid", 
@@ -581,7 +509,7 @@ export default function Subscription() {
           </div>
         </Layout.Section>
 
-        {/* ========== FAQ SECTION ========== */}
+        {/* FAQ Section */}
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
