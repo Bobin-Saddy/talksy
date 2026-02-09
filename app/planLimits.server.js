@@ -1,5 +1,5 @@
-// app/utils/planLimits.server.js - COMPLETE VERSION WITH ACCESS CONTROL
-import prisma from "../db.server";
+// app/utils/planLimits.server.js - FIXED VERSION WITH UPSERT
+import prisma from "./db.server";
 
 // Plan definitions (must match subscription page)
 export const PLAN_LIMITS = {
@@ -52,64 +52,7 @@ export async function getShopLimits(shop) {
     subscription,
     limits,
     plan: subscription.plan,
-    status: subscription.status,
   };
-}
-
-/**
- * ✅ NEW: Check if user has access to a feature based on plan AND subscription status
- */
-export async function checkFeatureAccess(shop, feature) {
-  const { subscription, limits } = await getShopLimits(shop);
-  
-  // Check if subscription is active (active or trialing)
-  const hasActiveSubscription = subscription.status === "active" || subscription.status === "trialing";
-  
-  // If plan is not FREE but subscription is not active, deny access
-  if (subscription.plan !== "FREE" && !hasActiveSubscription) {
-    return { 
-      hasAccess: false, 
-      reason: "subscription_inactive",
-      status: subscription.status,
-      redirectTo: `/app/subscription?error=subscription-inactive&status=${subscription.status}`
-    };
-  }
-
-  // Check feature-specific permissions
-  switch (feature) {
-    case "search":
-      if (subscription.plan === "FREE") {
-        return { 
-          hasAccess: false, 
-          reason: "upgrade_required",
-          redirectTo: "/app/subscription?error=upgrade-required&feature=search"
-        };
-      }
-      return { hasAccess: true };
-
-    case "settings":
-      if (!limits.canCustomizeWidget) {
-        return { 
-          hasAccess: false, 
-          reason: "upgrade_required",
-          redirectTo: "/app/subscription?error=upgrade-required&feature=settings"
-        };
-      }
-      return { hasAccess: true };
-
-    case "faqs":
-      if (!limits.canManageFAQs) {
-        return { 
-          hasAccess: false, 
-          reason: "upgrade_required",
-          redirectTo: "/app/subscription?error=upgrade-required&feature=faqs"
-        };
-      }
-      return { hasAccess: true };
-
-    default:
-      return { hasAccess: true };
-  }
 }
 
 /**
@@ -226,10 +169,9 @@ export async function cleanupOldChats(shop) {
 
 /**
  * Get usage statistics for a shop
- * ✅ UPDATED: Now includes subscription status
  */
 export async function getUsageStats(shop) {
-  const { limits, plan, status } = await getShopLimits(shop);
+  const { limits, plan } = await getShopLimits(shop);
   
   // Get chat count safely
   const chatCount = await prisma.chatSession.count({
@@ -255,7 +197,6 @@ export async function getUsageStats(shop) {
 
   return {
     plan,
-    status, // ✅ ADDED: Include subscription status
     chats: {
       current: chatCount,
       max: limits.maxChats === -1 ? "Unlimited" : limits.maxChats,
