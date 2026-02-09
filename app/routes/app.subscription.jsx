@@ -130,7 +130,6 @@ export const action = async ({ request }) => {
       });
 
       if (currentSub?.billingId) {
-        // Cancel using GraphQL
         await admin.graphql(
           `#graphql
           mutation AppSubscriptionCancel($id: ID!) {
@@ -172,68 +171,63 @@ export const action = async ({ request }) => {
   // For paid plans, create subscription via GraphQL
   const planConfig = PLANS[selectedPlan];
   
-  console.log("🔵 Creating subscription for:", planConfig.name);
+  console.log("🔵 Creating LIVE subscription for:", planConfig.name);
   
   try {
     console.log("🔵 Calling GraphQL API...");
     
-// In app.subscription.jsx action
-// In app.subscription.jsx action - around line 150
-const response = await admin.graphql(
-  `#graphql
-  mutation AppSubscriptionCreate(
-    $name: String!
-    $returnUrl: URL!
-    $test: Boolean
-    $trialDays: Int
-    $lineItems: [AppSubscriptionLineItemInput!]!
-  ) {
-    appSubscriptionCreate(
-      name: $name
-      returnUrl: $returnUrl
-      test: $test
-      trialDays: $trialDays
-      lineItems: $lineItems
-    ) {
-      appSubscription {
-        id
-        status
-      }
-      confirmationUrl
-      userErrors {
-        field
-        message
-      }
-    }
-  }`,
-  {
-    variables: {
-      name: `${planConfig.name} Plan`,
-      // ✅ Use the embedded app URL format
-      returnUrl: `https://${shop}/admin/apps/${process.env.SHOPIFY_APP_HANDLE || 'talksy'}/app/subscription/confirm?plan=${selectedPlan}`,
-      test: true,
-      trialDays: planConfig.trialDays || 0,
-      lineItems: [
-        {
-          plan: {
-            appRecurringPricingDetails: {
-              price: { 
-                amount: planConfig.price, 
-                currencyCode: "USD" 
-              },
-              interval: "EVERY_30_DAYS",
-            }
+    // ✅ PRODUCTION BILLING - NO TEST MODE
+    const response = await admin.graphql(
+      `#graphql
+      mutation AppSubscriptionCreate(
+        $name: String!
+        $returnUrl: URL!
+        $trialDays: Int
+        $lineItems: [AppSubscriptionLineItemInput!]!
+      ) {
+        appSubscriptionCreate(
+          name: $name
+          returnUrl: $returnUrl
+          trialDays: $trialDays
+          lineItems: $lineItems
+        ) {
+          appSubscription {
+            id
+            status
+          }
+          confirmationUrl
+          userErrors {
+            field
+            message
           }
         }
-      ]
-    }
-  }
-);
+      }`,
+      {
+        variables: {
+          name: `${planConfig.name} Plan`,
+          returnUrl: `https://${shop}/admin/apps/${process.env.SHOPIFY_APP_HANDLE || 'talksy'}/app/subscription/confirm?plan=${selectedPlan}`,
+          trialDays: planConfig.trialDays || 0,
+          lineItems: [
+            {
+              plan: {
+                appRecurringPricingDetails: {
+                  price: { 
+                    amount: planConfig.price, 
+                    currencyCode: "USD" 
+                  },
+                  interval: "EVERY_30_DAYS",
+                }
+              }
+            }
+          ]
+        }
+      }
+    );
+
     const result = await response.json();
     
     console.log("🔵 GraphQL Response:", JSON.stringify(result, null, 2));
     
-    // Check for errors
     if (result.data?.appSubscriptionCreate?.userErrors?.length > 0) {
       const errorMsg = result.data.appSubscriptionCreate.userErrors[0].message;
       console.error("❌ GraphQL Error:", errorMsg);
@@ -250,10 +244,9 @@ const response = await admin.graphql(
     const subscriptionId = subscriptionData.appSubscription.id;
     const confirmationUrl = subscriptionData.confirmationUrl;
 
-    console.log("🔵 Subscription created:", subscriptionId);
+    console.log("✅ LIVE Subscription created:", subscriptionId);
     console.log("🔵 Confirmation URL:", confirmationUrl);
 
-    // Save pending subscription
     await prisma.subscription.update({
       where: { shop },
       data: {
@@ -263,9 +256,8 @@ const response = await admin.graphql(
       },
     });
 
-    console.log("🔵 Redirecting to:", confirmationUrl);
+    console.log("🔵 Redirecting to billing confirmation...");
 
-    // ✅ Return the confirmation URL for App Bridge redirect
     return json({ 
       confirmationUrl,
       redirect: true 
