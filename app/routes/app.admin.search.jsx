@@ -1,11 +1,8 @@
 // app/routes/app.search-analytics.jsx - FIXED SCROLL & URLS
-
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useSearchParams, Form } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
-import prisma from "../db.server";
-import { useState } from "react";
 import { checkFeatureAccess } from "../planLimits.server";
+import prisma from "../db.server";
 
 /* ---------------- HELPER FUNCTIONS ---------------- */
 async function getShopifyCredentials(shop) {
