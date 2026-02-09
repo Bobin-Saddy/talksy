@@ -55,7 +55,19 @@ const DEFAULTS = {
 /* ═══════════════════ LOADER ═══════════════════ */
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
-  const settings    = await prisma.chatSettings.findUnique({ where: { shop: session.shop } });
+  const shop = session.shop;
+
+  // ✅ CHECK ACCESS FIRST
+  const accessCheck = await checkFeatureAccess(shop, "settings");
+  if (!accessCheck.hasAccess) {
+    return redirect(accessCheck.redirectTo);
+  }
+
+  // Continue with existing code
+  const settings = await prisma.chatSettings.findUnique({ 
+    where: { shop } 
+  });
+  
   return json(settings ? { ...DEFAULTS, ...settings } : DEFAULTS);
 };
 

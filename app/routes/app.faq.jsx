@@ -49,6 +49,13 @@ export async function loader({ request }) {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
+  // ✅ CHECK ACCESS FIRST
+  const accessCheck = await checkFeatureAccess(shop, "faqs");
+  if (!accessCheck.hasAccess) {
+    return redirect(accessCheck.redirectTo);
+  }
+
+  // Continue with existing code
   try {
     const [categories, settings, faqPage] = await Promise.all([
       prisma.faqCategory.findMany({
@@ -106,10 +113,20 @@ export async function loader({ request }) {
       isPublished: true
     };
 
-    return json({ categories, settings: defaultSettings, faqPage: defaultPage, shop });
+    return json({ 
+      categories, 
+      settings: defaultSettings, 
+      faqPage: defaultPage, 
+      shop 
+    });
   } catch (error) {
     console.error("Error loading FAQs:", error);
-    return json({ categories: [], settings: {}, faqPage: {}, shop });
+    return json({ 
+      categories: [], 
+      settings: {}, 
+      faqPage: {}, 
+      shop 
+    });
   }
 }
 

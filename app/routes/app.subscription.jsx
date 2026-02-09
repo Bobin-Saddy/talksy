@@ -1,4 +1,4 @@
-// app/routes/app.subscription.jsx - FIXED BILLING WITH APP BRIDGE REDIRECT
+// app/routes/app.subscription.jsx - COMPLETE FIXED VERSION
 import { json, redirect } from "@remix-run/node";
 import { useLoaderData, useNavigate, Form, useSearchParams, useActionData } from "react-router";
 import { useEffect } from "react";
@@ -293,6 +293,7 @@ export default function Subscription() {
   const error = searchParams.get('error');
   const upgradedPlan = searchParams.get('plan');
   const feature = searchParams.get('feature');
+  const statusParam = searchParams.get('status');
 
   const currentPlanConfig = PLANS[currentPlan];
   const usagePercentage = currentPlanConfig.limits.maxChats > 0 
@@ -305,7 +306,7 @@ export default function Subscription() {
       subtitle="Choose the plan that fits your business needs"
     >
       <Layout>
-        {/* Success/Error Banners */}
+        {/* ========== SUCCESS BANNERS ========== */}
         {success === 'true' && upgradedPlan && (
           <Layout.Section>
             <Banner
@@ -330,7 +331,9 @@ export default function Subscription() {
           </Layout.Section>
         )}
 
-        {/* ✅ Upgrade Required Banner */}
+        {/* ========== ERROR BANNERS ========== */}
+        
+        {/* Upgrade Required Banner */}
         {error === 'upgrade-required' && (
           <Layout.Section>
             <Banner
@@ -347,7 +350,22 @@ export default function Subscription() {
           </Layout.Section>
         )}
 
-        {error && error !== 'upgrade-required' && (
+        {/* Subscription Inactive Banner */}
+        {error === 'subscription-inactive' && (
+          <Layout.Section>
+            <Banner
+              title="Subscription Inactive"
+              tone="critical"
+              onDismiss={() => navigate('/app/subscription')}
+            >
+              Your subscription is currently {statusParam || 'inactive'}. 
+              Please complete your payment or reactivate your subscription to access paid features.
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {/* Other Errors */}
+        {error && error !== 'upgrade-required' && error !== 'subscription-inactive' && (
           <Layout.Section>
             <Banner
               title="Something went wrong"
@@ -364,7 +382,38 @@ export default function Subscription() {
           </Layout.Section>
         )}
 
-        {/* Current Plan Status */}
+        {/* ========== STATUS BANNERS ========== */}
+        
+        {/* Payment Pending Banner */}
+        {subscription.status === "pending" && currentPlan !== "FREE" && (
+          <Layout.Section>
+            <Banner
+              title="Payment Pending"
+              tone="warning"
+            >
+              Your {PLANS[currentPlan]?.name} plan is awaiting payment confirmation. 
+              Please complete the checkout process to activate your subscription features.
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {/* Subscription Inactive Banner (for cancelled/expired/frozen) */}
+        {currentPlan !== "FREE" && 
+         subscription.status !== "active" && 
+         subscription.status !== "trialing" && 
+         subscription.status !== "pending" && (
+          <Layout.Section>
+            <Banner
+              title="Subscription Inactive"
+              tone="critical"
+            >
+              Your subscription is currently {subscription.status}. 
+              Paid features are disabled. Please reactivate your plan or downgrade to Free.
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {/* ========== CURRENT PLAN STATUS ========== */}
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
@@ -384,6 +433,18 @@ export default function Subscription() {
                 )}
                 {subscription.status === "active" && currentPlan !== "FREE" && (
                   <Badge tone="success">Active</Badge>
+                )}
+                {subscription.status === "pending" && (
+                  <Badge tone="attention">Pending Payment</Badge>
+                )}
+                {subscription.status === "cancelled" && (
+                  <Badge tone="critical">Cancelled</Badge>
+                )}
+                {subscription.status === "expired" && (
+                  <Badge tone="critical">Expired</Badge>
+                )}
+                {subscription.status === "frozen" && (
+                  <Badge tone="warning">Frozen</Badge>
                 )}
               </InlineStack>
 
@@ -433,7 +494,7 @@ export default function Subscription() {
           </Card>
         </Layout.Section>
 
-        {/* Pricing Cards */}
+        {/* ========== PRICING CARDS ========== */}
         <Layout.Section>
           <div style={{ 
             display: "grid", 
@@ -520,7 +581,7 @@ export default function Subscription() {
           </div>
         </Layout.Section>
 
-        {/* FAQ Section */}
+        {/* ========== FAQ SECTION ========== */}
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
