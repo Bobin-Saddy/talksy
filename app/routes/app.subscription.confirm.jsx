@@ -1,5 +1,7 @@
-// app/routes/app.subscription.confirm.jsx - FIXED
-import { redirect } from "@remix-run/node";
+// app/routes/app.subscription.confirm.jsx - FIXED WITH APP BRIDGE
+import { json } from "@remix-run/node";
+import { useLoaderData, useNavigate } from "@remix-run/react";
+import { useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
@@ -17,7 +19,10 @@ export const loader = async ({ request }) => {
 
     if (!planKey) {
       console.error("❌ No plan specified in confirmation");
-      return redirect("/app/subscription?error=no-plan");
+      return json({ 
+        error: "no-plan",
+        redirect: "/app/subscription?error=no-plan"
+      });
     }
 
     // Get the current subscription from database
@@ -27,7 +32,10 @@ export const loader = async ({ request }) => {
 
     if (!subscription || !subscription.billingId) {
       console.error("❌ No pending subscription found");
-      return redirect("/app/subscription?error=no-subscription");
+      return json({ 
+        error: "no-subscription",
+        redirect: "/app/subscription?error=no-subscription"
+      });
     }
 
     // Query Shopify to get the subscription status
@@ -57,7 +65,10 @@ export const loader = async ({ request }) => {
 
     if (!appSubscription) {
       console.error("❌ Could not retrieve subscription from Shopify");
-      return redirect("/app/subscription?error=verification-failed");
+      return json({ 
+        error: "verification-failed",
+        redirect: "/app/subscription?error=verification-failed"
+      });
     }
 
     console.log("✅ Subscription verified:", appSubscription);
@@ -73,7 +84,7 @@ export const loader = async ({ request }) => {
 
     const status = statusMap[appSubscription.status] || "pending";
 
-    // ✅ Update subscription without trialDays
+    // Update subscription without trialDays
     await prisma.subscription.update({
       where: { shop },
       data: {
@@ -82,34 +93,37 @@ export const loader = async ({ request }) => {
         billingId: appSubscription.id,
         currentPeriodEnd: appSubscription.currentPeriodEnd 
           ? new Date(appSubscription.currentPeriodEnd)
-          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });
 
     console.log(`✅ Subscription confirmed for ${shop}: ${planKey} (${status})`);
 
-    // Redirect back to the embedded app with proper host parameter
-    const host = url.searchParams.get("host");
-    const embedded = url.searchParams.get("embedded");
+    // Return success for client-side redirect
+    return json({ 
+      success: true,
+      redirect: `/app/subscription?success=true&plan=${planKey}`
+    });
 
-    if (host) {
-      return redirect(`/app/subscription?success=true&plan=${planKey}&host=${host}&embedded=${embedded || '1'}`);
-    } else {
-      return redirect(`/app/subscription?success=true&plan=${planKey}`);
-    }
   } catch (error) {
     console.error("❌ Error confirming subscription:", error);
-    const url = new URL(request.url);
-    const host = url.searchParams.get("host");
-
-    if (host) {
-      return redirect(`/app/subscription?error=confirmation-failed&host=${host}&embedded=1`);
-    } else {
-      return redirect("/app/subscription?error=confirmation-failed");
-    }
+    return json({ 
+      error: "confirmation-failed",
+      redirect: "/app/subscription?error=confirmation-failed"
+    });
   }
 };
 
 export default function SubscriptionConfirm() {
+  const data = useLoaderData();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (data?.redirect) {
+      // Use navigate for embedded app context
+      navigate(data.redirect);
+    }
+  }, [data, navigate]);
+
   return null;
 }

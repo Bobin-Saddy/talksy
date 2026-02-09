@@ -178,6 +178,7 @@ export const action = async ({ request }) => {
     console.log("🔵 Calling GraphQL API...");
     
 // In app.subscription.jsx action
+// In app.subscription.jsx action - around line 150
 const response = await admin.graphql(
   `#graphql
   mutation AppSubscriptionCreate(
@@ -208,8 +209,8 @@ const response = await admin.graphql(
   {
     variables: {
       name: `${planConfig.name} Plan`,
-      // ✅ FIXED: Include shop domain in return URL
-      returnUrl: `https://${shop}/admin/apps/talksy/app/subscription/confirm?plan=${selectedPlan}`,
+      // ✅ Use the embedded app URL format
+      returnUrl: `https://${shop}/admin/apps/${process.env.SHOPIFY_APP_HANDLE || 'talksy'}/app/subscription/confirm?plan=${selectedPlan}`,
       test: true,
       trialDays: planConfig.trialDays || 0,
       lineItems: [
@@ -228,7 +229,6 @@ const response = await admin.graphql(
     }
   }
 );
-
     const result = await response.json();
     
     console.log("🔵 GraphQL Response:", JSON.stringify(result, null, 2));
