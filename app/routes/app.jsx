@@ -1,7 +1,7 @@
-// app/routes/app.jsx - COMPLETE WITH PLAN-BASED NAVIGATION & ACCESS CONTROL
-import { Outlet, useLoaderData, useRouteError } from "react-router";
-import { boundary } from "@shopify/shopify-app-remix/server";
-import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-remix/react";
+// app/routes/app.jsx - COMPLETE FIXED VERSION
+import { Outlet, useLoaderData, useRouteError } from "@remix-run/react";
+import { boundary } from "@shopify/shopify-app-react-router/server";
+import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
 import { AppProvider as PolarisAppProvider, Badge } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import "@shopify/polaris/build/esm/styles.css";
