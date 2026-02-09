@@ -3,7 +3,7 @@ import { json, redirect } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { checkFeatureAccess } from "../planLimits.server";
 import prisma from "../db.server";
-import { useLoaderData, useFetcher } from "react-router";
+import { useLoaderData, useFetcher } from "@remix-run/react";
 /* ---------------- HELPER FUNCTIONS ---------------- */
 async function getShopifyCredentials(shop) {
   const session = await prisma.session.findFirst({
