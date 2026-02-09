@@ -1,7 +1,7 @@
-// app/routes/app.chat.search.jsx - WITH IMPROVED PLAN LIMITS
+// app/routes/app.chat.search.jsx - SEARCH RESTRICTED TO STANDARD/PREMIUM PLANS
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
-import { canSearchUsers } from "../planLimits.server";
+import { getShopLimits } from "../planLimits.server";
 
 const headers = { 
   "Access-Control-Allow-Origin": "*",
@@ -81,19 +81,21 @@ export const loader = async ({ request }) => {
   }
 
   try {
-    // ✅ CHECK PLAN LIMITS FOR SEARCH
-    const searchLimit = await canSearchUsers(shop, 10);
+    // ✅ CHECK IF USER HAS STANDARD OR PREMIUM PLAN
+    const { limits, plan } = await getShopLimits(shop);
     
-    console.log("📊 Search limit check:", searchLimit);
+    console.log("📊 Plan check:", { plan, searchLimit: limits.maxSearchUsers });
     
-    if (!searchLimit.allowed) {
-      console.log("⛔ Search not allowed - plan limit reached");
+    // Only allow search for STANDARD (500) or PREMIUM (unlimited) plans
+    if (limits.maxSearchUsers < 500) {
+      console.log("⛔ Search blocked - FREE plan detected");
       return json(
         { 
-          error: "PLAN_LIMIT_REACHED",
-          message: "Search feature requires a Standard or Premium plan. Please upgrade to continue.",
+          error: "PLAN_UPGRADE_REQUIRED",
+          message: "Search feature is only available on Standard and Premium plans. Upgrade to unlock this feature.",
+          currentPlan: plan,
           upgradeUrl: `https://${shop}/admin/apps/talksy/app/subscription`,
-          currentPlan: "FREE",
+          requiredPlans: ["STANDARD", "PREMIUM"],
           results: {
             products: [],
             pages: [],
@@ -105,6 +107,8 @@ export const loader = async ({ request }) => {
       );
     }
 
+    console.log("✅ Search allowed for plan:", plan);
+
     // Get shop credentials
     const { accessToken } = await getShopifyCredentials(shop);
 
@@ -115,9 +119,10 @@ export const loader = async ({ request }) => {
       collections: []
     };
 
-    // ✅ Use plan-limited search count
-    const maxResults = searchLimit.limit;
-    console.log("✅ Max results allowed:", maxResults);
+    // ✅ Set max results based on plan
+    // STANDARD: 500, PREMIUM: unlimited (use 50 as reasonable limit per query)
+    const maxResults = limits.maxSearchUsers === -1 ? 50 : Math.min(limits.maxSearchUsers, 50);
+    console.log("✅ Max results per query:", maxResults);
 
     // ✅ Search Products using GraphQL
     if (type === "all" || type === "products") {
@@ -361,13 +366,14 @@ export const loader = async ({ request }) => {
       results.orders.length + 
       results.collections.length;
 
-    console.log(`✅ Search completed successfully - Total results: ${totalResults}`);
+    console.log(`✅ Search completed - Plan: ${plan}, Total results: ${totalResults}`);
     
     return json({ 
       success: true, 
       results,
       planInfo: {
-        searchLimit: searchLimit.planLimit === -1 ? "Unlimited" : searchLimit.planLimit,
+        currentPlan: plan,
+        searchLimit: limits.maxSearchUsers === -1 ? "Unlimited" : limits.maxSearchUsers,
         maxResultsPerQuery: maxResults,
         totalResultsReturned: totalResults,
       }

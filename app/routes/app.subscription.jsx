@@ -27,7 +27,6 @@ const PLANS = {
     interval: "forever",
     features: [
       "100 free user chats included",
-      "Search up to 100 chat users",
       "Chat history available for 30 days",
     ],
     limits: {
@@ -299,6 +298,7 @@ export default function Subscription() {
   const success = searchParams.get('success');
   const error = searchParams.get('error');
   const upgradedPlan = searchParams.get('plan');
+  const feature = searchParams.get('feature');
 
   const currentPlanConfig = PLANS[currentPlan];
   const usagePercentage = currentPlanConfig.limits.maxChats > 0 
@@ -336,7 +336,24 @@ export default function Subscription() {
           </Layout.Section>
         )}
 
-        {error && (
+        {/* ✅ Upgrade Required Banner */}
+        {error === 'upgrade-required' && (
+          <Layout.Section>
+            <Banner
+              title="Upgrade Required"
+              tone="warning"
+              onDismiss={() => navigate('/app/subscription')}
+            >
+              {feature === 'search' && 'The Search feature is only available on Standard and Premium plans.'}
+              {feature === 'settings' && 'Widget customization is only available on Standard and Premium plans.'}
+              {feature === 'faqs' && 'FAQ management is only available on Standard and Premium plans.'}
+              {!feature && 'This feature requires a Standard or Premium plan.'}
+              {' '}Please upgrade to access this feature.
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {error && error !== 'upgrade-required' && (
           <Layout.Section>
             <Banner
               title="Something went wrong"
