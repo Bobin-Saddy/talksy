@@ -5,7 +5,6 @@ import { useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
-
 export const loader = async ({ request }) => {
   try {
     const { session, admin } = await authenticate.admin(request);
