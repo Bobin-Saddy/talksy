@@ -1,4 +1,4 @@
-// app/routes/app.chat.search.jsx - WITH PLAN LIMITS
+// app/routes/app.chat.search.jsx - WITH IMPROVED PLAN LIMITS
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { canSearchUsers } from "../planLimits.server";
@@ -74,7 +74,7 @@ export const loader = async ({ request }) => {
   const query = url.searchParams.get("query");
   const type = url.searchParams.get("type") || "all";
 
-  console.log("Search request:", { shop, query, type });
+  console.log("🔍 Search request:", { shop, query, type });
 
   if (!shop || !query) {
     return json({ error: "Missing shop or query" }, { status: 400, headers });
@@ -84,12 +84,16 @@ export const loader = async ({ request }) => {
     // ✅ CHECK PLAN LIMITS FOR SEARCH
     const searchLimit = await canSearchUsers(shop, 10);
     
+    console.log("📊 Search limit check:", searchLimit);
+    
     if (!searchLimit.allowed) {
+      console.log("⛔ Search not allowed - plan limit reached");
       return json(
         { 
           error: "PLAN_LIMIT_REACHED",
-          message: "Search feature requires a paid plan. Please upgrade to continue.",
-          upgradeUrl: "/app/subscription",
+          message: "Search feature requires a Standard or Premium plan. Please upgrade to continue.",
+          upgradeUrl: `https://${shop}/admin/apps/talksy/app/subscription`,
+          currentPlan: "FREE",
           results: {
             products: [],
             pages: [],
@@ -113,6 +117,7 @@ export const loader = async ({ request }) => {
 
     // ✅ Use plan-limited search count
     const maxResults = searchLimit.limit;
+    console.log("✅ Max results allowed:", maxResults);
 
     // ✅ Search Products using GraphQL
     if (type === "all" || type === "products") {
@@ -178,9 +183,10 @@ export const loader = async ({ request }) => {
               type: "product"
             };
           });
+          console.log(`✅ Found ${results.products.length} products`);
         }
       } catch (error) {
-        console.error("Product search error:", error);
+        console.error("❌ Product search error:", error);
       }
     }
 
@@ -221,9 +227,10 @@ export const loader = async ({ request }) => {
             url: getStoreUrl(shop, `/pages/${node.handle}`),
             type: "page"
           }));
+          console.log(`✅ Found ${results.pages.length} pages`);
         }
       } catch (error) {
-        console.error("Page search error:", error);
+        console.error("❌ Page search error:", error);
       }
     }
 
@@ -291,9 +298,10 @@ export const loader = async ({ request }) => {
             })) || [],
             type: "order"
           }));
+          console.log(`✅ Found ${results.orders.length} orders`);
         }
       } catch (error) {
-        console.error("Order search error:", error);
+        console.error("❌ Order search error:", error);
       }
     }
 
@@ -340,23 +348,33 @@ export const loader = async ({ request }) => {
             url: getStoreUrl(shop, `/collections/${node.handle}`),
             type: "collection"
           }));
+          console.log(`✅ Found ${results.collections.length} collections`);
         }
       } catch (error) {
-        console.error("Collection search error:", error);
+        console.error("❌ Collection search error:", error);
       }
     }
 
-    console.log("✅ Search completed successfully");
+    const totalResults = 
+      results.products.length + 
+      results.pages.length + 
+      results.orders.length + 
+      results.collections.length;
+
+    console.log(`✅ Search completed successfully - Total results: ${totalResults}`);
+    
     return json({ 
       success: true, 
       results,
       planInfo: {
-        searchLimit: searchLimit.planLimit,
-        resultsReturned: maxResults,
+        searchLimit: searchLimit.planLimit === -1 ? "Unlimited" : searchLimit.planLimit,
+        maxResultsPerQuery: maxResults,
+        totalResultsReturned: totalResults,
       }
     }, { headers });
+    
   } catch (error) {
-    console.error("Search Error:", error);
+    console.error("❌ Search Error:", error);
     
     return json({ 
       success: false,
