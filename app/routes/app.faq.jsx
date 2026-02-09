@@ -44,6 +44,7 @@ import {
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import { checkFeatureAccess } from "../planLimits.server";
 
 export async function loader({ request }) {
   const { session } = await authenticate.admin(request);

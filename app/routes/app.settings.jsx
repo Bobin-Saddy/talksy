@@ -3,6 +3,7 @@ import { useLoaderData, useSubmit, useNavigation, useActionData } from "react-ro
 import { useState, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import { checkFeatureAccess } from "../planLimits.server";
 
 /* ─── Icon map ─── */
 const ICON_MAP = (customImg) => ({

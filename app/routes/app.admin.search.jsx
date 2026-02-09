@@ -5,6 +5,7 @@ import { useLoaderData, useSearchParams, Form } from "react-router";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { useState } from "react";
+import { checkFeatureAccess } from "../planLimits.server";
 
 /* ---------------- HELPER FUNCTIONS ---------------- */
 async function getShopifyCredentials(shop) {
