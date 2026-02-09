@@ -1,6 +1,6 @@
 // app/routes/app.subscription.confirm.jsx - FIXED WITH APP BRIDGE
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "react-router";
 import { useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
