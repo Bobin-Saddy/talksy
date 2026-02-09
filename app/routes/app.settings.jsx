@@ -1,9 +1,8 @@
-import { json, redirect } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation, useActionData } from "react-router";
 import { useState, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
-import { checkFeatureAccess } from "../planLimits.server";
 
 /* ─── Icon map ─── */
 const ICON_MAP = (customImg) => ({
@@ -56,19 +55,7 @@ const DEFAULTS = {
 /* ═══════════════════ LOADER ═══════════════════ */
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
-  const shop = session.shop;
-
-  // ✅ CHECK ACCESS FIRST
-  const accessCheck = await checkFeatureAccess(shop, "settings");
-  if (!accessCheck.hasAccess) {
-    return redirect(accessCheck.redirectTo);
-  }
-
-  // Continue with existing code
-  const settings = await prisma.chatSettings.findUnique({ 
-    where: { shop } 
-  });
-  
+  const settings    = await prisma.chatSettings.findUnique({ where: { shop: session.shop } });
   return json(settings ? { ...DEFAULTS, ...settings } : DEFAULTS);
 };
 

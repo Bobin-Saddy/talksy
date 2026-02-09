@@ -1,9 +1,11 @@
 // app/routes/app.search-analytics.jsx - FIXED SCROLL & URLS
-import { json, redirect } from "@remix-run/node";
+
+import { json } from "@remix-run/node";
+import { useLoaderData, useSearchParams, Form } from "react-router";
 import { authenticate } from "../shopify.server";
-import { checkFeatureAccess } from "../planLimits.server";
 import prisma from "../db.server";
-import { useLoaderData, useFetcher , useSearchParams, Form } from "react-router";
+import { useState } from "react";
+
 /* ---------------- HELPER FUNCTIONS ---------------- */
 async function getShopifyCredentials(shop) {
   const session = await prisma.session.findFirst({
@@ -177,15 +179,8 @@ async function getSearchResultDetails(shop, accessToken, query) {
 export async function loader({ request }) {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
-
-  // ✅ CHECK ACCESS FIRST - BEFORE ANY OTHER CODE
-  const accessCheck = await checkFeatureAccess(shop, "search");
-  if (!accessCheck.hasAccess) {
-    return redirect(accessCheck.redirectTo);
-  }
-
-  // NOW continue with your existing code
   const url = new URL(request.url);
+  
   const searchQuery = url.searchParams.get("q") || "";
   const filterDate = url.searchParams.get("date") || "all";
   const selectedLogId = url.searchParams.get("logId") || null;
@@ -200,6 +195,7 @@ export async function loader({ request }) {
   if (filterDate !== "all") {
     const now = new Date();
     let fromDate = new Date();
+    
     switch(filterDate) {
       case "today":
         fromDate.setHours(0, 0, 0, 0);
@@ -211,6 +207,7 @@ export async function loader({ request }) {
         fromDate.setMonth(now.getMonth() - 1);
         break;
     }
+    
     searchWhereCondition.createdAt = { gte: fromDate };
   }
 

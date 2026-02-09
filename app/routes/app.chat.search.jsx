@@ -1,7 +1,7 @@
-// app/routes/app.chat.search.jsx - SEARCH RESTRICTED TO STANDARD/PREMIUM PLANS
+// app/routes/app.chat.search.jsx - WITH PLAN LIMITS
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
-import { getShopLimits } from "../planLimits.server";
+import { canSearchUsers } from "../planLimits.server";
 
 const headers = { 
   "Access-Control-Allow-Origin": "*",
@@ -74,28 +74,22 @@ export const loader = async ({ request }) => {
   const query = url.searchParams.get("query");
   const type = url.searchParams.get("type") || "all";
 
-  console.log("🔍 Search request:", { shop, query, type });
+  console.log("Search request:", { shop, query, type });
 
   if (!shop || !query) {
     return json({ error: "Missing shop or query" }, { status: 400, headers });
   }
 
   try {
-    // ✅ CHECK IF USER HAS STANDARD OR PREMIUM PLAN
-    const { limits, plan } = await getShopLimits(shop);
+    // ✅ CHECK PLAN LIMITS FOR SEARCH
+    const searchLimit = await canSearchUsers(shop, 10);
     
-    console.log("📊 Plan check:", { plan, searchLimit: limits.maxSearchUsers });
-    
-    // Only allow search for STANDARD (500) or PREMIUM (unlimited) plans
-    if (limits.maxSearchUsers < 500) {
-      console.log("⛔ Search blocked - FREE plan detected");
+    if (!searchLimit.allowed) {
       return json(
         { 
-          error: "PLAN_UPGRADE_REQUIRED",
-          message: "Search feature is only available on Standard and Premium plans. Upgrade to unlock this feature.",
-          currentPlan: plan,
-          upgradeUrl: `https://${shop}/admin/apps/talksy/app/subscription`,
-          requiredPlans: ["STANDARD", "PREMIUM"],
+          error: "PLAN_LIMIT_REACHED",
+          message: "Search feature requires a paid plan. Please upgrade to continue.",
+          upgradeUrl: "/app/subscription",
           results: {
             products: [],
             pages: [],
@@ -107,8 +101,6 @@ export const loader = async ({ request }) => {
       );
     }
 
-    console.log("✅ Search allowed for plan:", plan);
-
     // Get shop credentials
     const { accessToken } = await getShopifyCredentials(shop);
 
@@ -119,10 +111,8 @@ export const loader = async ({ request }) => {
       collections: []
     };
 
-    // ✅ Set max results based on plan
-    // STANDARD: 500, PREMIUM: unlimited (use 50 as reasonable limit per query)
-    const maxResults = limits.maxSearchUsers === -1 ? 50 : Math.min(limits.maxSearchUsers, 50);
-    console.log("✅ Max results per query:", maxResults);
+    // ✅ Use plan-limited search count
+    const maxResults = searchLimit.limit;
 
     // ✅ Search Products using GraphQL
     if (type === "all" || type === "products") {
@@ -188,10 +178,9 @@ export const loader = async ({ request }) => {
               type: "product"
             };
           });
-          console.log(`✅ Found ${results.products.length} products`);
         }
       } catch (error) {
-        console.error("❌ Product search error:", error);
+        console.error("Product search error:", error);
       }
     }
 
@@ -232,10 +221,9 @@ export const loader = async ({ request }) => {
             url: getStoreUrl(shop, `/pages/${node.handle}`),
             type: "page"
           }));
-          console.log(`✅ Found ${results.pages.length} pages`);
         }
       } catch (error) {
-        console.error("❌ Page search error:", error);
+        console.error("Page search error:", error);
       }
     }
 
@@ -303,10 +291,9 @@ export const loader = async ({ request }) => {
             })) || [],
             type: "order"
           }));
-          console.log(`✅ Found ${results.orders.length} orders`);
         }
       } catch (error) {
-        console.error("❌ Order search error:", error);
+        console.error("Order search error:", error);
       }
     }
 
@@ -353,34 +340,23 @@ export const loader = async ({ request }) => {
             url: getStoreUrl(shop, `/collections/${node.handle}`),
             type: "collection"
           }));
-          console.log(`✅ Found ${results.collections.length} collections`);
         }
       } catch (error) {
-        console.error("❌ Collection search error:", error);
+        console.error("Collection search error:", error);
       }
     }
 
-    const totalResults = 
-      results.products.length + 
-      results.pages.length + 
-      results.orders.length + 
-      results.collections.length;
-
-    console.log(`✅ Search completed - Plan: ${plan}, Total results: ${totalResults}`);
-    
+    console.log("✅ Search completed successfully");
     return json({ 
       success: true, 
       results,
       planInfo: {
-        currentPlan: plan,
-        searchLimit: limits.maxSearchUsers === -1 ? "Unlimited" : limits.maxSearchUsers,
-        maxResultsPerQuery: maxResults,
-        totalResultsReturned: totalResults,
+        searchLimit: searchLimit.planLimit,
+        resultsReturned: maxResults,
       }
     }, { headers });
-    
   } catch (error) {
-    console.error("❌ Search Error:", error);
+    console.error("Search Error:", error);
     
     return json({ 
       success: false,
