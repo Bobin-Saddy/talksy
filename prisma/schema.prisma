@@ -277,15 +277,16 @@ model SearchLog {
 }
 
 model Subscription {
-  id                  String   @id @default(cuid())
-  shop                String   @unique
-  plan                String   @default("FREE") // FREE, STANDARD, PREMIUM
-  status              String   @default("active") // active, trialing, cancelled, expired
-  billingId           String?  // Shopify charge ID
-  currentPeriodStart  DateTime @default(now())
-  currentPeriodEnd    DateTime
-  trialEndsAt         DateTime?
-  cancelledAt         DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                String    @id @default(cuid())
+  shop              String    @unique
+  plan              String    @default("FREE")
+  status            String    @default("active")
+  billingId         String?
+  currentPeriodEnd  DateTime?
+  currentPeriodStart DateTime?
+  trialEndsAt       DateTime?
+  trialDays         Int?      // ✅ ADD THIS LINE
+  cancelledAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }

@@ -1,4 +1,4 @@
-// app/routes/app.subscription.confirm.jsx - FIXED REDIRECT
+// app/routes/app.subscription.confirm.jsx - FIXED WITHOUT trialDays
 import { redirect } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
@@ -73,7 +73,7 @@ export const loader = async ({ request }) => {
 
     const status = statusMap[appSubscription.status] || "pending";
 
-    // Update subscription in database
+    // ✅ FIXED: Update subscription without trialDays
     await prisma.subscription.update({
       where: { shop },
       data: {
@@ -83,28 +83,24 @@ export const loader = async ({ request }) => {
         currentPeriodEnd: appSubscription.currentPeriodEnd 
           ? new Date(appSubscription.currentPeriodEnd)
           : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default
-        trialDays: appSubscription.trialDays || 0,
       },
     });
 
     console.log(`✅ Subscription confirmed for ${shop}: ${planKey} (${status})`);
 
-    // ✅ FIXED: Redirect back to the embedded app with proper host parameter
+    // Redirect back to the embedded app with proper host parameter
     const host = url.searchParams.get("host");
     const embedded = url.searchParams.get("embedded");
     
     if (host) {
-      // Redirect with host parameter to maintain embedded context
       return redirect(`/app/subscription?success=true&plan=${planKey}&host=${host}&embedded=${embedded || '1'}`);
     } else {
-      // Fallback if no host parameter
       return redirect(`/app/subscription?success=true&plan=${planKey}`);
     }
 
   } catch (error) {
     console.error("❌ Error confirming subscription:", error);
     
-    // Try to get host parameter even on error
     const url = new URL(request.url);
     const host = url.searchParams.get("host");
     
@@ -117,6 +113,5 @@ export const loader = async ({ request }) => {
 };
 
 export default function SubscriptionConfirm() {
-  // This component won't render since we always redirect
   return null;
 }
