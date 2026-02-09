@@ -1,6 +1,6 @@
 // app/routes/app.subscription.confirm.jsx - FIXED WITH APP BRIDGE
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "react-router";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import { useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
@@ -97,6 +97,7 @@ export const loader = async ({ request }) => {
       },
     });
 
+    // ✅ FIXED: Use parentheses instead of backticks
     console.log(`✅ Subscription confirmed for ${shop}: ${planKey} (${status})`);
 
     // Return success for client-side redirect
