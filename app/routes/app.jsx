@@ -1,4 +1,4 @@
-// app/routes/app.jsx - FIXED WITH PLAN-BASED NAVIGATION
+// app/routes/app.jsx - FIXED WITH ERROR HANDLING
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
@@ -55,11 +55,6 @@ export default function App() {
   const isApproachingLimit = usage && typeof usage.chats.percentage === 'number' && usage.chats.percentage > 80;
   const isAtLimit = usage && typeof usage.chats.percentage === 'number' && usage.chats.percentage >= 100;
 
-  // Check plan level
-  const isPaidPlan = usage && (usage.plan === "STANDARD" || usage.plan === "PREMIUM");
-  const canManageFAQs = usage && usage.faqs.canManage;
-  const canCustomizeWidget = usage && usage.features.canCustomizeWidget;
-
   // Heartbeat Logic 🚀
   useEffect(() => {
     const updateHeartbeat = async () => {
@@ -82,22 +77,9 @@ export default function App() {
       <PolarisAppProvider i18n={enTranslations}>
         <s-app-nav>
           <s-link href="/app/chat/admin">Chats</s-link>
-          
-          {/* Only show Search for paid plans */}
-          {isPaidPlan && (
-            <s-link href="/app/admin/search">Search</s-link>
-          )}
-          
-          {/* Only show Settings for paid plans */}
-          {canCustomizeWidget && (
-            <s-link href="/app/settings">Settings</s-link>
-          )}
-          
-          {/* Only show FAQs for paid plans */}
-          {canManageFAQs && (
-            <s-link href="/app/faq">FAQs</s-link>
-          )}
-          
+          <s-link href="/app/admin/search">Search</s-link>
+          <s-link href="/app/settings">Settings</s-link>
+          <s-link href="/app/faq">FAQs</s-link>
           <s-link href="/app/subscription">
             Subscription
             {usage && isApproachingLimit && !isAtLimit && usage.chats.remaining !== "Unlimited" && (
