@@ -1,25 +1,25 @@
-// app/routes/app.subscription.confirm.jsx
-import { json, redirect } from "@remix-run/node";
+// app/routes/app.subscription.confirm.jsx - FIXED REDIRECT
+import { redirect } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
 export const loader = async ({ request }) => {
-  const { session, admin } = await authenticate.admin(request);
-  const shop = session.shop;
-  
-  // Get the plan from URL params
-  const url = new URL(request.url);
-  const planKey = url.searchParams.get("plan");
-  const charge_id = url.searchParams.get("charge_id");
-
-  console.log("📋 Billing confirmation received:", { shop, planKey, charge_id });
-
-  if (!planKey) {
-    console.error("❌ No plan specified in confirmation");
-    return redirect("/app/subscription?error=no-plan");
-  }
-
   try {
+    const { session, admin } = await authenticate.admin(request);
+    const shop = session.shop;
+    
+    // Get the plan from URL params
+    const url = new URL(request.url);
+    const planKey = url.searchParams.get("plan");
+    const charge_id = url.searchParams.get("charge_id");
+
+    console.log("📋 Billing confirmation received:", { shop, planKey, charge_id });
+
+    if (!planKey) {
+      console.error("❌ No plan specified in confirmation");
+      return redirect("/app/subscription?error=no-plan");
+    }
+
     // Get the current subscription from database
     const subscription = await prisma.subscription.findUnique({
       where: { shop },
@@ -89,12 +89,30 @@ export const loader = async ({ request }) => {
 
     console.log(`✅ Subscription confirmed for ${shop}: ${planKey} (${status})`);
 
-    // Redirect to subscription page with success message
-    return redirect(`/app/subscription?success=true&plan=${planKey}`);
+    // ✅ FIXED: Redirect back to the embedded app with proper host parameter
+    const host = url.searchParams.get("host");
+    const embedded = url.searchParams.get("embedded");
+    
+    if (host) {
+      // Redirect with host parameter to maintain embedded context
+      return redirect(`/app/subscription?success=true&plan=${planKey}&host=${host}&embedded=${embedded || '1'}`);
+    } else {
+      // Fallback if no host parameter
+      return redirect(`/app/subscription?success=true&plan=${planKey}`);
+    }
 
   } catch (error) {
     console.error("❌ Error confirming subscription:", error);
-    return redirect("/app/subscription?error=confirmation-failed");
+    
+    // Try to get host parameter even on error
+    const url = new URL(request.url);
+    const host = url.searchParams.get("host");
+    
+    if (host) {
+      return redirect(`/app/subscription?error=confirmation-failed&host=${host}&embedded=1`);
+    } else {
+      return redirect("/app/subscription?error=confirmation-failed");
+    }
   }
 };
 

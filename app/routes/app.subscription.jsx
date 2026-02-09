@@ -177,55 +177,57 @@ export const action = async ({ request }) => {
   try {
     console.log("🔵 Calling GraphQL API...");
     
-    const response = await admin.graphql(
-      `#graphql
-      mutation AppSubscriptionCreate(
-        $name: String!
-        $returnUrl: URL!
-        $test: Boolean
-        $trialDays: Int
-        $lineItems: [AppSubscriptionLineItemInput!]!
-      ) {
-        appSubscriptionCreate(
-          name: $name
-          returnUrl: $returnUrl
-          test: $test
-          trialDays: $trialDays
-          lineItems: $lineItems
-        ) {
-          appSubscription {
-            id
-            status
-          }
-          confirmationUrl
-          userErrors {
-            field
-            message
-          }
-        }
-      }`,
-      {
-        variables: {
-          name: `${planConfig.name} Plan`,
-          returnUrl: `${process.env.SHOPIFY_APP_URL}app/subscription/confirm?plan=${selectedPlan}`,
-          test: true,
-          trialDays: planConfig.trialDays || 0,
-          lineItems: [
-            {
-              plan: {
-                appRecurringPricingDetails: {
-                  price: { 
-                    amount: planConfig.price, 
-                    currencyCode: "USD" 
-                  },
-                  interval: "EVERY_30_DAYS",
-                }
-              }
-            }
-          ]
-        }
+// In app.subscription.jsx action
+const response = await admin.graphql(
+  `#graphql
+  mutation AppSubscriptionCreate(
+    $name: String!
+    $returnUrl: URL!
+    $test: Boolean
+    $trialDays: Int
+    $lineItems: [AppSubscriptionLineItemInput!]!
+  ) {
+    appSubscriptionCreate(
+      name: $name
+      returnUrl: $returnUrl
+      test: $test
+      trialDays: $trialDays
+      lineItems: $lineItems
+    ) {
+      appSubscription {
+        id
+        status
       }
-    );
+      confirmationUrl
+      userErrors {
+        field
+        message
+      }
+    }
+  }`,
+  {
+    variables: {
+      name: `${planConfig.name} Plan`,
+      // ✅ FIXED: Include shop domain in return URL
+      returnUrl: `https://${shop}/admin/apps/talksy/app/subscription/confirm?plan=${selectedPlan}`,
+      test: true,
+      trialDays: planConfig.trialDays || 0,
+      lineItems: [
+        {
+          plan: {
+            appRecurringPricingDetails: {
+              price: { 
+                amount: planConfig.price, 
+                currencyCode: "USD" 
+              },
+              interval: "EVERY_30_DAYS",
+            }
+          }
+        }
+      ]
+    }
+  }
+);
 
     const result = await response.json();
     
