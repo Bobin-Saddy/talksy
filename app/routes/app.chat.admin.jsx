@@ -247,22 +247,32 @@ export default function NeuralChatAdmin() {
       try {
         const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
         const data = await res.json();
-        if (data.length > 0) {
+        
+        // ✅ Always update messages if the count or content changed
+        if (data.length !== messages.length || 
+            (data.length > 0 && data[data.length - 1].id !== lastMessageIdRef.current)) {
+          
           const latestServerMsg = data[data.length - 1];
-          if (latestServerMsg.id !== lastMessageIdRef.current) {
-            if (latestServerMsg.sender === "user" && !isFirstLoadRef.current) {
-              notifyNewMessage(activeSession, latestServerMsg);
-            }
-            setMessages(data);
-            lastMessageIdRef.current = latestServerMsg.id;
+          
+          // ✅ Only notify for NEW user messages (not admin messages)
+          if (latestServerMsg && 
+              latestServerMsg.sender === "user" && 
+              latestServerMsg.id !== lastMessageIdRef.current &&
+              !isFirstLoadRef.current) {
+            notifyNewMessage(activeSession, latestServerMsg);
+          }
+          
+          setMessages(data);
+          if (data.length > 0) {
+            lastMessageIdRef.current = data[data.length - 1].id;
           }
         }
       } catch (err) {
         console.error("Message polling error", err);
       }
-    }, 2000); // ✅ Poll messages every 2 seconds too
+    }, 1500); // ✅ Poll messages every 1.5 seconds for faster updates
     return () => clearInterval(interval);
-  }, [activeSession]);
+  }, [activeSession, messages.length]); // ✅ Add messages.length as dependency
 
   const loadChat = async (session) => {
     setActiveSession(session);
@@ -292,7 +302,7 @@ export default function NeuralChatAdmin() {
     setShowEmojiPicker(false);
   };
 
-  const handleReply = (text = null) => {
+  const handleReply = async (text = null) => {
     if (isActiveSessionOverLimit) {
       alert("This chat is over your plan limit. Upgrade to respond to new customer requests.");
       return;
@@ -301,7 +311,7 @@ export default function NeuralChatAdmin() {
     const finalMsg = text || reply;
     const finalFile = filePreview?.url;
     if ((!finalMsg.trim() && !finalFile) || !activeSession) return;
-    const tempId = "temp-" + Date.now();
+    
     const newMessage = {
       message: finalMsg || "Attachment",
       sender: "admin",
@@ -309,18 +319,34 @@ export default function NeuralChatAdmin() {
       sessionId: activeSession.sessionId,
       shop: currentShop,
       fileUrl: finalFile || null,
-      id: tempId
     };
-    setMessages(prev => [...prev, newMessage]);
-    lastMessageIdRef.current = tempId;
+    
+    // ✅ Clear input immediately for better UX
     setReply("");
     setFilePreview(null);
     setShowEmojiPicker(false);
-    fetcher.submit(JSON.stringify(newMessage), {
-      method: "post",
-      action: "/app/chat/message",
-      encType: "application/json"
-    });
+    
+    try {
+      // ✅ Send message to server
+      const response = await fetch("/app/chat/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newMessage)
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log("✅ Message sent successfully:", result.newMessage?.id);
+        // ✅ Polling will pick up the new message automatically
+      } else {
+        console.error("❌ Failed to send message:", result.error);
+        alert("Failed to send message. Please try again.");
+      }
+    } catch (error) {
+      console.error("❌ Error sending message:", error);
+      alert("Failed to send message. Please try again.");
+    }
   };
 
   const handleMarkResolved = async () => {

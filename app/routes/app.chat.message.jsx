@@ -19,6 +19,8 @@ export const action = async ({ request }) => {
     const body = await request.json();
     const { sessionId, message, sender, shop, email, fileUrl } = body;
 
+    console.log("📨 Message received:", { sessionId, sender, shop, messageLength: message?.length });
+
     // ✅ Validate required parameters
     if (!shop) {
       return json(
@@ -51,11 +53,11 @@ export const action = async ({ request }) => {
 
     const isNewChat = !existingSession;
 
-    // ✅ CHECK PLAN LIMITS ONLY FOR NEW CHATS
+    // ✅ CHECK PLAN LIMITS ONLY FOR NEW CHATS FROM USERS
     let chatLimit = { allowed: true, current: 0, max: 0, remaining: 0 };
     let limitReached = false;
 
-    if (isNewChat) {
+    if (isNewChat && sender === "user") {
       chatLimit = await canCreateChat(shop);
       limitReached = !chatLimit.allowed;
       
@@ -83,7 +85,7 @@ export const action = async ({ request }) => {
       },
     });
 
-    // ✅ ALWAYS SAVE THE USER'S MESSAGE
+    // ✅ ALWAYS SAVE THE MESSAGE (both user and admin messages)
     const newMessage = await prisma.chatMessage.create({
       data: {
         message: message || "",
@@ -95,7 +97,7 @@ export const action = async ({ request }) => {
       },
     });
 
-    console.log(`💬 Message saved from ${sender} in session ${sessionId}`);
+    console.log(`✅ Message saved: ID=${newMessage.id}, Sender=${sender}, Session=${sessionId}`);
 
     // ✅ IF LIMIT REACHED ON NEW CHAT, SEND AUTO-REPLY FROM BOT
     if (limitReached) {
@@ -127,7 +129,7 @@ export const action = async ({ request }) => {
       );
     }
 
-    // ✅ NORMAL RESPONSE (LIMIT NOT REACHED OR EXISTING CHAT)
+    // ✅ NORMAL RESPONSE (LIMIT NOT REACHED OR EXISTING CHAT OR ADMIN MESSAGE)
     return json(
       { 
         success: true, 
