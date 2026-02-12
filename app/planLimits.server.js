@@ -12,8 +12,8 @@ export const PLAN_LIMITS = {
     canCreateCustomFAQPage: false,
   },
   STANDARD: {
-    maxChats: 500,
-    maxSearchUsers: 500,
+    maxChats: 3,
+    maxSearchUsers: 3,
     chatHistoryDays: 90,
     canManageFAQs: true,
     canCustomizeWidget: true,
