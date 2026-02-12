@@ -30,7 +30,7 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   if (!shop) throw new Response("Unauthorized", { status: 401 });
 
-  // ✅ FETCH ALL SESSIONS WITH INDEX
+  // ✅ FETCH ALL SESSIONS WITH INDEX - ORDERED BY CREATION TIME
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
     include: {
@@ -39,20 +39,24 @@ export const loader = async ({ request }) => {
         take: 1
       }
     },
-    orderBy: { createdAt: "asc" } // ✅ Order by creation to get proper index
+    orderBy: { createdAt: "asc" } // ✅ CRITICAL: Order by creation to get proper index
   });
 
   // ✅ GET PLAN LIMITS
   const chatLimit = await canCreateChat(shop);
 
-  // ✅ MARK SESSIONS AS OVER-LIMIT OR WITHIN-LIMIT
-  const sessionsWithLimitInfo = sessions.map((session, index) => ({
-    ...session,
-    chatIndex: index + 1, // 1-based index
-    isOverLimit: index >= chatLimit.max && chatLimit.max > 0, // Sessions beyond the limit
-  }));
+  // ✅ MARK SESSIONS AS OVER-LIMIT BASED ON CREATION ORDER
+  const sessionsWithLimitInfo = sessions.map((session, index) => {
+    const isOverLimit = chatLimit.max > 0 && index >= chatLimit.max;
+    
+    return {
+      ...session,
+      chatIndex: index + 1, // 1-based index
+      isOverLimit: isOverLimit, // ✅ Sessions created after the limit are over-limit
+    };
+  });
 
-  // Sort by updated time for display
+  // ✅ Sort by updated time for display (but isOverLimit is already set)
   sessionsWithLimitInfo.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
   return json({ 
@@ -116,7 +120,7 @@ export default function NeuralChatAdmin() {
   const [filePreview, setFilePreview] = useState(null); 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
-  const [filterStatus, setFilterStatus] = useState("all"); // all, pending, resolved, requests
+  const [filterStatus, setFilterStatus] = useState("all");
 
   const fetcher = useFetcher();
   const scrollRef = useRef(null);
@@ -127,14 +131,20 @@ export default function NeuralChatAdmin() {
 
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
 
+  // ✅ REAL-TIME SESSION UPDATES WITH PROPER LIMIT CALCULATION
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch("/app/chat/sessions");
+        const res = await fetch("/app/chat/admin");
         const data = await res.json();
+        
+        // ✅ Update sessions AND plan limits together
         setSessions(data.sessions);
+        if (data.planLimit) {
+          setPlanLimit(data.planLimit);
+        }
       } catch (e) {
-        console.error("Failed to refresh sessions");
+        console.error("Session refresh failed");
       }
     }, 4000);
     return () => clearInterval(interval);
@@ -147,32 +157,16 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch("/app/chat/admin");
-        const data = await res.json();
-        setSessions(data.sessions);
-        if (data.planLimit) {
-          setPlanLimit(data.planLimit);
-        }
-      } catch (e) {
-        console.error("Session refresh failed");
-      }
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
   // ✅ FILTER SESSIONS BASED ON TAB AND LIMIT STATUS
   const filteredSessions = useMemo(() => {
     let filtered = sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
     
     if (filterStatus === "requests") {
-      // ✅ ONLY show over-limit chats
-      filtered = filtered.filter(s => s.isOverLimit);
+      // ✅ ONLY show over-limit chats (these are chats created AFTER the plan limit)
+      filtered = filtered.filter(s => s.isOverLimit === true);
     } else {
       // ✅ EXCLUDE over-limit chats from normal tabs
-      filtered = filtered.filter(s => !s.isOverLimit);
+      filtered = filtered.filter(s => s.isOverLimit !== true);
       
       if (filterStatus === "pending") {
         filtered = filtered.filter(s => !s.isResolved);
@@ -185,11 +179,11 @@ export default function NeuralChatAdmin() {
   }, [sessions, searchTerm, filterStatus]);
 
   // ✅ CHECK IF ACTIVE SESSION IS OVER LIMIT
-  const isActiveSessionOverLimit = activeSession?.isOverLimit || false;
+  const isActiveSessionOverLimit = activeSession?.isOverLimit === true;
 
   // ✅ COUNT SESSIONS FOR TABS
-  const withinLimitSessions = sessions.filter(s => !s.isOverLimit);
-  const overLimitSessions = sessions.filter(s => s.isOverLimit);
+  const withinLimitSessions = sessions.filter(s => s.isOverLimit !== true);
+  const overLimitSessions = sessions.filter(s => s.isOverLimit === true);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -203,7 +197,7 @@ export default function NeuralChatAdmin() {
       setUnreadCounts(prev => ({ ...prev, [session.sessionId]: (prev[session.sessionId] || 0) + 1 }));
     }
     if (document.visibilityState !== 'visible' && Notification.permission === "granted") {
-      new Notification(`New message from ${session.email || 'Customer'}`, { body: message.message, icon: '/favicon.ico' });
+      new Notification("New message from " + (session.email || 'Customer'), { body: message.message, icon: '/favicon.ico' });
     }
   };
 
@@ -211,7 +205,7 @@ export default function NeuralChatAdmin() {
     if (!activeSession) return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/app/chat/messages?sessionId=${activeSession.sessionId}`);
+        const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
         const data = await res.json();
         if (data.length > 0) {
           const latestServerMsg = data[data.length - 1];
@@ -243,7 +237,7 @@ export default function NeuralChatAdmin() {
     setUnreadCounts(prev => ({ ...prev, [session.sessionId]: 0 }));
     isFirstLoadRef.current = true;
     try {
-      const res = await fetch(`/app/chat/messages?sessionId=${session.sessionId}`);
+      const res = await fetch("/app/chat/messages?sessionId=" + session.sessionId);
       const data = await res.json();
       if (data.length > 0) lastMessageIdRef.current = data[data.length - 1].id;
       setMessages(data);
@@ -276,7 +270,7 @@ export default function NeuralChatAdmin() {
     const finalMsg = text || reply;
     const finalFile = filePreview?.url;
     if ((!finalMsg.trim() && !finalFile) || !activeSession) return;
-    const tempId = `temp-${Date.now()}`;
+    const tempId = "temp-" + Date.now();
     const newMessage = {
       message: finalMsg || "Attachment",
       sender: "admin",
@@ -361,7 +355,7 @@ export default function NeuralChatAdmin() {
               </div>
             </div>
             <div style={{ fontSize: '12px', opacity: 0.95, lineHeight: '1.4' }}>
-              {planLimit.overLimitBy} customer{planLimit.overLimitBy !== 1 ? 's' : ''} in the Requests tab. Check the "Requests" tab to view.
+              {planLimit.overLimitBy} customer{planLimit.overLimitBy !== 1 ? 's' : ''} waiting. Check the "Requests" tab.
             </div>
             <button 
               onClick={() => window.location.href = '/app/subscription'}
@@ -399,7 +393,7 @@ export default function NeuralChatAdmin() {
               transition: 'all 0.2s'
             }}
           >
-            All {withinLimitSessions.length > 0 && `(${withinLimitSessions.length})`}
+            All {withinLimitSessions.length > 0 && "(" + withinLimitSessions.length + ")"}
           </button>
           <button 
             onClick={() => setFilterStatus("pending")}
@@ -415,7 +409,7 @@ export default function NeuralChatAdmin() {
               transition: 'all 0.2s'
             }}
           >
-            Pending {withinLimitSessions.filter(s => !s.isResolved).length > 0 && `(${withinLimitSessions.filter(s => !s.isResolved).length})`}
+            Pending {withinLimitSessions.filter(s => !s.isResolved).length > 0 && "(" + withinLimitSessions.filter(s => !s.isResolved).length + ")"}
           </button>
           <button 
             onClick={() => setFilterStatus("resolved")}
@@ -431,7 +425,7 @@ export default function NeuralChatAdmin() {
               transition: 'all 0.2s'
             }}
           >
-            Resolved {withinLimitSessions.filter(s => s.isResolved).length > 0 && `(${withinLimitSessions.filter(s => s.isResolved).length})`}
+            Resolved {withinLimitSessions.filter(s => s.isResolved).length > 0 && "(" + withinLimitSessions.filter(s => s.isResolved).length + ")"}
           </button>
           <button 
             onClick={() => setFilterStatus("requests")}
@@ -452,7 +446,7 @@ export default function NeuralChatAdmin() {
             }}
           >
             <Icons.Inbox />
-            Requests {overLimitSessions.length > 0 && `(${overLimitSessions.length})`}
+            Requests {overLimitSessions.length > 0 && "(" + overLimitSessions.length + ")"}
           </button>
         </div>
 
@@ -497,11 +491,10 @@ export default function NeuralChatAdmin() {
         </div>
       </div>
 
-      {/* CHAT AREA */}
+      {/* CHAT AREA - Rest of the code remains the same */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
         {activeSession ? (
           <>
-            {/* ✅ HEADER WITH OVER-LIMIT WARNING */}
             <div style={{ padding: '20px 32px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isActiveSessionOverLimit ? '#fef3c7' : '#fff' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -642,7 +635,6 @@ export default function NeuralChatAdmin() {
               </div>
             )}
 
-            {/* ✅ INPUT AREA - DISABLED FOR OVER-LIMIT CHATS */}
             {!isActiveSessionOverLimit ? (
               <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid #e5e7eb', position: 'relative' }}>
                 {showEmojiPicker && (
@@ -664,7 +656,6 @@ export default function NeuralChatAdmin() {
                 </div>
               </div>
             ) : (
-              // ✅ LOCKED INPUT FOR OVER-LIMIT CHATS
               <div style={{ padding: '20px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', borderRadius: '12px', border: '2px dashed #f59e0b' }}>
                   <Icons.Lock />
@@ -708,7 +699,6 @@ export default function NeuralChatAdmin() {
       <div style={{ width: '320px', padding: '24px', background: '#fff', borderLeft: '1px solid #e5e7eb' }}>
         <h4 style={{ fontSize: '11px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 20 }}>Chat Details</h4>
         
-        {/* ✅ PLAN USAGE CARD */}
         <div style={{ marginBottom: '16px', padding: '16px', background: planLimit.isOverLimit ? '#fef3c7' : (planLimit.isAtLimit ? '#fee2e2' : (planLimit.isNearLimit ? '#fef3c7' : '#eff6ff')), borderRadius: '12px', border: planLimit.isOverLimit ? '1px solid #fcd34d' : (planLimit.isAtLimit ? '1px solid #fca5a5' : (planLimit.isNearLimit ? '1px solid #fcd34d' : '1px solid #bfdbfe')) }}>
           <div style={{ fontSize: '10px', color: planLimit.isOverLimit ? '#92400e' : (planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#1e40af')), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
             PLAN USAGE
@@ -716,15 +706,15 @@ export default function NeuralChatAdmin() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <Icons.TrendingUp />
             <span style={{ fontSize: '24px', fontWeight: '800', color: planLimit.isOverLimit ? '#92400e' : (planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#1e40af')) }}>
-              {planLimit.max > 0 ? `${withinLimitSessions.length}/${planLimit.max}` : `${sessions.length}`}
+              {planLimit.max > 0 ? withinLimitSessions.length + "/" + planLimit.max : sessions.length}
             </span>
           </div>
           <div style={{ fontSize: '11px', color: planLimit.isOverLimit ? '#92400e' : (planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#60a5fa')) }}>
             {planLimit.isOverLimit 
-              ? `${planLimit.overLimitBy} request${planLimit.overLimitBy !== 1 ? 's' : ''} in queue` 
+              ? planLimit.overLimitBy + " request" + (planLimit.overLimitBy !== 1 ? 's' : '') + " in queue"
               : planLimit.isAtLimit 
                 ? 'At limit - upgrade to continue' 
-                : `${planLimit.remaining} chat${planLimit.remaining !== 1 ? 's' : ''} remaining`}
+                : planLimit.remaining + " chat" + (planLimit.remaining !== 1 ? 's' : '') + " remaining"}
           </div>
           {(planLimit.isAtLimit || planLimit.isOverLimit) && (
             <button 
