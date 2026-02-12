@@ -1,3 +1,4 @@
+// app/routes/app.chat.message.jsx
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { canCreateChat } from "../planLimits.server";
@@ -17,9 +18,19 @@ export const action = async ({ request }) => {
 
   try {
     const body = await request.json();
-    const { sessionId, message, sender, shop, email, fileUrl } = body;
+    const { sessionId, message, fileUrl, shop, email } = body;
+    
+    // ✅ FIX: Always default sender to "user" if not provided or invalid
+    const sender = (body.sender === "admin" || body.sender === "bot") 
+      ? body.sender 
+      : "user";
 
-    console.log("📨 Message received:", { sessionId, sender, shop, messageLength: message?.length });
+    console.log("📨 Message received:", { 
+      sessionId, 
+      sender,           // ✅ Now always defined
+      shop, 
+      messageLength: message?.length 
+    });
 
     // ✅ Validate required parameters
     if (!shop) {
@@ -71,25 +82,28 @@ export const action = async ({ request }) => {
     }
 
     // ✅ ALWAYS CREATE/UPDATE THE SESSION (so admin can see it)
+    // Use updatedAt: new Date() to ensure polling detects the change
     const chatSession = await prisma.chatSession.upsert({
-      where: { sessionId: sessionId },
+      where: { sessionId },
       update: {
         updatedAt: new Date(),
+        // ✅ Update email if provided and session exists without email
+        ...(email ? { email } : {}),
       },
       create: {
-        sessionId: sessionId,
-        shop: shop,
+        sessionId,
+        shop,
         email: email || "customer@email.com",
         firstName: email ? email.split('@')[0] : "Customer",
         isResolved: false,
       },
     });
 
-    // ✅ ALWAYS SAVE THE MESSAGE (both user and admin messages)
+    // ✅ ALWAYS SAVE THE MESSAGE
     const newMessage = await prisma.chatMessage.create({
       data: {
         message: message || "",
-        sender: sender || "user",
+        sender,           // ✅ Always "user", "admin", or "bot" - never undefined
         fileUrl: fileUrl || null,
         session: {
           connect: { sessionId: chatSession.sessionId },
@@ -117,7 +131,7 @@ export const action = async ({ request }) => {
         { 
           success: true,
           newMessage,
-          botReply, // ✅ Send bot reply to frontend
+          botReply,
           limitReached: true,
           usage: {
             current: chatLimit.current + 1,
@@ -129,7 +143,7 @@ export const action = async ({ request }) => {
       );
     }
 
-    // ✅ NORMAL RESPONSE (LIMIT NOT REACHED OR EXISTING CHAT OR ADMIN MESSAGE)
+    // ✅ NORMAL RESPONSE
     return json(
       { 
         success: true, 
@@ -145,7 +159,7 @@ export const action = async ({ request }) => {
     );
 
   } catch (error) {
-    console.error("❌ Reply Error:", error);
+    console.error("❌ Message Error:", error);
     return json(
       { 
         error: error.message,
