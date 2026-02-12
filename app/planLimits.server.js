@@ -200,7 +200,7 @@ export async function getUsageStats(shop) {
     chats: {
       current: chatCount,
       max: limits.maxChats === -1 ? "Unlimited" : limits.maxChats,
-      percentage: limits.maxChats > 0 ? (chatCount / limits.maxChats) * 2 : 0,
+      percentage: limits.maxChats > 0 ? (chatCount / limits.maxChats) * 100 : 0,
       remaining: limits.maxChats > 0 ? Math.max(0, limits.maxChats - chatCount) : "Unlimited",
     },
     faqs: {
