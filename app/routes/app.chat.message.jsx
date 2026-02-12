@@ -1,4 +1,4 @@
-// app/routes/app.chat.reply.jsx - WITH PLAN LIMITS
+// app/routes/app.chat.reply.jsx - FIXED VERSION
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { canCreateChat } from "../planLimits.server";
@@ -27,35 +27,21 @@ export const action = async ({ request }) => {
       );
     }
 
-    // ✅ CHECK PLAN LIMITS BEFORE CREATING NEW CHAT
-    const chatLimit = await canCreateChat(shop);
-    
     // Check if this is a new session
     const existingSession = await prisma.chatSession.findUnique({
       where: { sessionId },
     });
 
-    // If it's a new session and limit is reached, deny creation
-    if (!existingSession && !chatLimit.allowed) {
-      console.log(`🚫 Chat limit reached for ${shop}: ${chatLimit.current}/${chatLimit.max}`);
-      
-      return json(
-        { 
-          error: "PLAN_LIMIT_REACHED",
-          message: `You've reached your plan limit of ${chatLimit.max} chats. Please upgrade your plan to continue.`,
-          current: chatLimit.current,
-          max: chatLimit.max,
-          upgradeUrl: "/app/subscription",
-        }, 
-        { status: 403, headers: corsHeaders }
-      );
-    }
+    // ✅ CHECK PLAN LIMITS ONLY FOR NEW CHATS
+    const chatLimit = await canCreateChat(shop);
+    const isNewChat = !existingSession;
+    const limitReached = isNewChat && !chatLimit.allowed;
 
-    // Create or update chat session
+    // ✅ ALWAYS CREATE THE SESSION (so admin can see it)
     const chatSession = await prisma.chatSession.upsert({
       where: { sessionId: sessionId },
       update: {
-        updatedAt: new Date(), // 🔥 Updates timestamp for active sessions
+        updatedAt: new Date(),
       },
       create: {
         sessionId: sessionId,
@@ -65,7 +51,7 @@ export const action = async ({ request }) => {
       },
     });
 
-    // Create the message
+    // ✅ ALWAYS SAVE THE USER'S MESSAGE
     const newMessage = await prisma.chatMessage.create({
       data: {
         message: message,
@@ -77,16 +63,47 @@ export const action = async ({ request }) => {
       },
     });
 
-    // Return success with usage info
+    // ✅ IF LIMIT REACHED, SEND AUTO-REPLY FROM BOT
+    if (limitReached) {
+      const botReply = await prisma.chatMessage.create({
+        data: {
+          message: `Thank you for contacting us! We've reached our chat capacity on our current plan. Our team will respond to you via email at ${email || 'your registered email'} as soon as possible.`,
+          sender: "bot",
+          session: {
+            connect: { sessionId: chatSession.sessionId },
+          },
+        },
+      });
+
+      console.log(`⚠️ Chat limit reached for ${shop}: ${chatLimit.current}/${chatLimit.max} - Auto-reply sent`);
+
+      return json(
+        { 
+          success: true,
+          newMessage,
+          botReply, // ✅ Send bot reply to frontend
+          limitReached: true,
+          usage: {
+            current: chatLimit.current + 1,
+            max: chatLimit.max,
+            remaining: 0,
+          },
+        }, 
+        { headers: corsHeaders }
+      );
+    }
+
+    // ✅ NORMAL RESPONSE (LIMIT NOT REACHED)
     return json(
       { 
         success: true, 
         newMessage,
-        usage: chatLimit.allowed ? {
-          current: chatLimit.current + (existingSession ? 0 : 1),
+        limitReached: false,
+        usage: {
+          current: chatLimit.current + (isNewChat ? 1 : 0),
           max: chatLimit.max,
-          remaining: chatLimit.remaining - (existingSession ? 0 : 1),
-        } : null,
+          remaining: chatLimit.remaining - (isNewChat ? 1 : 0),
+        },
       }, 
       { headers: corsHeaders }
     );
