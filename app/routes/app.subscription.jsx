@@ -26,12 +26,12 @@ const PLANS = {
     price: 0,
     interval: "forever",
     features: [
-      "100 free user chats included",
+      "2 free user chats included",
       "Chat history available for 30 days",
     ],
     limits: {
       maxChats: 2,
-      maxSearchUsers: 100,
+      maxSearchUsers: 2,
       chatHistoryDays: 30,
       canManageFAQs: false,
       canCustomizeWidget: false,

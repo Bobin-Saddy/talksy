@@ -5,7 +5,7 @@ import prisma from "./db.server";
 export const PLAN_LIMITS = {
   FREE: {
     maxChats: 2,
-    maxSearchUsers: 100,
+    maxSearchUsers: 2,
     chatHistoryDays: 30,
     canManageFAQs: false,
     canCustomizeWidget: false,
