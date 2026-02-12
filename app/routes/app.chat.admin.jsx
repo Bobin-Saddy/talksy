@@ -52,7 +52,7 @@ export const loader = async ({ request }) => {
     return {
       ...session,
       chatIndex: index + 1, // 1-based index
-      isOverLimit: isOverLimit, // ✅ Sessions created after the limit are over-limit
+      isOverLimit: isOverLimit,
     };
   });
 
@@ -128,27 +128,9 @@ export default function NeuralChatAdmin() {
   const audioRef = useRef(null);
   const lastMessageIdRef = useRef(null);
   const isFirstLoadRef = useRef(true);
+  const lastSessionCountRef = useRef(initialSessions.length); // ✅ Track session count
 
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
-
-  // ✅ REAL-TIME SESSION UPDATES WITH PROPER LIMIT CALCULATION
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch("/app/chat/admin");
-        const data = await res.json();
-        
-        // ✅ Update sessions AND plan limits together
-        setSessions(data.sessions);
-        if (data.planLimit) {
-          setPlanLimit(data.planLimit);
-        }
-      } catch (e) {
-        console.error("Session refresh failed");
-      }
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
@@ -157,15 +139,68 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
+  // ✅ REAL-TIME SESSION UPDATES - POLLS EVERY 2 SECONDS
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/app/chat/admin");
+        const data = await res.json();
+        
+        if (data.sessions && data.planLimit) {
+          const newSessionCount = data.sessions.length;
+          const previousCount = lastSessionCountRef.current;
+          
+          // ✅ Update sessions and plan limits
+          setSessions(data.sessions);
+          setPlanLimit(data.planLimit);
+          
+          // ✅ DETECT NEW CHAT - Show notification & play sound
+          if (newSessionCount > previousCount) {
+            console.log("🆕 New chat detected!", newSessionCount, "vs", previousCount);
+            
+            // Play notification sound
+            if (audioRef.current) {
+              audioRef.current.play().catch(() => {});
+            }
+            
+            // Show browser notification
+            if (Notification.permission === "granted") {
+              const newSession = data.sessions[0]; // Most recently updated
+              new Notification("New Chat Request", {
+                body: "From: " + (newSession.email || 'Customer'),
+                icon: '/favicon.ico'
+              });
+            }
+            
+            // ✅ AUTO-SWITCH TO REQUESTS TAB IF NEW CHAT IS OVER LIMIT
+            const newestSession = data.sessions.find(s => 
+              !sessions.find(old => old.sessionId === s.sessionId)
+            );
+            
+            if (newestSession && newestSession.isOverLimit) {
+              console.log("📬 New over-limit chat - switching to Requests tab");
+              setFilterStatus("requests");
+            }
+          }
+          
+          // Update session count tracker
+          lastSessionCountRef.current = newSessionCount;
+        }
+      } catch (e) {
+        console.error("Session refresh failed:", e);
+      }
+    }, 2000); // ✅ Poll every 2 seconds for real-time feel
+    
+    return () => clearInterval(interval);
+  }, [sessions]); // ✅ Depend on sessions to detect changes
+
   // ✅ FILTER SESSIONS BASED ON TAB AND LIMIT STATUS
   const filteredSessions = useMemo(() => {
     let filtered = sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
     
     if (filterStatus === "requests") {
-      // ✅ ONLY show over-limit chats (these are chats created AFTER the plan limit)
       filtered = filtered.filter(s => s.isOverLimit === true);
     } else {
-      // ✅ EXCLUDE over-limit chats from normal tabs
       filtered = filtered.filter(s => s.isOverLimit !== true);
       
       if (filterStatus === "pending") {
@@ -201,6 +236,7 @@ export default function NeuralChatAdmin() {
     }
   };
 
+  // ✅ POLL ACTIVE CHAT MESSAGES
   useEffect(() => {
     if (!activeSession) return;
     const interval = setInterval(async () => {
@@ -215,20 +251,12 @@ export default function NeuralChatAdmin() {
             }
             setMessages(data);
             lastMessageIdRef.current = latestServerMsg.id;
-            setSessions(prev => {
-              const updated = prev.map(s =>
-                s.sessionId === activeSession.sessionId
-                  ? { ...s, updatedAt: new Date().toISOString() }
-                  : s
-              );
-              return [...updated].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-            });
           }
         }
       } catch (err) {
         console.error("Message polling error", err);
       }
-    }, 3000);
+    }, 2000); // ✅ Poll messages every 2 seconds too
     return () => clearInterval(interval);
   }, [activeSession]);
 
@@ -261,7 +289,6 @@ export default function NeuralChatAdmin() {
   };
 
   const handleReply = (text = null) => {
-    // ✅ BLOCK REPLIES FOR OVER-LIMIT CHATS
     if (isActiveSessionOverLimit) {
       alert("This chat is over your plan limit. Upgrade to respond to new customer requests.");
       return;
@@ -491,7 +518,7 @@ export default function NeuralChatAdmin() {
         </div>
       </div>
 
-      {/* CHAT AREA - Rest of the code remains the same */}
+      {/* CHAT AREA */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
         {activeSession ? (
           <>
@@ -770,7 +797,7 @@ export default function NeuralChatAdmin() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f3f4f6; }
+        ::-webkit-scrollbar-track { background: '#f3f4f6'; }
         ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
       `}</style>
