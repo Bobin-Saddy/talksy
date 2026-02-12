@@ -28,6 +28,7 @@ const Icons = {
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+
   if (!shop) throw new Response("Unauthorized", { status: 401 });
 
   const sessions = await prisma.chatSession.findMany({
@@ -38,34 +39,25 @@ export const loader = async ({ request }) => {
         take: 1
       }
     },
-    orderBy: { createdAt: "asc" } // order by creation for proper limit index
+    orderBy: { createdAt: "asc" }
   });
 
   const chatLimit = await canCreateChat(shop);
 
-  const sessionsWithLimitInfo = sessions.map((session, index) => ({
-    ...session,
-    chatIndex: index + 1,
-    isOverLimit: chatLimit.max > 0 && index >= chatLimit.max,
-  }));
-
-  // Sort by updatedAt for display
-  sessionsWithLimitInfo.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-
-  return json({
-    sessions: sessionsWithLimitInfo,
-    currentShop: shop,
-    planLimit: {
-      current: sessions.length,
-      max: chatLimit.max,
-      remaining: chatLimit.remaining,
-      isNearLimit: chatLimit.remaining <= 5 && chatLimit.remaining > 0,
-      isAtLimit: !chatLimit.allowed,
-      isOverLimit: chatLimit.max > 0 && sessions.length > chatLimit.max,
-      overLimitBy: chatLimit.max > 0 ? Math.max(0, sessions.length - chatLimit.max) : 0,
+  return json(
+    {
+      sessions,
+      planLimit: chatLimit,
+      currentShop: shop
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store"   // 🔥 IMPORTANT
+      }
     }
-  });
+  );
 };
+
 
 export const action = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -143,9 +135,11 @@ export default function NeuralChatAdmin() {
   useEffect(() => {
     const pollSessions = async () => {
       try {
-        const res = await fetch(window.location.pathname, {
-          headers: { 'Accept': 'application/json' }
-        });
+        const res = await fetch(window.location.pathname + "?t=" + Date.now(), {
+  headers: { 'Accept': 'application/json' },
+  cache: "no-store"
+});
+
         const data = await res.json();
 
         if (!data.sessions || !data.planLimit) return;
