@@ -1,4 +1,3 @@
-// app/routes/app.chat.reply.jsx - FIXED VERSION
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { canCreateChat } from "../planLimits.server";
@@ -20,6 +19,7 @@ export const action = async ({ request }) => {
     const body = await request.json();
     const { sessionId, message, sender, shop, email, fileUrl } = body;
 
+    // ✅ Validate required parameters
     if (!shop) {
       return json(
         { error: "Shop parameter is required" }, 
@@ -27,17 +27,48 @@ export const action = async ({ request }) => {
       );
     }
 
-    // Check if this is a new session
+    if (!sessionId) {
+      return json(
+        { error: "Session ID is required" }, 
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // ✅ Check if session already exists
     const existingSession = await prisma.chatSession.findUnique({
       where: { sessionId },
+      select: {
+        id: true,
+        sessionId: true,
+        shop: true,
+        email: true,
+        isResolved: true,
+        _count: {
+          select: { messages: true }
+        }
+      }
     });
 
-    // ✅ CHECK PLAN LIMITS ONLY FOR NEW CHATS
-    const chatLimit = await canCreateChat(shop);
     const isNewChat = !existingSession;
-    const limitReached = isNewChat && !chatLimit.allowed;
 
-    // ✅ ALWAYS CREATE THE SESSION (so admin can see it)
+    // ✅ CHECK PLAN LIMITS ONLY FOR NEW CHATS
+    let chatLimit = { allowed: true, current: 0, max: 0, remaining: 0 };
+    let limitReached = false;
+
+    if (isNewChat) {
+      chatLimit = await canCreateChat(shop);
+      limitReached = !chatLimit.allowed;
+      
+      console.log(`📊 Plan check for ${shop}:`, {
+        isNewChat,
+        current: chatLimit.current,
+        max: chatLimit.max,
+        allowed: chatLimit.allowed,
+        limitReached
+      });
+    }
+
+    // ✅ ALWAYS CREATE/UPDATE THE SESSION (so admin can see it)
     const chatSession = await prisma.chatSession.upsert({
       where: { sessionId: sessionId },
       update: {
@@ -45,16 +76,17 @@ export const action = async ({ request }) => {
       },
       create: {
         sessionId: sessionId,
-        shop: shop || "unknown-shop",
+        shop: shop,
         email: email || "customer@email.com",
-        firstName: "Customer",
+        firstName: email ? email.split('@')[0] : "Customer",
+        isResolved: false,
       },
     });
 
     // ✅ ALWAYS SAVE THE USER'S MESSAGE
     const newMessage = await prisma.chatMessage.create({
       data: {
-        message: message,
+        message: message || "",
         sender: sender || "user",
         fileUrl: fileUrl || null,
         session: {
@@ -63,7 +95,9 @@ export const action = async ({ request }) => {
       },
     });
 
-    // ✅ IF LIMIT REACHED, SEND AUTO-REPLY FROM BOT
+    console.log(`💬 Message saved from ${sender} in session ${sessionId}`);
+
+    // ✅ IF LIMIT REACHED ON NEW CHAT, SEND AUTO-REPLY FROM BOT
     if (limitReached) {
       const botReply = await prisma.chatMessage.create({
         data: {
@@ -75,7 +109,7 @@ export const action = async ({ request }) => {
         },
       });
 
-      console.log(`⚠️ Chat limit reached for ${shop}: ${chatLimit.current}/${chatLimit.max} - Auto-reply sent`);
+      console.log(`⚠️ LIMIT REACHED for ${shop}: ${chatLimit.current + 1}/${chatLimit.max} - Auto-reply sent`);
 
       return json(
         { 
@@ -93,7 +127,7 @@ export const action = async ({ request }) => {
       );
     }
 
-    // ✅ NORMAL RESPONSE (LIMIT NOT REACHED)
+    // ✅ NORMAL RESPONSE (LIMIT NOT REACHED OR EXISTING CHAT)
     return json(
       { 
         success: true, 
@@ -101,17 +135,20 @@ export const action = async ({ request }) => {
         limitReached: false,
         usage: {
           current: chatLimit.current + (isNewChat ? 1 : 0),
-          max: chatLimit.max,
-          remaining: chatLimit.remaining - (isNewChat ? 1 : 0),
+          max: chatLimit.max || 0,
+          remaining: isNewChat ? (chatLimit.remaining - 1) : chatLimit.remaining,
         },
       }, 
       { headers: corsHeaders }
     );
 
   } catch (error) {
-    console.error("Reply Error:", error);
+    console.error("❌ Reply Error:", error);
     return json(
-      { error: error.message }, 
+      { 
+        error: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }, 
       { status: 500, headers: corsHeaders }
     );
   }
