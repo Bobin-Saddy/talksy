@@ -154,37 +154,53 @@ export default function NeuralChatAdmin() {
           const newSessionCount = data.sessions.length;
           const previousCount = lastSessionCountRef.current;
           
-          // ✅ Update sessions and plan limits
+          // ✅ Find truly new sessions by comparing session IDs
+          const currentSessionIds = sessions.map(s => s.sessionId);
+          const newSessions = data.sessions.filter(s => 
+            !currentSessionIds.includes(s.sessionId)
+          );
+          
+          // ✅ Detect sessions with new messages (updated timestamp changed)
+          const updatedSessions = data.sessions.filter(newS => {
+            const oldS = sessions.find(s => s.sessionId === newS.sessionId);
+            return oldS && new Date(newS.updatedAt) > new Date(oldS.updatedAt);
+          });
+          
+          // ✅ Update sessions and plan limits ALWAYS
           setSessions(data.sessions);
           setPlanLimit(data.planLimit);
           
           // ✅ DETECT NEW CHAT - Show notification & play sound
-          if (newSessionCount > previousCount) {
-            console.log("🆕 New chat detected!", newSessionCount, "vs", previousCount);
+          if (newSessions.length > 0) {
+            console.log("🆕 New chat(s) detected!", newSessions.length, "new sessions");
             
             // Play notification sound
             if (audioRef.current) {
               audioRef.current.play().catch(() => {});
             }
             
-            // Show browser notification
+            // Show browser notification for each new session
             if (Notification.permission === "granted") {
-              const newSession = data.sessions[0]; // Most recently updated
-              new Notification("New Chat Request", {
-                body: "From: " + (newSession.email || 'Customer'),
-                icon: '/favicon.ico'
+              newSessions.forEach(newSession => {
+                new Notification("New Chat Request", {
+                  body: "From: " + (newSession.email || 'Customer'),
+                  icon: '/favicon.ico'
+                });
               });
             }
             
-            // ✅ AUTO-SWITCH TO REQUESTS TAB IF NEW CHAT IS OVER LIMIT
-            const newestSession = data.sessions.find(s => 
-              !sessions.find(old => old.sessionId === s.sessionId)
-            );
-            
-            if (newestSession && newestSession.isOverLimit) {
+            // ✅ AUTO-SWITCH TO REQUESTS TAB IF ANY NEW CHAT IS OVER LIMIT
+            const hasOverLimitNewChat = newSessions.some(s => s.isOverLimit);
+            if (hasOverLimitNewChat) {
               console.log("📬 New over-limit chat - switching to Requests tab");
               setFilterStatus("requests");
             }
+          }
+          
+          // ✅ Handle updated sessions (new messages in existing chats)
+          if (updatedSessions.length > 0 && newSessions.length === 0) {
+            console.log("📨 Message updates detected in", updatedSessions.length, "sessions");
+            // Optionally play a softer sound or just update silently
           }
           
           // Update session count tracker
@@ -193,7 +209,7 @@ export default function NeuralChatAdmin() {
       } catch (e) {
         console.error("Session refresh failed:", e);
       }
-    }, 2000); // ✅ Poll every 2 seconds for real-time feel
+    }, 1500); // ✅ Poll every 1.5 seconds for faster updates
     
     return () => clearInterval(interval);
   }, [sessions]); // ✅ Depend on sessions to detect changes
