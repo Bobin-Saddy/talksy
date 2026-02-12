@@ -1,4 +1,4 @@
-// app/routes/app.subscription.confirm.jsx - FIXED WITH APP BRIDGE
+// app/routes/app.subscription.confirm.jsx - CORRECTED VERSION
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "react-router";
 import { useEffect } from "react";
@@ -97,20 +97,21 @@ export const loader = async ({ request }) => {
       },
     });
 
-    // ✅ FIXED: Use parentheses instead of backticks
-    console.log(`✅ Subscription confirmed for ${shop}: ${planKey} (${status})`);
+    // ✅ FIXED: Using proper string concatenation instead of template literal
+    console.log("✅ Subscription confirmed for " + shop + ": " + planKey + " (" + status + ")");
 
     // Return success for client-side redirect
     return json({ 
       success: true,
-      redirect: `/app/subscription?success=true&plan=${planKey}`
+      redirect: "/app/subscription?success=true&plan=" + planKey
     });
 
   } catch (error) {
     console.error("❌ Error confirming subscription:", error);
     return json({ 
       error: "confirmation-failed",
-      redirect: "/app/subscription?error=confirmation-failed"
+      redirect: "/app/subscription?error=confirmation-failed",
+      message: error.message
     });
   }
 };
@@ -126,5 +127,30 @@ export default function SubscriptionConfirm() {
     }
   }, [data, navigate]);
 
-  return null;
+  return (
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      height: '100vh',
+      fontFamily: 'system-ui, sans-serif'
+    }}>
+      <div style={{ textAlign: 'center', maxWidth: '400px', padding: '24px' }}>
+        {data?.error ? (
+          <>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+            <h2 style={{ color: '#dc2626', marginBottom: '8px' }}>Confirmation Failed</h2>
+            <p style={{ color: '#6b7280' }}>Redirecting you back to subscription page...</p>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>✅</div>
+            <h2 style={{ color: '#10b981', marginBottom: '8px' }}>Processing Subscription</h2>
+            <p style={{ color: '#6b7280' }}>Please wait while we confirm your subscription...</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
