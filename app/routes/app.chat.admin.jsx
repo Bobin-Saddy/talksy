@@ -143,7 +143,11 @@ export default function NeuralChatAdmin() {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch("/app/chat/admin");
+        const res = await fetch(window.location.pathname, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
         const data = await res.json();
         
         if (data.sessions && data.planLimit) {
