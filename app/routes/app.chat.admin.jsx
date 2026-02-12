@@ -21,6 +21,8 @@ const Icons = {
   Check: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
   TrendingUp: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
   AlertTriangle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
+  Inbox: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>,
+  Lock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>,
 };
 
 export const loader = async ({ request }) => {
@@ -28,7 +30,7 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   if (!shop) throw new Response("Unauthorized", { status: 401 });
 
-  // ✅ ALWAYS FETCH ALL SESSIONS (don't filter by limit)
+  // ✅ FETCH ALL SESSIONS WITH INDEX
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
     include: {
@@ -37,22 +39,32 @@ export const loader = async ({ request }) => {
         take: 1
       }
     },
-    orderBy: { updatedAt: "desc" }
+    orderBy: { createdAt: "asc" } // ✅ Order by creation to get proper index
   });
 
-  // ✅ GET PLAN LIMITS (but don't use them to filter sessions)
+  // ✅ GET PLAN LIMITS
   const chatLimit = await canCreateChat(shop);
 
+  // ✅ MARK SESSIONS AS OVER-LIMIT OR WITHIN-LIMIT
+  const sessionsWithLimitInfo = sessions.map((session, index) => ({
+    ...session,
+    chatIndex: index + 1, // 1-based index
+    isOverLimit: index >= chatLimit.max && chatLimit.max > 0, // Sessions beyond the limit
+  }));
+
+  // Sort by updated time for display
+  sessionsWithLimitInfo.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
   return json({ 
-    sessions, // ✅ ALL sessions, even over limit
+    sessions: sessionsWithLimitInfo,
     currentShop: shop,
     planLimit: {
-      current: sessions.length, // ✅ Actual count of all chats
+      current: sessions.length,
       max: chatLimit.max,
       remaining: chatLimit.remaining,
       isNearLimit: chatLimit.remaining <= 5 && chatLimit.remaining > 0,
-      isAtLimit: !chatLimit.allowed, // ✅ Can't create NEW chats
-      isOverLimit: chatLimit.max > 0 && sessions.length > chatLimit.max, // ✅ NEW FLAG
+      isAtLimit: !chatLimit.allowed,
+      isOverLimit: chatLimit.max > 0 && sessions.length > chatLimit.max,
       overLimitBy: chatLimit.max > 0 ? Math.max(0, sessions.length - chatLimit.max) : 0,
     }
   });
@@ -104,7 +116,7 @@ export default function NeuralChatAdmin() {
   const [filePreview, setFilePreview] = useState(null); 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all"); // all, pending, resolved, requests
 
   const fetcher = useFetcher();
   const scrollRef = useRef(null);
@@ -135,7 +147,6 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
-  // ✅ UPDATE PLAN LIMITS ON SESSION REFRESH
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -152,15 +163,33 @@ export default function NeuralChatAdmin() {
     return () => clearInterval(interval);
   }, []);
 
+  // ✅ FILTER SESSIONS BASED ON TAB AND LIMIT STATUS
   const filteredSessions = useMemo(() => {
     let filtered = sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
-    if (filterStatus === "pending") {
-      filtered = filtered.filter(s => !s.isResolved);
-    } else if (filterStatus === "resolved") {
-      filtered = filtered.filter(s => s.isResolved);
+    
+    if (filterStatus === "requests") {
+      // ✅ ONLY show over-limit chats
+      filtered = filtered.filter(s => s.isOverLimit);
+    } else {
+      // ✅ EXCLUDE over-limit chats from normal tabs
+      filtered = filtered.filter(s => !s.isOverLimit);
+      
+      if (filterStatus === "pending") {
+        filtered = filtered.filter(s => !s.isResolved);
+      } else if (filterStatus === "resolved") {
+        filtered = filtered.filter(s => s.isResolved);
+      }
     }
+    
     return filtered;
   }, [sessions, searchTerm, filterStatus]);
+
+  // ✅ CHECK IF ACTIVE SESSION IS OVER LIMIT
+  const isActiveSessionOverLimit = activeSession?.isOverLimit || false;
+
+  // ✅ COUNT SESSIONS FOR TABS
+  const withinLimitSessions = sessions.filter(s => !s.isOverLimit);
+  const overLimitSessions = sessions.filter(s => s.isOverLimit);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -238,6 +267,12 @@ export default function NeuralChatAdmin() {
   };
 
   const handleReply = (text = null) => {
+    // ✅ BLOCK REPLIES FOR OVER-LIMIT CHATS
+    if (isActiveSessionOverLimit) {
+      alert("This chat is over your plan limit. Upgrade to respond to new customer requests.");
+      return;
+    }
+
     const finalMsg = text || reply;
     const finalFile = filePreview?.url;
     if ((!finalMsg.trim() && !finalFile) || !activeSession) return;
@@ -309,7 +344,7 @@ export default function NeuralChatAdmin() {
           <p style={{ fontSize: '13px', color: '#6b7280', marginTop: 4 }}>Manage customer conversations</p>
         </div>
 
-        {/* ✅ OVER LIMIT WARNING - Most Severe */}
+        {/* ✅ OVER LIMIT WARNING */}
         {planLimit.isOverLimit && (
           <div style={{ 
             margin: '0 16px 16px', 
@@ -326,8 +361,7 @@ export default function NeuralChatAdmin() {
               </div>
             </div>
             <div style={{ fontSize: '12px', opacity: 0.95, lineHeight: '1.4' }}>
-              You have {planLimit.current} chats but your plan allows {planLimit.max}. 
-              You can view all conversations, but new customers will see an auto-reply.
+              {planLimit.overLimitBy} customer{planLimit.overLimitBy !== 1 ? 's' : ''} in the Requests tab. Check the "Requests" tab to view.
             </div>
             <button 
               onClick={() => window.location.href = '/app/subscription'}
@@ -349,69 +383,11 @@ export default function NeuralChatAdmin() {
           </div>
         )}
 
-        {/* ✅ AT LIMIT WARNING */}
-        {planLimit.isAtLimit && !planLimit.isOverLimit && (
-          <div style={{ 
-            margin: '0 16px 16px', 
-            padding: '14px', 
-            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', 
-            borderRadius: '12px', 
-            color: 'white',
-            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-              <Icons.AlertTriangle />
-              <div style={{ fontSize: '13px', fontWeight: '700' }}>Chat Limit Reached</div>
-            </div>
-            <div style={{ fontSize: '12px', opacity: 0.95, lineHeight: '1.4' }}>
-              You've reached your plan limit of {planLimit.max} chats. New customers will see an auto-reply. 
-            </div>
-            <button 
-              onClick={() => window.location.href = '/app/subscription'}
-              style={{ 
-                marginTop: '10px', 
-                padding: '8px 14px', 
-                background: 'white', 
-                color: '#ef4444', 
-                border: 'none', 
-                borderRadius: '8px', 
-                fontWeight: '600', 
-                fontSize: '12px', 
-                cursor: 'pointer',
-                width: '100%'
-              }}
-            >
-              Upgrade Plan
-            </button>
-          </div>
-        )}
-
-        {/* ✅ NEAR LIMIT WARNING */}
-        {planLimit.isNearLimit && !planLimit.isAtLimit && !planLimit.isOverLimit && (
-          <div style={{ 
-            margin: '0 16px 16px', 
-            padding: '14px', 
-            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', 
-            borderRadius: '12px', 
-            color: 'white',
-            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-              <Icons.AlertCircle />
-              <div style={{ fontSize: '13px', fontWeight: '700' }}>Almost at Limit!</div>
-            </div>
-            <div style={{ fontSize: '12px', opacity: 0.95 }}>
-              Only {planLimit.remaining} chat{planLimit.remaining !== 1 ? 's' : ''} remaining out of {planLimit.max}
-            </div>
-          </div>
-        )}
-
-        {/* Filter Tabs */}
-        <div style={{ padding: '0 16px 16px', display: 'flex', gap: '6px', borderBottom: '1px solid #f3f4f6' }}>
+        {/* ✅ 4-TAB FILTER */}
+        <div style={{ padding: '0 16px 16px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', borderBottom: '1px solid #f3f4f6' }}>
           <button 
             onClick={() => setFilterStatus("all")}
             style={{ 
-              flex: 1, 
               padding: '8px 12px', 
               borderRadius: '8px', 
               border: filterStatus === "all" ? 'none' : '1px solid #e5e7eb', 
@@ -423,12 +399,11 @@ export default function NeuralChatAdmin() {
               transition: 'all 0.2s'
             }}
           >
-            All {sessions.length > 0 && `(${sessions.length})`}
+            All {withinLimitSessions.length > 0 && `(${withinLimitSessions.length})`}
           </button>
           <button 
             onClick={() => setFilterStatus("pending")}
             style={{ 
-              flex: 1, 
               padding: '8px 12px', 
               borderRadius: '8px', 
               border: filterStatus === "pending" ? 'none' : '1px solid #e5e7eb',
@@ -440,12 +415,11 @@ export default function NeuralChatAdmin() {
               transition: 'all 0.2s'
             }}
           >
-            Pending {sessions.filter(s => !s.isResolved).length > 0 && `(${sessions.filter(s => !s.isResolved).length})`}
+            Pending {withinLimitSessions.filter(s => !s.isResolved).length > 0 && `(${withinLimitSessions.filter(s => !s.isResolved).length})`}
           </button>
           <button 
             onClick={() => setFilterStatus("resolved")}
             style={{ 
-              flex: 1, 
               padding: '8px 12px', 
               borderRadius: '8px', 
               border: filterStatus === "resolved" ? 'none' : '1px solid #e5e7eb',
@@ -457,7 +431,28 @@ export default function NeuralChatAdmin() {
               transition: 'all 0.2s'
             }}
           >
-            Resolved {sessions.filter(s => s.isResolved).length > 0 && `(${sessions.filter(s => s.isResolved).length})`}
+            Resolved {withinLimitSessions.filter(s => s.isResolved).length > 0 && `(${withinLimitSessions.filter(s => s.isResolved).length})`}
+          </button>
+          <button 
+            onClick={() => setFilterStatus("requests")}
+            style={{ 
+              padding: '8px 12px', 
+              borderRadius: '8px', 
+              border: filterStatus === "requests" ? 'none' : '1px solid #e5e7eb',
+              background: filterStatus === "requests" ? '#7c3aed' : '#fff',
+              color: filterStatus === "requests" ? '#fff' : '#6b7280',
+              fontWeight: '600',
+              fontSize: '12px',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            <Icons.Inbox />
+            Requests {overLimitSessions.length > 0 && `(${overLimitSessions.length})`}
           </button>
         </div>
 
@@ -472,8 +467,8 @@ export default function NeuralChatAdmin() {
           {filteredSessions.map(session => (
             <div key={session.sessionId} onClick={() => loadChat(session)} style={{ position: 'relative', padding: '12px', borderRadius: '12px', cursor: 'pointer', marginBottom: '6px', background: activeSession?.sessionId === session.sessionId ? '#f0f9ff' : 'transparent', border: activeSession?.sessionId === session.sessionId ? '1px solid #bae6fd' : '1px solid transparent', transition: 'all 0.2s' }}>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: activeSession?.sessionId === session.sessionId ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: activeSession?.sessionId === session.sessionId ? 'white' : '#9ca3af', flexShrink: 0 }}>
-                  <Icons.User size={20} />
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: activeSession?.sessionId === session.sessionId ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : (session.isOverLimit ? '#fef3c7' : '#f3f4f6'), display: 'flex', alignItems: 'center', justifyContent: 'center', color: activeSession?.sessionId === session.sessionId ? 'white' : (session.isOverLimit ? '#92400e' : '#9ca3af'), flexShrink: 0 }}>
+                  {session.isOverLimit ? <Icons.Lock /> : <Icons.User size={20} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 2 }}>
@@ -481,6 +476,11 @@ export default function NeuralChatAdmin() {
                     {session.isResolved && (
                       <div style={{ background: '#10b981', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Icons.Check />
+                      </div>
+                    )}
+                    {session.isOverLimit && (
+                      <div style={{ background: '#f59e0b', color: 'white', fontSize: '9px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px' }}>
+                        REQUEST
                       </div>
                     )}
                   </div>
@@ -501,25 +501,37 @@ export default function NeuralChatAdmin() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
         {activeSession ? (
           <>
-            <div style={{ padding: '20px 32px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
+            {/* ✅ HEADER WITH OVER-LIMIT WARNING */}
+            <div style={{ padding: '20px 32px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isActiveSessionOverLimit ? '#fef3c7' : '#fff' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <h3 style={{ margin: 0, fontWeight: '700', fontSize: '18px', color: '#111827' }}>{activeSession.email}</h3>
-                  {activeSession.isResolved && (
+                  {isActiveSessionOverLimit && (
+                    <div style={{ background: '#f59e0b', color: 'white', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Icons.Lock />
+                      Over Limit
+                    </div>
+                  )}
+                  {activeSession.isResolved && !isActiveSessionOverLimit && (
                     <div style={{ background: '#d1fae5', color: '#065f46', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Icons.Check />
                       Resolved
                     </div>
                   )}
                 </div>
-                {activeSession.resolvedAt && (
+                {isActiveSessionOverLimit && (
+                  <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px', fontWeight: '500' }}>
+                    This chat is over your plan limit. Upgrade to respond.
+                  </div>
+                )}
+                {activeSession.resolvedAt && !isActiveSessionOverLimit && (
                   <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                     Resolved on {new Date(activeSession.resolvedAt).toLocaleDateString()}
                   </div>
                 )}
               </div>
               
-              {!activeSession.isResolved ? (
+              {!isActiveSessionOverLimit && !activeSession.isResolved && (
                 <button 
                   onClick={handleMarkResolved}
                   style={{ 
@@ -543,7 +555,9 @@ export default function NeuralChatAdmin() {
                   <Icons.CheckCircle />
                   Mark as Resolved
                 </button>
-              ) : (
+              )}
+              
+              {!isActiveSessionOverLimit && activeSession.isResolved && (
                 <button 
                   onClick={handleReopenChat}
                   style={{ 
@@ -567,6 +581,29 @@ export default function NeuralChatAdmin() {
                   Reopen Chat
                 </button>
               )}
+
+              {isActiveSessionOverLimit && (
+                <button 
+                  onClick={() => window.location.href = '/app/subscription'}
+                  style={{ 
+                    padding: '10px 18px', 
+                    borderRadius: '10px', 
+                    border: 'none', 
+                    background: '#f59e0b',
+                    color: '#fff',
+                    fontWeight: '600',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Icons.TrendingUp />
+                  Upgrade Plan
+                </button>
+              )}
             </div>
 
             <div ref={scrollRef} style={{ flex: 1, padding: '32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', background: '#f9fafb' }}>
@@ -588,7 +625,7 @@ export default function NeuralChatAdmin() {
               ))}
             </div>
 
-            {filePreview && (
+            {filePreview && !isActiveSessionOverLimit && (
               <div style={{ padding: '12px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ position: 'relative' }}>
                   {filePreview.type.includes('image') ? (
@@ -605,25 +642,59 @@ export default function NeuralChatAdmin() {
               </div>
             )}
 
-            <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid #e5e7eb', position: 'relative' }}>
-              {showEmojiPicker && (
-                <div style={{ position: 'absolute', bottom: '80px', left: '32px', background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', zIndex: 10 }}>
-                  {emojis.map(e => (
-                    <button key={e} onClick={() => addEmoji(e)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', padding: '6px', borderRadius: '8px', transition: 'all 0.2s' }} onMouseEnter={(e) => e.target.style.background = '#f3f4f6'} onMouseLeave={(e) => e.target.style.background = 'none'}>
-                      {e}
-                    </button>
-                  ))}
-                </div>
-              )}
+            {/* ✅ INPUT AREA - DISABLED FOR OVER-LIMIT CHATS */}
+            {!isActiveSessionOverLimit ? (
+              <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid #e5e7eb', position: 'relative' }}>
+                {showEmojiPicker && (
+                  <div style={{ position: 'absolute', bottom: '80px', left: '32px', background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', zIndex: 10 }}>
+                    {emojis.map(e => (
+                      <button key={e} onClick={() => addEmoji(e)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', padding: '6px', borderRadius: '8px', transition: 'all 0.2s' }} onMouseEnter={(e) => e.target.style.background = '#f3f4f6'} onMouseLeave={(e) => e.target.style.background = 'none'}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-              <div style={{ display: 'flex', alignItems: 'center', background: '#f9fafb', borderRadius: '12px', padding: '6px 8px', border: '1px solid #e5e7eb' }}>
-                <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} accept="image/*,.pdf" />
-                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: showEmojiPicker ? accentColor : '#9ca3af', padding: '8px' }}><Icons.Smile /></button>
-                <button onClick={() => fileInputRef.current.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', margin: '0 8px', color: '#9ca3af', padding: '8px' }}><Icons.Paperclip /></button>
-                <input placeholder="Type a message..." style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '14px', color: '#111827' }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyPress={(e) => { if(e.key === 'Enter') handleReply(); }} />
-                <button onClick={() => handleReply()} style={{ width: '40px', height: '40px', borderRadius: '10px', background: (reply.trim() || filePreview) ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : '#e5e7eb', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}><Icons.Send /></button>
+                <div style={{ display: 'flex', alignItems: 'center', background: '#f9fafb', borderRadius: '12px', padding: '6px 8px', border: '1px solid #e5e7eb' }}>
+                  <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} accept="image/*,.pdf" />
+                  <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: showEmojiPicker ? accentColor : '#9ca3af', padding: '8px' }}><Icons.Smile /></button>
+                  <button onClick={() => fileInputRef.current.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', margin: '0 8px', color: '#9ca3af', padding: '8px' }}><Icons.Paperclip /></button>
+                  <input placeholder="Type a message..." style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '14px', color: '#111827' }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyPress={(e) => { if(e.key === 'Enter') handleReply(); }} />
+                  <button onClick={() => handleReply()} style={{ width: '40px', height: '40px', borderRadius: '10px', background: (reply.trim() || filePreview) ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : '#e5e7eb', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}><Icons.Send /></button>
+                </div>
               </div>
-            </div>
+            ) : (
+              // ✅ LOCKED INPUT FOR OVER-LIMIT CHATS
+              <div style={{ padding: '20px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', borderRadius: '12px', border: '2px dashed #f59e0b' }}>
+                  <Icons.Lock />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#92400e', marginBottom: '4px' }}>
+                      Chat Locked - Over Plan Limit
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#92400e' }}>
+                      Upgrade your plan to respond to this customer request
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => window.location.href = '/app/subscription'}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#f59e0b', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '8px', 
+                      fontWeight: '600', 
+                      fontSize: '12px', 
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Upgrade Now
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#d1d5db', gap: '16px', background: '#f9fafb' }}>
@@ -645,12 +716,12 @@ export default function NeuralChatAdmin() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <Icons.TrendingUp />
             <span style={{ fontSize: '24px', fontWeight: '800', color: planLimit.isOverLimit ? '#92400e' : (planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#1e40af')) }}>
-              {planLimit.current}/{planLimit.max}
+              {planLimit.max > 0 ? `${withinLimitSessions.length}/${planLimit.max}` : `${sessions.length}`}
             </span>
           </div>
           <div style={{ fontSize: '11px', color: planLimit.isOverLimit ? '#92400e' : (planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#60a5fa')) }}>
             {planLimit.isOverLimit 
-              ? `${planLimit.overLimitBy} chat${planLimit.overLimitBy !== 1 ? 's' : ''} over limit` 
+              ? `${planLimit.overLimitBy} request${planLimit.overLimitBy !== 1 ? 's' : ''} in queue` 
               : planLimit.isAtLimit 
                 ? 'At limit - upgrade to continue' 
                 : `${planLimit.remaining} chat${planLimit.remaining !== 1 ? 's' : ''} remaining`}
@@ -678,13 +749,13 @@ export default function NeuralChatAdmin() {
 
         {activeSession && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ padding: '16px', background: activeSession.isResolved ? '#d1fae5' : '#fef3c7', borderRadius: '12px', border: activeSession.isResolved ? '1px solid #86efac' : '1px solid #fcd34d' }}>
-              <div style={{ fontSize: '10px', color: activeSession.isResolved ? '#065f46' : '#92400e', fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
+            <div style={{ padding: '16px', background: activeSession.isResolved ? '#d1fae5' : (isActiveSessionOverLimit ? '#fee2e2' : '#fef3c7'), borderRadius: '12px', border: activeSession.isResolved ? '1px solid #86efac' : (isActiveSessionOverLimit ? '1px solid #fca5a5' : '1px solid #fcd34d') }}>
+              <div style={{ fontSize: '10px', color: activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e'), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
                 STATUS
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '15px', color: activeSession.isResolved ? '#065f46' : '#92400e' }}>
-                {activeSession.isResolved ? <Icons.CheckCircle /> : <Icons.AlertCircle />}
-                {activeSession.isResolved ? 'Resolved' : 'Pending'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '15px', color: activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e') }}>
+                {activeSession.isResolved ? <Icons.CheckCircle /> : (isActiveSessionOverLimit ? <Icons.Lock /> : <Icons.AlertCircle />)}
+                {activeSession.isResolved ? 'Resolved' : (isActiveSessionOverLimit ? 'Over Limit' : 'Pending')}
               </div>
             </div>
 
