@@ -128,7 +128,8 @@ export default function NeuralChatAdmin() {
   const audioRef = useRef(null);
   const lastMessageIdRef = useRef(null);
   const isFirstLoadRef = useRef(true);
-  const lastSessionCountRef = useRef(initialSessions.length); // ✅ Track session count
+  const lastSessionCountRef = useRef(initialSessions.length);
+  const sessionsRef = useRef(initialSessions); // ✅ Track sessions in ref for polling
 
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
 
@@ -139,9 +140,14 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
-  // ✅ REAL-TIME SESSION UPDATES - POLLS EVERY 2 SECONDS
+  // ✅ Update ref whenever sessions change
   useEffect(() => {
-    const interval = setInterval(async () => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
+
+  // ✅ REAL-TIME SESSION UPDATES - POLLS EVERY 1.5 SECONDS
+  useEffect(() => {
+    const pollSessions = async () => {
       try {
         const res = await fetch(window.location.pathname, {
           headers: {
@@ -151,24 +157,36 @@ export default function NeuralChatAdmin() {
         const data = await res.json();
         
         if (data.sessions && data.planLimit) {
-          const newSessionCount = data.sessions.length;
-          const previousCount = lastSessionCountRef.current;
+          // ✅ Use ref to get current sessions (avoids stale closure)
+          const currentSessions = sessionsRef.current;
           
           // ✅ Find truly new sessions by comparing session IDs
-          const currentSessionIds = sessions.map(s => s.sessionId);
+          const currentSessionIds = currentSessions.map(s => s.sessionId);
           const newSessions = data.sessions.filter(s => 
             !currentSessionIds.includes(s.sessionId)
           );
           
           // ✅ Detect sessions with new messages (updated timestamp changed)
           const updatedSessions = data.sessions.filter(newS => {
-            const oldS = sessions.find(s => s.sessionId === newS.sessionId);
+            const oldS = currentSessions.find(s => s.sessionId === newS.sessionId);
             return oldS && new Date(newS.updatedAt) > new Date(oldS.updatedAt);
           });
           
-          // ✅ Update sessions and plan limits ALWAYS
-          setSessions(data.sessions);
-          setPlanLimit(data.planLimit);
+          // ✅ Update sessions and plan limits if there are changes
+          const hasChanges = data.sessions.length !== currentSessions.length ||
+                            newSessions.length > 0 ||
+                            updatedSessions.length > 0;
+          
+          if (hasChanges) {
+            console.log("🔄 Sessions updated:", {
+              total: data.sessions.length,
+              new: newSessions.length,
+              updated: updatedSessions.length
+            });
+            
+            setSessions(data.sessions);
+            setPlanLimit(data.planLimit);
+          }
           
           // ✅ DETECT NEW CHAT - Show notification & play sound
           if (newSessions.length > 0) {
@@ -197,22 +215,20 @@ export default function NeuralChatAdmin() {
             }
           }
           
-          // ✅ Handle updated sessions (new messages in existing chats)
-          if (updatedSessions.length > 0 && newSessions.length === 0) {
-            console.log("📨 Message updates detected in", updatedSessions.length, "sessions");
-            // Optionally play a softer sound or just update silently
-          }
-          
           // Update session count tracker
-          lastSessionCountRef.current = newSessionCount;
+          lastSessionCountRef.current = data.sessions.length;
         }
       } catch (e) {
         console.error("Session refresh failed:", e);
       }
-    }, 1500); // ✅ Poll every 1.5 seconds for faster updates
+    };
     
+    // Poll immediately on mount
+    pollSessions();
+    
+    const interval = setInterval(pollSessions, 1500);
     return () => clearInterval(interval);
-  }, [sessions]); // ✅ Depend on sessions to detect changes
+  }, []); // ✅ Empty dependency - runs once and polls continuously
 
   // ✅ FILTER SESSIONS BASED ON TAB AND LIMIT STATUS
   const filteredSessions = useMemo(() => {
@@ -259,36 +275,47 @@ export default function NeuralChatAdmin() {
   // ✅ POLL ACTIVE CHAT MESSAGES
   useEffect(() => {
     if (!activeSession) return;
-    const interval = setInterval(async () => {
+    
+    const pollMessages = async () => {
       try {
         const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
         const data = await res.json();
         
-        // ✅ Always update messages if the count or content changed
-        if (data.length !== messages.length || 
-            (data.length > 0 && data[data.length - 1].id !== lastMessageIdRef.current)) {
+        // ✅ Check if we have new messages or different content
+        const hasChanges = data.length !== messages.length || 
+          (data.length > 0 && messages.length > 0 && 
+           data[data.length - 1].id !== messages[messages.length - 1]?.id);
+        
+        if (hasChanges) {
+          console.log("📨 Messages updated:", data.length, "messages");
           
-          const latestServerMsg = data[data.length - 1];
-          
-          // ✅ Only notify for NEW user messages (not admin messages)
-          if (latestServerMsg && 
-              latestServerMsg.sender === "user" && 
-              latestServerMsg.id !== lastMessageIdRef.current &&
-              !isFirstLoadRef.current) {
-            notifyNewMessage(activeSession, latestServerMsg);
+          // ✅ Only notify for NEW user messages (not admin messages or initial load)
+          if (data.length > 0) {
+            const latestServerMsg = data[data.length - 1];
+            const wasNewUserMessage = latestServerMsg.sender === "user" && 
+                                      latestServerMsg.id !== lastMessageIdRef.current &&
+                                      !isFirstLoadRef.current;
+            
+            if (wasNewUserMessage) {
+              notifyNewMessage(activeSession, latestServerMsg);
+            }
+            
+            lastMessageIdRef.current = data[data.length - 1].id;
           }
           
           setMessages(data);
-          if (data.length > 0) {
-            lastMessageIdRef.current = data[data.length - 1].id;
-          }
         }
       } catch (err) {
         console.error("Message polling error", err);
       }
-    }, 1500); // ✅ Poll messages every 1.5 seconds for faster updates
+    };
+    
+    // Poll immediately on session change
+    pollMessages();
+    
+    const interval = setInterval(pollMessages, 1500);
     return () => clearInterval(interval);
-  }, [activeSession, messages.length]); // ✅ Add messages.length as dependency
+  }, [activeSession?.sessionId]); // ✅ Only depend on sessionId, not messages
 
   const loadChat = async (session) => {
     setActiveSession(session);
