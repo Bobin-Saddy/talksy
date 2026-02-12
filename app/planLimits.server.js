@@ -4,7 +4,7 @@ import prisma from "./db.server";
 // Plan definitions (must match subscription page)
 export const PLAN_LIMITS = {
   FREE: {
-    maxChats: 100,
+    maxChats: 2,
     maxSearchUsers: 100,
     chatHistoryDays: 30,
     canManageFAQs: false,
@@ -200,7 +200,7 @@ export async function getUsageStats(shop) {
     chats: {
       current: chatCount,
       max: limits.maxChats === -1 ? "Unlimited" : limits.maxChats,
-      percentage: limits.maxChats > 0 ? (chatCount / limits.maxChats) * 100 : 0,
+      percentage: limits.maxChats > 0 ? (chatCount / limits.maxChats) * 2 : 0,
       remaining: limits.maxChats > 0 ? Math.max(0, limits.maxChats - chatCount) : "Unlimited",
     },
     faqs: {

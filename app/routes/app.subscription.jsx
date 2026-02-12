@@ -30,7 +30,7 @@ const PLANS = {
       "Chat history available for 30 days",
     ],
     limits: {
-      maxChats: 100,
+      maxChats: 2,
       maxSearchUsers: 100,
       chatHistoryDays: 30,
       canManageFAQs: false,
@@ -294,7 +294,7 @@ export default function Subscription() {
 
   const currentPlanConfig = PLANS[currentPlan];
   const usagePercentage = currentPlanConfig.limits.maxChats > 0 
-    ? (chatCount / currentPlanConfig.limits.maxChats) * 100 
+    ? (chatCount / currentPlanConfig.limits.maxChats) * 2 
     : 0;
 
   return (
