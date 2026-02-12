@@ -12,8 +12,8 @@ const Icons = {
   User: ({ size = 20 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>,
   Clock: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
   Paperclip: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>,
-  Smile: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" cy="9" x2="9.01" cy="9"></line><line x1="15" cy="9" x2="15.01" cy="9"></line></svg>,
-  X: ({ size = 20, color = "currentColor" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" cy="6" x2="18" y2="18"></line></svg>,
+  Smile: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>,
+  X: ({ size = 20, color = "currentColor" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
   FileText: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>,
   CheckCircle: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
   AlertCircle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
@@ -129,7 +129,9 @@ export default function NeuralChatAdmin() {
   const lastMessageIdRef = useRef(null);
   const isFirstLoadRef = useRef(true);
   const lastSessionCountRef = useRef(initialSessions.length);
-  const sessionsRef = useRef(initialSessions); // ✅ Track sessions in ref for polling
+  const sessionsRef = useRef(initialSessions);
+  // ✅ FIX: Add messagesRef to avoid stale closure in polling
+  const messagesRef = useRef([]);
 
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
 
@@ -140,10 +142,15 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
-  // ✅ Update ref whenever sessions change
+  // ✅ Update sessionsRef whenever sessions change
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
+
+  // ✅ FIX: Update messagesRef whenever messages change
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // ✅ REAL-TIME SESSION UPDATES - POLLS EVERY 1.5 SECONDS
   useEffect(() => {
@@ -157,22 +164,18 @@ export default function NeuralChatAdmin() {
         const data = await res.json();
         
         if (data.sessions && data.planLimit) {
-          // ✅ Use ref to get current sessions (avoids stale closure)
           const currentSessions = sessionsRef.current;
           
-          // ✅ Find truly new sessions by comparing session IDs
           const currentSessionIds = currentSessions.map(s => s.sessionId);
           const newSessions = data.sessions.filter(s => 
             !currentSessionIds.includes(s.sessionId)
           );
           
-          // ✅ Detect sessions with new messages (updated timestamp changed)
           const updatedSessions = data.sessions.filter(newS => {
             const oldS = currentSessions.find(s => s.sessionId === newS.sessionId);
             return oldS && new Date(newS.updatedAt) > new Date(oldS.updatedAt);
           });
           
-          // ✅ Update sessions and plan limits if there are changes
           const hasChanges = data.sessions.length !== currentSessions.length ||
                             newSessions.length > 0 ||
                             updatedSessions.length > 0;
@@ -192,12 +195,10 @@ export default function NeuralChatAdmin() {
           if (newSessions.length > 0) {
             console.log("🆕 New chat(s) detected!", newSessions.length, "new sessions");
             
-            // Play notification sound
             if (audioRef.current) {
               audioRef.current.play().catch(() => {});
             }
             
-            // Show browser notification for each new session
             if (Notification.permission === "granted") {
               newSessions.forEach(newSession => {
                 new Notification("New Chat Request", {
@@ -207,7 +208,6 @@ export default function NeuralChatAdmin() {
               });
             }
             
-            // ✅ AUTO-SWITCH TO REQUESTS TAB IF ANY NEW CHAT IS OVER LIMIT
             const hasOverLimitNewChat = newSessions.some(s => s.isOverLimit);
             if (hasOverLimitNewChat) {
               console.log("📬 New over-limit chat - switching to Requests tab");
@@ -215,7 +215,6 @@ export default function NeuralChatAdmin() {
             }
           }
           
-          // Update session count tracker
           lastSessionCountRef.current = data.sessions.length;
         }
       } catch (e) {
@@ -223,12 +222,10 @@ export default function NeuralChatAdmin() {
       }
     };
     
-    // Poll immediately on mount
     pollSessions();
-    
     const interval = setInterval(pollSessions, 1500);
     return () => clearInterval(interval);
-  }, []); // ✅ Empty dependency - runs once and polls continuously
+  }, []);
 
   // ✅ FILTER SESSIONS BASED ON TAB AND LIMIT STATUS
   const filteredSessions = useMemo(() => {
@@ -272,7 +269,7 @@ export default function NeuralChatAdmin() {
     }
   };
 
-  // ✅ POLL ACTIVE CHAT MESSAGES
+  // ✅ FIX: POLL ACTIVE CHAT MESSAGES - uses messagesRef to avoid stale closure
   useEffect(() => {
     if (!activeSession) return;
     
@@ -281,15 +278,15 @@ export default function NeuralChatAdmin() {
         const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
         const data = await res.json();
         
-        // ✅ Check if we have new messages or different content
-        const hasChanges = data.length !== messages.length || 
-          (data.length > 0 && messages.length > 0 && 
-           data[data.length - 1].id !== messages[messages.length - 1]?.id);
+        // ✅ FIX: Use messagesRef.current instead of stale `messages` state
+        const currentMessages = messagesRef.current;
+        const hasChanges = data.length !== currentMessages.length || 
+          (data.length > 0 && currentMessages.length > 0 && 
+           data[data.length - 1].id !== currentMessages[currentMessages.length - 1]?.id);
         
         if (hasChanges) {
           console.log("📨 Messages updated:", data.length, "messages");
           
-          // ✅ Only notify for NEW user messages (not admin messages or initial load)
           if (data.length > 0) {
             const latestServerMsg = data[data.length - 1];
             const wasNewUserMessage = latestServerMsg.sender === "user" && 
@@ -315,10 +312,11 @@ export default function NeuralChatAdmin() {
     
     const interval = setInterval(pollMessages, 1500);
     return () => clearInterval(interval);
-  }, [activeSession?.sessionId]); // ✅ Only depend on sessionId, not messages
+  }, [activeSession?.sessionId]); // ✅ Dependency stays the same - ref handles stale closure
 
   const loadChat = async (session) => {
     setActiveSession(session);
+    setMessages([]); // ✅ Clear messages when switching sessions
     setUnreadCounts(prev => ({ ...prev, [session.sessionId]: 0 }));
     isFirstLoadRef.current = true;
     try {
@@ -370,7 +368,6 @@ export default function NeuralChatAdmin() {
     setShowEmojiPicker(false);
     
     try {
-      // ✅ Send message to server
       const response = await fetch("/app/chat/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -381,7 +378,6 @@ export default function NeuralChatAdmin() {
       
       if (result.success) {
         console.log("✅ Message sent successfully:", result.newMessage?.id);
-        // ✅ Polling will pick up the new message automatically
       } else {
         console.error("❌ Failed to send message:", result.error);
         alert("Failed to send message. Please try again.");
