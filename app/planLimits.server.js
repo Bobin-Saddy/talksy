@@ -1,4 +1,4 @@
-// app/utils/planLimits.server.js - FIXED VERSION WITH UPSERT
+// app/utils/planLimits.server.js - FIXED TO ALLOW VIEWING OVER-LIMIT CHATS
 import prisma from "./db.server";
 
 // Plan definitions (must match subscription page)
@@ -56,13 +56,24 @@ export async function getShopLimits(shop) {
 }
 
 /**
- * Check if shop can create new chat session
+ * Check if shop can create NEW chat session
+ * ✅ This ONLY blocks NEW chats, existing chats are always accessible
  */
 export async function canCreateChat(shop) {
   const { limits } = await getShopLimits(shop);
   
-  if (limits.maxChats === -1) return { allowed: true }; // Unlimited
+  // Unlimited plan
+  if (limits.maxChats === -1) {
+    return { 
+      allowed: true,
+      current: 0,
+      max: -1,
+      remaining: -1,
+      unlimited: true
+    };
+  }
 
+  // Count existing chat sessions
   const chatCount = await prisma.chatSession.count({
     where: { shop },
   });
@@ -73,8 +84,40 @@ export async function canCreateChat(shop) {
     allowed,
     current: chatCount,
     max: limits.maxChats,
-    remaining: limits.maxChats - chatCount,
+    remaining: Math.max(0, limits.maxChats - chatCount),
+    unlimited: false,
   };
+}
+
+/**
+ * ✅ NEW FUNCTION: Check if shop has exceeded their limit
+ * This is used for DISPLAY purposes only, not blocking access
+ */
+export async function hasExceededChatLimit(shop) {
+  const { limits } = await getShopLimits(shop);
+  
+  if (limits.maxChats === -1) return false; // Unlimited
+  
+  const chatCount = await prisma.chatSession.count({
+    where: { shop },
+  });
+
+  return chatCount > limits.maxChats;
+}
+
+/**
+ * ✅ NEW FUNCTION: Get how many chats are over the limit
+ */
+export async function getOverLimitCount(shop) {
+  const { limits } = await getShopLimits(shop);
+  
+  if (limits.maxChats === -1) return 0; // Unlimited
+  
+  const chatCount = await prisma.chatSession.count({
+    where: { shop },
+  });
+
+  return Math.max(0, chatCount - limits.maxChats);
 }
 
 /**
@@ -153,7 +196,7 @@ export async function cleanupOldChats(shop) {
   if (unlimited || !days) return { deleted: 0 };
 
   const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - days);
+  cutoffDate.setDate(cutoffDate.setDate() - days);
 
   const result = await prisma.chatSession.deleteMany({
     where: {
@@ -169,6 +212,7 @@ export async function cleanupOldChats(shop) {
 
 /**
  * Get usage statistics for a shop
+ * ✅ UPDATED: Shows if over limit
  */
 export async function getUsageStats(shop) {
   const { limits, plan } = await getShopLimits(shop);
@@ -180,6 +224,10 @@ export async function getUsageStats(shop) {
     console.error("Error counting chats:", err);
     return 0;
   });
+
+  // Calculate if over limit
+  const isOverLimit = limits.maxChats > 0 && chatCount > limits.maxChats;
+  const overLimitBy = isOverLimit ? chatCount - limits.maxChats : 0;
 
   // Try to get FAQ count, but handle if table doesn't exist
   let faqCount = 0;
@@ -202,6 +250,8 @@ export async function getUsageStats(shop) {
       max: limits.maxChats === -1 ? "Unlimited" : limits.maxChats,
       percentage: limits.maxChats > 0 ? (chatCount / limits.maxChats) * 100 : 0,
       remaining: limits.maxChats > 0 ? Math.max(0, limits.maxChats - chatCount) : "Unlimited",
+      isOverLimit,
+      overLimitBy,
     },
     faqs: {
       current: faqCount,

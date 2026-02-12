@@ -3,7 +3,7 @@ import { useLoaderData, useFetcher } from "react-router";
 import { useState, useEffect, useRef, useMemo } from "react";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
-import { canCreateChat } from "../planLimits.server"; // ✅ IMPORT
+import { canCreateChat } from "../planLimits.server";
 
 // --- ICONS SET ---
 const Icons = {
@@ -19,7 +19,6 @@ const Icons = {
   AlertCircle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
   RotateCcw: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>,
   Check: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
-  // ✅ NEW ICONS
   TrendingUp: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
   AlertTriangle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
 };
@@ -29,6 +28,7 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   if (!shop) throw new Response("Unauthorized", { status: 401 });
 
+  // ✅ ALWAYS FETCH ALL SESSIONS (don't filter by limit)
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
     include: {
@@ -40,18 +40,20 @@ export const loader = async ({ request }) => {
     orderBy: { updatedAt: "desc" }
   });
 
-  // ✅ GET PLAN LIMITS
+  // ✅ GET PLAN LIMITS (but don't use them to filter sessions)
   const chatLimit = await canCreateChat(shop);
 
   return json({ 
-    sessions, 
+    sessions, // ✅ ALL sessions, even over limit
     currentShop: shop,
     planLimit: {
-      current: sessions.length,
+      current: sessions.length, // ✅ Actual count of all chats
       max: chatLimit.max,
       remaining: chatLimit.remaining,
       isNearLimit: chatLimit.remaining <= 5 && chatLimit.remaining > 0,
-      isAtLimit: !chatLimit.allowed
+      isAtLimit: !chatLimit.allowed, // ✅ Can't create NEW chats
+      isOverLimit: chatLimit.max > 0 && sessions.length > chatLimit.max, // ✅ NEW FLAG
+      overLimitBy: chatLimit.max > 0 ? Math.max(0, sessions.length - chatLimit.max) : 0,
     }
   });
 };
@@ -92,7 +94,7 @@ export const action = async ({ request }) => {
 export default function NeuralChatAdmin() {
   const { sessions: initialSessions, currentShop, planLimit: initialPlanLimit } = useLoaderData();
   const [sessions, setSessions] = useState(initialSessions);
-  const [planLimit, setPlanLimit] = useState(initialPlanLimit); // ✅ TRACK PLAN LIMITS
+  const [planLimit, setPlanLimit] = useState(initialPlanLimit);
   const [activeSession, setActiveSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [reply, setReply] = useState("");
@@ -307,8 +309,48 @@ export default function NeuralChatAdmin() {
           <p style={{ fontSize: '13px', color: '#6b7280', marginTop: 4 }}>Manage customer conversations</p>
         </div>
 
-        {/* ✅ PLAN LIMIT WARNING BANNER */}
-        {planLimit.isAtLimit && (
+        {/* ✅ OVER LIMIT WARNING - Most Severe */}
+        {planLimit.isOverLimit && (
+          <div style={{ 
+            margin: '0 16px 16px', 
+            padding: '14px', 
+            background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)', 
+            borderRadius: '12px', 
+            color: 'white',
+            boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <Icons.AlertTriangle />
+              <div style={{ fontSize: '13px', fontWeight: '700' }}>
+                Over Plan Limit (+{planLimit.overLimitBy} extra)
+              </div>
+            </div>
+            <div style={{ fontSize: '12px', opacity: 0.95, lineHeight: '1.4' }}>
+              You have {planLimit.current} chats but your plan allows {planLimit.max}. 
+              You can view all conversations, but new customers will see an auto-reply.
+            </div>
+            <button 
+              onClick={() => window.location.href = '/app/subscription'}
+              style={{ 
+                marginTop: '10px', 
+                padding: '8px 14px', 
+                background: 'white', 
+                color: '#7c3aed', 
+                border: 'none', 
+                borderRadius: '8px', 
+                fontWeight: '600', 
+                fontSize: '12px', 
+                cursor: 'pointer',
+                width: '100%'
+              }}
+            >
+              Upgrade to Continue
+            </button>
+          </div>
+        )}
+
+        {/* ✅ AT LIMIT WARNING */}
+        {planLimit.isAtLimit && !planLimit.isOverLimit && (
           <div style={{ 
             margin: '0 16px 16px', 
             padding: '14px', 
@@ -345,7 +387,7 @@ export default function NeuralChatAdmin() {
         )}
 
         {/* ✅ NEAR LIMIT WARNING */}
-        {planLimit.isNearLimit && (
+        {planLimit.isNearLimit && !planLimit.isAtLimit && !planLimit.isOverLimit && (
           <div style={{ 
             margin: '0 16px 16px', 
             padding: '14px', 
@@ -455,7 +497,7 @@ export default function NeuralChatAdmin() {
         </div>
       </div>
 
-      {/* CHAT AREA - REST OF THE CODE REMAINS THE SAME */}
+      {/* CHAT AREA */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
         {activeSession ? (
           <>
@@ -596,26 +638,30 @@ export default function NeuralChatAdmin() {
         <h4 style={{ fontSize: '11px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 20 }}>Chat Details</h4>
         
         {/* ✅ PLAN USAGE CARD */}
-        <div style={{ marginBottom: '16px', padding: '16px', background: planLimit.isAtLimit ? '#fee2e2' : (planLimit.isNearLimit ? '#fef3c7' : '#eff6ff'), borderRadius: '12px', border: planLimit.isAtLimit ? '1px solid #fca5a5' : (planLimit.isNearLimit ? '1px solid #fcd34d' : '1px solid #bfdbfe') }}>
-          <div style={{ fontSize: '10px', color: planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#1e40af'), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
+        <div style={{ marginBottom: '16px', padding: '16px', background: planLimit.isOverLimit ? '#fef3c7' : (planLimit.isAtLimit ? '#fee2e2' : (planLimit.isNearLimit ? '#fef3c7' : '#eff6ff')), borderRadius: '12px', border: planLimit.isOverLimit ? '1px solid #fcd34d' : (planLimit.isAtLimit ? '1px solid #fca5a5' : (planLimit.isNearLimit ? '1px solid #fcd34d' : '1px solid #bfdbfe')) }}>
+          <div style={{ fontSize: '10px', color: planLimit.isOverLimit ? '#92400e' : (planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#1e40af')), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
             PLAN USAGE
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <Icons.TrendingUp />
-            <span style={{ fontSize: '24px', fontWeight: '800', color: planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#1e40af') }}>
+            <span style={{ fontSize: '24px', fontWeight: '800', color: planLimit.isOverLimit ? '#92400e' : (planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#1e40af')) }}>
               {planLimit.current}/{planLimit.max}
             </span>
           </div>
-          <div style={{ fontSize: '11px', color: planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#60a5fa') }}>
-            {planLimit.remaining} chat{planLimit.remaining !== 1 ? 's' : ''} remaining
+          <div style={{ fontSize: '11px', color: planLimit.isOverLimit ? '#92400e' : (planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#60a5fa')) }}>
+            {planLimit.isOverLimit 
+              ? `${planLimit.overLimitBy} chat${planLimit.overLimitBy !== 1 ? 's' : ''} over limit` 
+              : planLimit.isAtLimit 
+                ? 'At limit - upgrade to continue' 
+                : `${planLimit.remaining} chat${planLimit.remaining !== 1 ? 's' : ''} remaining`}
           </div>
-          {planLimit.isAtLimit && (
+          {(planLimit.isAtLimit || planLimit.isOverLimit) && (
             <button 
               onClick={() => window.location.href = '/app/subscription'}
               style={{ 
                 marginTop: '12px', 
                 padding: '8px 12px', 
-                background: '#dc2626', 
+                background: planLimit.isOverLimit ? '#f59e0b' : '#dc2626', 
                 color: 'white', 
                 border: 'none', 
                 borderRadius: '8px', 
