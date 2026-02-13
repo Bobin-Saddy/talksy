@@ -1,4 +1,4 @@
-// app/routes/app.chat.message.jsx
+// app/routes/app.chat.message.jsx - IMPROVED WITH INSTANT SESSION UPDATE
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { canCreateChat } from "../planLimits.server";
@@ -27,7 +27,7 @@ export const action = async ({ request }) => {
 
     console.log("📨 Message received:", { 
       sessionId, 
-      sender,           // ✅ Now always defined
+      sender,
       shop, 
       messageLength: message?.length 
     });
@@ -81,37 +81,41 @@ export const action = async ({ request }) => {
       });
     }
 
-    // ✅ ALWAYS CREATE/UPDATE THE SESSION (so admin can see it)
-    // Use updatedAt: new Date() to ensure polling detects the change
-    const chatSession = await prisma.chatSession.upsert({
-      where: { sessionId },
-      update: {
-        updatedAt: new Date(),
-        // ✅ Update email if provided and session exists without email
-        ...(email ? { email } : {}),
-      },
-      create: {
-        sessionId,
-        shop,
-        email: email || "customer@email.com",
-        firstName: email ? email.split('@')[0] : "Customer",
-        isResolved: false,
-      },
-    });
-
-    // ✅ ALWAYS SAVE THE MESSAGE
-    const newMessage = await prisma.chatMessage.create({
-      data: {
-        message: message || "",
-        sender,           // ✅ Always "user", "admin", or "bot" - never undefined
-        fileUrl: fileUrl || null,
-        session: {
-          connect: { sessionId: chatSession.sessionId },
+    // ✅ CRITICAL FIX: Use transaction to ensure updatedAt is updated
+    const result = await prisma.$transaction(async (tx) => {
+      // ✅ ALWAYS CREATE/UPDATE THE SESSION with updatedAt = now()
+      const chatSession = await tx.chatSession.upsert({
+        where: { sessionId },
+        update: {
+          updatedAt: new Date(), // ✅ Force update timestamp for instant admin detection
+          ...(email ? { email } : {}),
         },
-      },
-    });
+        create: {
+          sessionId,
+          shop,
+          email: email || "customer@email.com",
+          firstName: email ? email.split('@')[0] : "Customer",
+          isResolved: false,
+          updatedAt: new Date(), // ✅ Set timestamp on creation too
+        },
+      });
 
-    console.log(`✅ Message saved: ID=${newMessage.id}, Sender=${sender}, Session=${sessionId}`);
+      // ✅ ALWAYS SAVE THE MESSAGE
+      const newMessage = await tx.chatMessage.create({
+        data: {
+          message: message || "",
+          sender,
+          fileUrl: fileUrl || null,
+          session: {
+            connect: { sessionId: chatSession.sessionId },
+          },
+        },
+      });
+
+      console.log(`✅ Message saved: ID=${newMessage.id}, Sender=${sender}, Session=${sessionId}`);
+
+      return { chatSession, newMessage };
+    });
 
     // ✅ IF LIMIT REACHED ON NEW CHAT, SEND AUTO-REPLY FROM BOT
     if (limitReached) {
@@ -120,9 +124,15 @@ export const action = async ({ request }) => {
           message: `Thank you for contacting us! We've reached our chat capacity on our current plan. Our team will respond to you via email at ${email || 'your registered email'} as soon as possible.`,
           sender: "bot",
           session: {
-            connect: { sessionId: chatSession.sessionId },
+            connect: { sessionId: result.chatSession.sessionId },
           },
         },
+      });
+
+      // ✅ Update session timestamp again after bot reply
+      await prisma.chatSession.update({
+        where: { sessionId },
+        data: { updatedAt: new Date() }
       });
 
       console.log(`⚠️ LIMIT REACHED for ${shop}: ${chatLimit.current + 1}/${chatLimit.max} - Auto-reply sent`);
@@ -130,7 +140,7 @@ export const action = async ({ request }) => {
       return json(
         { 
           success: true,
-          newMessage,
+          newMessage: result.newMessage,
           botReply,
           limitReached: true,
           usage: {
@@ -147,7 +157,7 @@ export const action = async ({ request }) => {
     return json(
       { 
         success: true, 
-        newMessage,
+        newMessage: result.newMessage,
         limitReached: false,
         usage: {
           current: chatLimit.current + (isNewChat ? 1 : 0),
