@@ -277,6 +277,24 @@ export async function getChatHistoryDays(shop) {
 }
 
 /**
+ * ✅ BACKWARD COMPATIBLE: Clean up old chats (combines blur + delete)
+ * This function is for compatibility with existing cron jobs
+ */
+export async function cleanupOldChats(shop) {
+  // Mark expired chats as blurred
+  const blurResult = await markExpiredChatsAsBlurred(shop);
+  
+  // Delete chats that have been blurred for 7+ days
+  const deleteResult = await deleteExpiredChats(shop, 7);
+  
+  return {
+    blurred: blurResult.blurred,
+    deleted: deleteResult.deleted,
+    total: blurResult.blurred + deleteResult.deleted
+  };
+}
+
+/**
  * Get usage statistics for a shop
  */
 export async function getUsageStats(shop) {
