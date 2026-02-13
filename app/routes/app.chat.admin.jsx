@@ -160,7 +160,9 @@ export default function NeuralChatAdmin() {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(window.location.pathname, {
+        // ✅ Use clean pathname without query params
+        const pathname = window.location.pathname.split('?')[0];
+        const res = await fetch(pathname, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -279,7 +281,9 @@ export default function NeuralChatAdmin() {
     
     const pollMessages = async () => {
       try {
-        const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId, {
+        // ✅ Properly encode the sessionId to avoid URL issues
+        const encodedSessionId = encodeURIComponent(activeSession.sessionId);
+        const res = await fetch(`/app/chat/messages?sessionId=${encodedSessionId}`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -352,7 +356,9 @@ export default function NeuralChatAdmin() {
     isFirstLoadRef.current = true;
     
     try {
-      const res = await fetch("/app/chat/messages?sessionId=" + session.sessionId, {
+      // ✅ Properly encode the sessionId to avoid URL issues
+      const encodedSessionId = encodeURIComponent(session.sessionId);
+      const res = await fetch(`/app/chat/messages?sessionId=${encodedSessionId}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
