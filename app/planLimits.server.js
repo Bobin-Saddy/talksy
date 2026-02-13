@@ -1,4 +1,4 @@
-// app/utils/planLimits.server.js - WITH TIME-BASED CHAT BLUR
+// app/utils/planLimits.server.js - WITH TIME-BASED CHAT BLUR + SEARCH VISIBILITY
 import prisma from "./db.server";
 
 // Plan definitions with chat retention periods
@@ -12,6 +12,7 @@ export const PLAN_LIMITS = {
     canManageFAQs: false,
     canCustomizeWidget: false,
     canCreateCustomFAQPage: false,
+    maxVisibleSearchLogs: -1, // ✅ FREE: no search blur restriction
   },
   STANDARD: {
     maxChats: 500,
@@ -20,6 +21,7 @@ export const PLAN_LIMITS = {
     canManageFAQs: true,
     canCustomizeWidget: true,
     canCreateCustomFAQPage: false,
+    maxVisibleSearchLogs: 2, // ✅ STANDARD: only 2 search users visible → upgrade to PREMIUM
   },
   PREMIUM: {
     maxChats: -1, // Unlimited
@@ -28,6 +30,7 @@ export const PLAN_LIMITS = {
     canManageFAQs: true,
     canCustomizeWidget: true,
     canCreateCustomFAQPage: true,
+    maxVisibleSearchLogs: -1, // ✅ PREMIUM: unlimited, no blur
   },
 };
 
@@ -87,7 +90,7 @@ export async function canCreateChat(shop) {
 }
 
 /**
- * ✅ NEW: Check if a chat session should be blurred based on plan retention
+ * ✅ Check if a chat session should be blurred based on plan retention
  */
 export async function shouldBlurChat(shop, chatCreatedAt) {
   const { limits, plan } = await getShopLimits(shop);
@@ -119,7 +122,7 @@ export async function shouldBlurChat(shop, chatCreatedAt) {
 }
 
 /**
- * ✅ NEW: Mark expired chats as blurred
+ * ✅ Mark expired chats as blurred
  */
 export async function markExpiredChatsAsBlurred(shop) {
   const { limits } = await getShopLimits(shop);
@@ -135,12 +138,8 @@ export async function markExpiredChatsAsBlurred(shop) {
   const result = await prisma.chatSession.updateMany({
     where: {
       shop,
-      createdAt: {
-        lt: cutoffDate,
-      },
-      isBlurred: {
-        not: true, // Only update non-blurred chats
-      },
+      createdAt: { lt: cutoffDate },
+      isBlurred: { not: true },
     },
     data: {
       isBlurred: true,
@@ -152,7 +151,7 @@ export async function markExpiredChatsAsBlurred(shop) {
 }
 
 /**
- * ✅ NEW: Auto-delete blurred chats after grace period (optional)
+ * ✅ Auto-delete blurred chats after grace period (optional)
  */
 export async function deleteExpiredChats(shop, gracePeriodDays = 7) {
   const { limits } = await getShopLimits(shop);
@@ -169,9 +168,7 @@ export async function deleteExpiredChats(shop, gracePeriodDays = 7) {
   const result = await prisma.chatSession.deleteMany({
     where: {
       shop,
-      createdAt: {
-        lt: cutoffDate,
-      },
+      createdAt: { lt: cutoffDate },
       isBlurred: true,
     },
   });
@@ -278,13 +275,9 @@ export async function getChatHistoryDays(shop) {
 
 /**
  * ✅ BACKWARD COMPATIBLE: Clean up old chats (combines blur + delete)
- * This function is for compatibility with existing cron jobs
  */
 export async function cleanupOldChats(shop) {
-  // Mark expired chats as blurred
   const blurResult = await markExpiredChatsAsBlurred(shop);
-  
-  // Delete chats that have been blurred for 7+ days
   const deleteResult = await deleteExpiredChats(shop, 7);
   
   return {
@@ -313,9 +306,7 @@ export async function getUsageStats(shop) {
   let faqCount = 0;
   try {
     if (prisma.fAQ) {
-      faqCount = await prisma.fAQ.count({
-        where: { shop },
-      });
+      faqCount = await prisma.fAQ.count({ where: { shop } });
     }
   } catch (err) {
     console.log("FAQ table not available");
@@ -343,4 +334,59 @@ export async function getUsageStats(shop) {
       days: limits.chatHistoryDays === -1 ? "Unlimited" : limits.chatHistoryDays,
     },
   };
+}
+
+/* ================================================================
+   ✅ SEARCH LOG VISIBILITY — STANDARD → PREMIUM UPGRADE
+   ================================================================
+   Logic:
+   - FREE plan     → -1, no restriction, all searches visible
+   - STANDARD plan →  2, only 2 search users visible,
+                       3rd user onwards blurred → upgrade to PREMIUM
+   - PREMIUM plan  → -1, unlimited, all visible
+   ================================================================ */
+
+/**
+ * ✅ Get search visibility limit for a shop based on plan
+ *
+ * FREE     → -1  (all visible, no blur)
+ * STANDARD →  2  (only 2 visible, 3rd+ blurred → Premium upsell)
+ * PREMIUM  → -1  (all visible, no blur)
+ */
+export async function getSearchVisibilityLimit(shop) {
+  const { limits, plan } = await getShopLimits(shop);
+
+  const visibleCount = limits.maxVisibleSearchLogs ?? -1;
+
+  return {
+    visibleCount,
+    shouldBlurAfter: visibleCount,
+    plan,
+    // Only Standard plan triggers upgrade prompt (to Premium)
+    requiresUpgrade: plan === "STANDARD" && visibleCount !== -1,
+    upgradeTo: plan === "STANDARD" ? "PREMIUM" : null,
+  };
+}
+
+/**
+ * ✅ Apply blur status to a list of search logs
+ *
+ * - visibilityLimit = -1  → all logs visible (FREE & PREMIUM)
+ * - visibilityLimit =  2  → first 2 visible, index 2+ get isBlurred: true (STANDARD)
+ *
+ * @param {Array}  searchLogs       - Array of log objects from DB
+ * @param {number} visibilityLimit  - Max visible count; -1 = unlimited
+ * @returns {Array} logs with isBlurred field added
+ */
+export function applySearchBlur(searchLogs, visibilityLimit) {
+  // Unlimited (FREE & PREMIUM) — all visible, no blur
+  if (visibilityLimit === -1) {
+    return searchLogs.map(log => ({ ...log, isBlurred: false }));
+  }
+
+  // STANDARD plan — first 2 visible, rest blurred → Premium upgrade
+  return searchLogs.map((log, index) => ({
+    ...log,
+    isBlurred: index >= visibilityLimit,
+  }));
 }

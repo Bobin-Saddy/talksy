@@ -1,175 +1,137 @@
-// app/routes/app.search-analytics.jsx - FIXED SCROLL & URLS
+// app/routes/app.search-analytics.jsx — WITH SEARCH BLUR ON FREE PLAN
 
 import { json } from "@remix-run/node";
 import { useLoaderData, useSearchParams, Form } from "react-router";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { useState } from "react";
+import {
+  getShopLimits,
+  getSearchVisibilityLimit,
+  applySearchBlur,
+} from "../planLimits.server";
 
 /* ---------------- HELPER FUNCTIONS ---------------- */
 async function getShopifyCredentials(shop) {
   const session = await prisma.session.findFirst({
-    where: { shop: shop },
-    orderBy: { expires: 'desc' }
+    where: { shop },
+    orderBy: { expires: "desc" },
   });
-  
-  if (!session) {
-    throw new Error("Shop not authenticated");
-  }
-  
-  return {
-    accessToken: session.accessToken,
-    shop: session.shop
-  };
+  if (!session) throw new Error("Shop not authenticated");
+  return { accessToken: session.accessToken, shop: session.shop };
 }
 
 async function shopifyGraphQL(shop, accessToken, query, variables = {}) {
-  const response = await fetch(`https://${shop}/admin/api/2024-01/graphql.json`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Shopify-Access-Token": accessToken,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-
-  if (!response.ok) {
+  const response = await fetch(
+    `https://${shop}/admin/api/2024-01/graphql.json`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": accessToken,
+      },
+      body: JSON.stringify({ query, variables }),
+    }
+  );
+  if (!response.ok)
     throw new Error(`GraphQL request failed: ${response.statusText}`);
-  }
-
   return response.json();
 }
 
 async function getSearchResultDetails(shop, accessToken, query) {
-  const results = {
-    products: [],
-    collections: [],
-    pages: []
-  };
+  const results = { products: [], collections: [], pages: [] };
+  const storeUrl = shop.replace(".myshopify.com", "");
 
-  // Get the actual store URL (remove .myshopify.com, user's actual domain)
-  const storeUrl = shop.replace('.myshopify.com', '');
-
-  // Search Products
   try {
     const productQuery = `
       query searchProducts($query: String!) {
         products(first: 5, query: $query) {
           edges {
             node {
-              id
-              title
-              description
-              handle
-              featuredImage {
-                url
-                altText
-              }
-              priceRangeV2 {
-                minVariantPrice {
-                  amount
-                  currencyCode
-                }
-              }
-              onlineStoreUrl
-              totalInventory
-              status
+              id title description handle
+              featuredImage { url altText }
+              priceRangeV2 { minVariantPrice { amount currencyCode } }
+              onlineStoreUrl totalInventory status
             }
           }
         }
-      }
-    `;
-
-    const productData = await shopifyGraphQL(shop, accessToken, productQuery, { query: `title:*${query}*` });
-    
+      }`;
+    const productData = await shopifyGraphQL(shop, accessToken, productQuery, {
+      query: `title:*${query}*`,
+    });
     if (productData.data?.products?.edges) {
       results.products = productData.data.products.edges.map(({ node }) => ({
         id: node.id,
         title: node.title,
-        description: node.description?.substring(0, 150) || '',
+        description: node.description?.substring(0, 150) || "",
         image: node.featuredImage?.url || null,
         price: node.priceRangeV2?.minVariantPrice?.amount || "0",
         currency: node.priceRangeV2?.minVariantPrice?.currencyCode || "USD",
-        // Use onlineStoreUrl if available
-        url: node.onlineStoreUrl || `https://${storeUrl}.myshopify.com/products/${node.handle}`,
+        url:
+          node.onlineStoreUrl ||
+          `https://${storeUrl}.myshopify.com/products/${node.handle}`,
         inventory: node.totalInventory || 0,
         status: node.status,
-        type: "product"
+        type: "product",
       }));
     }
-  } catch (error) {
-    console.error("Product search error:", error);
+  } catch (e) {
+    console.error("Product search error:", e);
   }
 
-  // Search Collections
   try {
     const collectionQuery = `
       query searchCollections($query: String!) {
         collections(first: 5, query: $query) {
           edges {
-            node {
-              id
-              title
-              description
-              handle
-              image {
-                url
-                altText
-              }
-              productsCount
-            }
+            node { id title description handle image { url altText } productsCount }
           }
         }
-      }
-    `;
-
-    const collectionData = await shopifyGraphQL(shop, accessToken, collectionQuery, { query: `title:*${query}*` });
-    
+      }`;
+    const collectionData = await shopifyGraphQL(
+      shop,
+      accessToken,
+      collectionQuery,
+      { query: `title:*${query}*` }
+    );
     if (collectionData.data?.collections?.edges) {
-      results.collections = collectionData.data.collections.edges.map(({ node }) => ({
-        id: node.id,
-        title: node.title,
-        description: node.description?.substring(0, 150) || '',
-        image: node.image?.url || null,
-        productCount: node.productsCount || 0,
-        url: `https://${storeUrl}.myshopify.com/collections/${node.handle}`,
-        type: "collection"
-      }));
+      results.collections = collectionData.data.collections.edges.map(
+        ({ node }) => ({
+          id: node.id,
+          title: node.title,
+          description: node.description?.substring(0, 150) || "",
+          image: node.image?.url || null,
+          productCount: node.productsCount || 0,
+          url: `https://${storeUrl}.myshopify.com/collections/${node.handle}`,
+          type: "collection",
+        })
+      );
     }
-  } catch (error) {
-    console.error("Collection search error:", error);
+  } catch (e) {
+    console.error("Collection search error:", e);
   }
 
-  // Search Pages
   try {
     const pageQuery = `
       query searchPages($query: String!) {
         pages(first: 5, query: $query) {
-          edges {
-            node {
-              id
-              title
-              handle
-              bodySummary
-            }
-          }
+          edges { node { id title handle bodySummary } }
         }
-      }
-    `;
-
-    const pageData = await shopifyGraphQL(shop, accessToken, pageQuery, { query: `title:*${query}*` });
-    
+      }`;
+    const pageData = await shopifyGraphQL(shop, accessToken, pageQuery, {
+      query: `title:*${query}*`,
+    });
     if (pageData.data?.pages?.edges) {
       results.pages = pageData.data.pages.edges.map(({ node }) => ({
         id: node.id,
         title: node.title,
-        description: node.bodySummary?.substring(0, 150) || '',
+        description: node.bodySummary?.substring(0, 150) || "",
         url: `https://${storeUrl}.myshopify.com/pages/${node.handle}`,
-        type: "page"
+        type: "page",
       }));
     }
-  } catch (error) {
-    console.error("Page search error:", error);
+  } catch (e) {
+    console.error("Page search error:", e);
   }
 
   return results;
@@ -180,47 +142,35 @@ export async function loader({ request }) {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
   const url = new URL(request.url);
-  
+
   const searchQuery = url.searchParams.get("q") || "";
   const filterDate = url.searchParams.get("date") || "all";
   const selectedLogId = url.searchParams.get("logId") || null;
 
-  // Get all search logs (only frontend)
-  let searchWhereCondition = { 
-    shop,
-    searchType: "frontend"
-  };
+  // ── Plan info ──────────────────────────────────────────────
+  const { plan } = await getShopLimits(shop);
+  const visibility = await getSearchVisibilityLimit(shop);
 
-  // Apply date filter
+  // ── Build DB where clause ──────────────────────────────────
+  let searchWhereCondition = { shop, searchType: "frontend" };
+
   if (filterDate !== "all") {
     const now = new Date();
     let fromDate = new Date();
-    
-    switch(filterDate) {
-      case "today":
-        fromDate.setHours(0, 0, 0, 0);
-        break;
-      case "week":
-        fromDate.setDate(now.getDate() - 7);
-        break;
-      case "month":
-        fromDate.setMonth(now.getMonth() - 1);
-        break;
-    }
-    
+    if (filterDate === "today") fromDate.setHours(0, 0, 0, 0);
+    else if (filterDate === "week") fromDate.setDate(now.getDate() - 7);
+    else if (filterDate === "month") fromDate.setMonth(now.getMonth() - 1);
     searchWhereCondition.createdAt = { gte: fromDate };
   }
 
-  // Get search logs
   let searchLogs = await prisma.searchLog.findMany({
     where: searchWhereCondition,
     orderBy: { createdAt: "desc" },
     take: 200,
   });
 
-  // Apply query filter if exists
   if (searchQuery) {
-    searchLogs = searchLogs.filter(log => {
+    searchLogs = searchLogs.filter((log) => {
       const queryMatch = log.query?.toLowerCase().includes(searchQuery.toLowerCase());
       const emailMatch = log.userEmail?.toLowerCase().includes(searchQuery.toLowerCase());
       const sessionMatch = log.sessionId?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -229,20 +179,35 @@ export async function loader({ request }) {
     });
   }
 
+  // ── Apply blur to logs beyond free limit ───────────────────
+  // visibleCount = 2 for FREE, -1 for paid
+  const processedLogs = applySearchBlur(searchLogs, visibility.visibleCount);
+
   const stats = {
     totalSearches: searchLogs.length,
-    uniqueUsers: [...new Set(searchLogs.filter(s => s.userEmail && s.userEmail !== 'anonymous').map(s => s.userEmail))].length,
+    uniqueUsers: [
+      ...new Set(
+        searchLogs
+          .filter((s) => s.userEmail && s.userEmail !== "anonymous")
+          .map((s) => s.userEmail)
+      ),
+    ].length,
     topSearches: getTopSearches(searchLogs),
+    blurredCount: processedLogs.filter((l) => l.isBlurred).length,
   };
 
-  // Get detailed results for selected log
+  // ── Search results for selected (only if not blurred) ──────
   let searchResults = null;
   if (selectedLogId) {
-    const selectedLog = searchLogs.find(log => log.id === selectedLogId);
-    if (selectedLog) {
+    const selectedLog = processedLogs.find((log) => log.id === selectedLogId);
+    if (selectedLog && !selectedLog.isBlurred) {
       try {
         const { accessToken } = await getShopifyCredentials(shop);
-        searchResults = await getSearchResultDetails(shop, accessToken, selectedLog.query);
+        searchResults = await getSearchResultDetails(
+          shop,
+          accessToken,
+          selectedLog.query
+        );
       } catch (error) {
         console.error("Error fetching search results:", error);
       }
@@ -250,28 +215,107 @@ export async function loader({ request }) {
   }
 
   return json({
-    searchLogs,
+    searchLogs: processedLogs,
     stats,
     searchQuery,
     filterDate,
     selectedLogId,
     searchResults,
+    plan,
+    visibility,
   });
 }
 
 function getTopSearches(logs) {
   const searchCounts = {};
-  logs.forEach(log => {
+  logs.forEach((log) => {
     const query = log.query?.toLowerCase();
-    if (query) {
-      searchCounts[query] = (searchCounts[query] || 0) + 1;
-    }
+    if (query) searchCounts[query] = (searchCounts[query] || 0) + 1;
   });
-  
   return Object.entries(searchCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(([query, count]) => ({ query, count }));
+}
+
+/* ---------------- UPGRADE BANNER ---------------- */
+function UpgradeBanner({ blurredCount, plan }) {
+  if (plan !== "FREE" || blurredCount === 0) return null;
+
+  return (
+    <div style={styles.upgradeBanner}>
+      <div style={styles.upgradeBannerInner}>
+        <div style={styles.upgradeLockIcon}>🔒</div>
+        <div style={styles.upgradeText}>
+          <div style={styles.upgradeTitle}>
+            {blurredCount} searches are hidden on Free plan
+          </div>
+          <div style={styles.upgradeSubtext}>
+            Free plan allows viewing only 2 searches. Upgrade to Standard or
+            Premium to unlock all search history.
+          </div>
+        </div>
+        <a href="/app/pricing" style={styles.upgradeBtn}>
+          🚀 Upgrade Now
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- BLURRED LOG CARD ---------------- */
+function BlurredLogCard({ index }) {
+  return (
+    <div style={styles.blurredCard}>
+      <div style={styles.blurredInner}>
+        {/* Blurred fake content */}
+        <div style={styles.blurredIconCircle}>
+          <span style={{ fontSize: 20 }}>🔍</span>
+        </div>
+        <div style={styles.blurredTextBlock}>
+          <div style={styles.blurredLine} />
+          <div style={{ ...styles.blurredLine, width: "55%", marginTop: 8 }} />
+        </div>
+      </div>
+      <div style={styles.blurredBadge}>
+        🔒 Upgrade to unlock
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- BLURRED DETAIL PANEL ---------------- */
+function BlurredDetailPanel() {
+  return (
+    <div style={styles.blurredPanelWrap}>
+      <div style={styles.blurredPanelBox}>
+        <div style={styles.blurredPanelIcon}>🔒</div>
+        <h3 style={styles.blurredPanelTitle}>Search Locked</h3>
+        <p style={styles.blurredPanelText}>
+          This search is only visible on Standard or Premium plans.
+          <br />
+          Upgrade to see full search history, user details & product results.
+        </p>
+        <a href="/app/pricing" style={styles.blurredUpgradeBtn}>
+          🚀 Upgrade Plan
+        </a>
+        <div style={styles.planCompare}>
+          <div style={styles.planRow}>
+            <span>Free</span>
+            <span style={{ color: "#ef4444", fontWeight: 700 }}>2 searches visible</span>
+          </div>
+          <div style={styles.planRow}>
+            <span>Standard</span>
+            <span style={{ color: "#10b981", fontWeight: 700 }}>500 searches</span>
+          </div>
+          <div style={styles.planRow}>
+            <span>Premium</span>
+            <span style={{ color: "#8b5cf6", fontWeight: 700 }}>Unlimited ✨</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ---------------- PAGE ---------------- */
@@ -279,11 +323,10 @@ export default function SearchAnalytics() {
   const data = useLoaderData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedLog, setSelectedLog] = useState(
-    data.searchLogs.find(log => log.id === data.selectedLogId) || null
+    data.searchLogs.find((log) => log.id === data.selectedLogId) || null
   );
   const [searchInput, setSearchInput] = useState(data.searchQuery || "");
 
-  // ✅ Fix scroll issue - just update state, don't auto-scroll
   const handleLogClick = (log) => {
     setSelectedLog(log);
     setSearchParams({ logId: log.id });
@@ -292,17 +335,32 @@ export default function SearchAnalytics() {
   return (
     <div style={styles.container}>
       <div style={styles.wrapper}>
-        {/* HEADER + STATS + TOP SEARCHES + FILTERS - Keep all existing code */}
+        {/* HEADER */}
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>🔍 Widget Search Analytics</h1>
-            <p style={styles.subtitle}>Track what users are searching for on your store</p>
+            <p style={styles.subtitle}>
+              Track what users are searching for on your store
+            </p>
           </div>
+          {data.plan === "FREE" && (
+            <div style={styles.planPill}>
+              <span style={styles.planPillDot} />
+              Free Plan — 2 searches visible
+            </div>
+          )}
         </div>
 
+        {/* UPGRADE BANNER */}
+        <UpgradeBanner
+          blurredCount={data.stats.blurredCount}
+          plan={data.plan}
+        />
+
+        {/* STATS */}
         <div style={styles.statsGrid}>
           <div style={styles.statCard}>
-            <div style={{...styles.statIcon, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}>
+            <div style={{ ...styles.statIcon, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}>
               <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.statIconSvg}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -314,7 +372,7 @@ export default function SearchAnalytics() {
           </div>
 
           <div style={styles.statCard}>
-            <div style={{...styles.statIcon, background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'}}>
+            <div style={{ ...styles.statIcon, background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)" }}>
               <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.statIconSvg}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
@@ -326,7 +384,7 @@ export default function SearchAnalytics() {
           </div>
 
           <div style={styles.statCard}>
-            <div style={{...styles.statIcon, background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'}}>
+            <div style={{ ...styles.statIcon, background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)" }}>
               <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.statIconSvg}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
@@ -334,24 +392,42 @@ export default function SearchAnalytics() {
             <div>
               <div style={styles.statLabel}>Avg. Searches/User</div>
               <div style={styles.statValue}>
-                {data.stats.uniqueUsers > 0 ? Math.round(data.stats.totalSearches / data.stats.uniqueUsers) : 0}
+                {data.stats.uniqueUsers > 0
+                  ? Math.round(data.stats.totalSearches / data.stats.uniqueUsers)
+                  : 0}
               </div>
             </div>
           </div>
+
+          {data.plan === "FREE" && data.stats.blurredCount > 0 && (
+            <div style={{ ...styles.statCard, border: "2px solid #fbbf24" }}>
+              <div style={{ ...styles.statIcon, background: "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)" }}>
+                <span style={{ fontSize: 26 }}>🔒</span>
+              </div>
+              <div>
+                <div style={styles.statLabel}>Locked Searches</div>
+                <div style={{ ...styles.statValue, color: "#ef4444" }}>
+                  {data.stats.blurredCount}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
+        {/* TOP SEARCHES */}
         {data.stats.topSearches.length > 0 && (
           <div style={styles.topSearchesCard}>
             <h3 style={styles.topSearchesTitle}>📊 Top Search Queries</h3>
             <div style={styles.topSearchesList}>
               {data.stats.topSearches.map((item, idx) => (
                 <div key={idx} style={styles.topSearchItem}>
-                  <div style={{...styles.topSearchRank, background: idx === 0 ? '#fbbf24' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : '#3b82f6'}}>
+                  <div style={{ ...styles.topSearchRank, background: idx === 0 ? "#fbbf24" : idx === 1 ? "#c0c0c0" : idx === 2 ? "#cd7f32" : "#3b82f6" }}>
                     {idx + 1}
                   </div>
                   <div style={styles.topSearchQuery}>"{item.query}"</div>
                   <div style={styles.topSearchCount}>
-                    <span style={{fontWeight: 700, color: '#111827'}}>{item.count}</span> searches
+                    <span style={{ fontWeight: 700, color: "#111827" }}>{item.count}</span>{" "}
+                    searches
                   </div>
                 </div>
               ))}
@@ -359,6 +435,7 @@ export default function SearchAnalytics() {
           </div>
         )}
 
+        {/* FILTER */}
         <div style={styles.searchSection}>
           <Form method="get" style={styles.searchForm}>
             <div style={styles.searchInputWrapper}>
@@ -388,7 +465,6 @@ export default function SearchAnalytics() {
                 </button>
               )}
             </div>
-
             <div style={styles.filters}>
               <select name="date" defaultValue={data.filterDate} style={styles.filterSelect}>
                 <option value="all">All Time</option>
@@ -396,7 +472,6 @@ export default function SearchAnalytics() {
                 <option value="week">Last 7 Days</option>
                 <option value="month">Last 30 Days</option>
               </select>
-
               <button type="submit" style={styles.searchBtn}>
                 <svg style={styles.btnIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -407,54 +482,66 @@ export default function SearchAnalytics() {
           </Form>
         </div>
 
-        {/* SEARCH LOGS LIST */}
+        {/* MAIN GRID */}
         <div style={styles.contentGrid}>
+          {/* LEFT: Search Logs List */}
           <div style={styles.searchLogsList}>
             <div style={styles.sessionListHeader}>
               <h2 style={styles.sectionTitle}>
                 Search Logs ({data.searchLogs.length})
               </h2>
+              {data.plan === "FREE" && data.stats.blurredCount > 0 && (
+                <div style={styles.lockedBadge}>
+                  🔒 {data.stats.blurredCount} locked
+                </div>
+              )}
             </div>
 
             {data.searchLogs.length > 0 ? (
               <div style={styles.sessions}>
-                {data.searchLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    style={{
-                      ...styles.searchLogCard,
-                      ...(selectedLog?.id === log.id ? styles.sessionCardActive : {})
-                    }}
-                    onClick={() => handleLogClick(log)}
-                  >
-                    <div style={styles.logHeader}>
-                      <div style={styles.logIconWrapper}>
-                        <div style={styles.logIcon}>
-                          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.logIconSvg}>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
+                {data.searchLogs.map((log, idx) =>
+                  log.isBlurred ? (
+                    <BlurredLogCard key={log.id} index={idx} />
+                  ) : (
+                    <div
+                      key={log.id}
+                      style={{
+                        ...styles.searchLogCard,
+                        ...(selectedLog?.id === log.id
+                          ? styles.sessionCardActive
+                          : {}),
+                      }}
+                      onClick={() => handleLogClick(log)}
+                    >
+                      <div style={styles.logHeader}>
+                        <div style={styles.logIconWrapper}>
+                          <div style={styles.logIcon}>
+                            <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.logIconSvg}>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div style={styles.logInfo}>
+                          <div style={styles.logQuery}>"{log.query}"</div>
+                          <div style={styles.logMeta}>
+                            {log.userEmail && log.userEmail !== "anonymous" ? (
+                              <span style={{ color: "#3b82f6", fontWeight: 600 }}>
+                                {log.firstName || ""} {log.lastName || ""}
+                              </span>
+                            ) : (
+                              <span style={{ color: "#9ca3af", fontStyle: "italic" }}>
+                                Anonymous
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div style={styles.logInfo}>
-                        <div style={styles.logQuery}>
-                          "{log.query}"
-                        </div>
-                        <div style={styles.logMeta}>
-                          {log.userEmail && log.userEmail !== 'anonymous' ? (
-                            <span style={{color: '#3b82f6', fontWeight: 600}}>
-                              {log.firstName || ''} {log.lastName || ''}
-                            </span>
-                          ) : (
-                            <span style={{color: '#9ca3af', fontStyle: 'italic'}}>Anonymous</span>
-                          )}
-                        </div>
+                      <div style={styles.logDate}>
+                        {new Date(log.createdAt).toLocaleString()}
                       </div>
                     </div>
-                    <div style={styles.logDate}>
-                      {new Date(log.createdAt).toLocaleString()}
-                    </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             ) : (
               <div style={styles.emptyState}>
@@ -464,201 +551,198 @@ export default function SearchAnalytics() {
                   </svg>
                 </div>
                 <h3 style={styles.emptyTitle}>No search logs found</h3>
-                <p style={styles.emptyText}>Searches from your widget will appear here</p>
+                <p style={styles.emptyText}>
+                  Searches from your widget will appear here
+                </p>
               </div>
             )}
           </div>
 
-          {/* SEARCH LOG DETAILS - Continue in next response due to length... */}
+          {/* RIGHT: Detail Panel */}
           <div style={styles.messagePanel}>
             {selectedLog ? (
-              <>
-                <div style={styles.messagePanelHeader}>
-                  <div style={styles.panelHeaderLeft}>
-                    <div style={styles.panelAvatar}>
-                      <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.panelAvatarIcon}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <div style={styles.panelTitle}>
-                        Search: "{selectedLog.query}"
+              selectedLog.isBlurred ? (
+                <BlurredDetailPanel />
+              ) : (
+                <>
+                  <div style={styles.messagePanelHeader}>
+                    <div style={styles.panelHeaderLeft}>
+                      <div style={styles.panelAvatar}>
+                        <svg fill="none" viewBox="0 0 24 24" stroke="white" style={styles.panelAvatarIcon}>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
                       </div>
-                      <div style={styles.panelSubtitle}>
-                        {new Date(selectedLog.createdAt).toLocaleString()}
+                      <div>
+                        <div style={styles.panelTitle}>
+                          Search: "{selectedLog.query}"
+                        </div>
+                        <div style={styles.panelSubtitle}>
+                          {new Date(selectedLog.createdAt).toLocaleString()}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div style={styles.detailsContainer}>
-                  <div style={styles.detailSection}>
-                    <div style={styles.detailLabel}>👤 User Information</div>
-                    <div style={styles.userInfoGrid}>
-                      {(selectedLog.firstName || selectedLog.lastName) && (
-                        <div style={styles.infoItem}>
-                          <span style={styles.infoLabel}>Name:</span>
-                          <span style={styles.infoValue}>
-                            {selectedLog.firstName || ''} {selectedLog.lastName || ''}
-                          </span>
-                        </div>
-                      )}
-                      {selectedLog.userEmail && (
-                        <div style={styles.infoItem}>
-                          <span style={styles.infoLabel}>Email:</span>
-                          <span style={styles.infoValue}>
-                            {selectedLog.userEmail === 'anonymous' ? (
-                              <span style={{color: '#9ca3af', fontStyle: 'italic'}}>Anonymous User</span>
-                            ) : (
-                              selectedLog.userEmail
-                            )}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {data.searchResults && (
-                    <>
-                      {data.searchResults.products.length > 0 && (
-                        <div style={styles.resultsSection}>
-                          <div style={styles.resultsSectionHeader}>
-                            <span style={styles.resultsIcon}>🛍️</span>
-                            <span style={styles.resultsTitle}>Products Found ({data.searchResults.products.length})</span>
+                  <div style={styles.detailsContainer}>
+                    <div style={styles.detailSection}>
+                      <div style={styles.detailLabel}>👤 User Information</div>
+                      <div style={styles.userInfoGrid}>
+                        {(selectedLog.firstName || selectedLog.lastName) && (
+                          <div style={styles.infoItem}>
+                            <span style={styles.infoLabel}>Name:</span>
+                            <span style={styles.infoValue}>
+                              {selectedLog.firstName || ""}{" "}
+                              {selectedLog.lastName || ""}
+                            </span>
                           </div>
-                          <div style={styles.resultsGrid}>
-                            {data.searchResults.products.map((product) => (
-                              <a
-                                key={product.id}
-                                href={product.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{textDecoration: 'none'}}
-                              >
-                                <div style={styles.resultCard}>
-                                  {product.image ? (
-                                    <img src={product.image} alt={product.title} style={styles.resultImage} />
-                                  ) : (
-                                    <div style={styles.resultImagePlaceholder}>
-                                      <svg width="40" height="40" viewBox="0 0 24 24" fill="#d1d5db">
-                                        <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                      </svg>
+                        )}
+                        {selectedLog.userEmail && (
+                          <div style={styles.infoItem}>
+                            <span style={styles.infoLabel}>Email:</span>
+                            <span style={styles.infoValue}>
+                              {selectedLog.userEmail === "anonymous" ? (
+                                <span style={{ color: "#9ca3af", fontStyle: "italic" }}>
+                                  Anonymous User
+                                </span>
+                              ) : (
+                                selectedLog.userEmail
+                              )}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {data.searchResults && (
+                      <>
+                        {data.searchResults.products.length > 0 && (
+                          <div style={styles.resultsSection}>
+                            <div style={styles.resultsSectionHeader}>
+                              <span style={styles.resultsIcon}>🛍️</span>
+                              <span style={styles.resultsTitle}>
+                                Products Found ({data.searchResults.products.length})
+                              </span>
+                            </div>
+                            <div style={styles.resultsGrid}>
+                              {data.searchResults.products.map((product) => (
+                                <a key={product.id} href={product.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                                  <div style={styles.resultCard}>
+                                    {product.image ? (
+                                      <img src={product.image} alt={product.title} style={styles.resultImage} />
+                                    ) : (
+                                      <div style={styles.resultImagePlaceholder}>
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="#d1d5db">
+                                          <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                    <div style={styles.resultContent}>
+                                      <div style={styles.resultTitle}>{product.title}</div>
+                                      <div style={styles.resultPrice}>
+                                        {product.currency}{" "}
+                                        {parseFloat(product.price).toFixed(2)}
+                                      </div>
+                                      {product.inventory !== undefined && (
+                                        <div style={styles.resultMeta}>
+                                          📦 Stock: {product.inventory} units
+                                        </div>
+                                      )}
+                                      <div style={styles.resultLink}>View Product →</div>
                                     </div>
-                                  )}
-                                  <div style={styles.resultContent}>
-                                    <div style={styles.resultTitle}>{product.title}</div>
-                                    <div style={styles.resultPrice}>
-                                      {product.currency} {parseFloat(product.price).toFixed(2)}
-                                    </div>
-                                    {product.inventory !== undefined && (
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {data.searchResults.collections.length > 0 && (
+                          <div style={styles.resultsSection}>
+                            <div style={styles.resultsSectionHeader}>
+                              <span style={styles.resultsIcon}>📁</span>
+                              <span style={styles.resultsTitle}>
+                                Collections Found ({data.searchResults.collections.length})
+                              </span>
+                            </div>
+                            <div style={styles.resultsGrid}>
+                              {data.searchResults.collections.map((collection) => (
+                                <a key={collection.id} href={collection.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                                  <div style={styles.resultCard}>
+                                    {collection.image ? (
+                                      <img src={collection.image} alt={collection.title} style={styles.resultImage} />
+                                    ) : (
+                                      <div style={styles.resultImagePlaceholder}>
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="#d1d5db">
+                                          <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                    <div style={styles.resultContent}>
+                                      <div style={styles.resultTitle}>{collection.title}</div>
                                       <div style={styles.resultMeta}>
-                                        📦 Stock: {product.inventory} units
+                                        📦 {collection.productCount} products
                                       </div>
-                                    )}
-                                    <div style={styles.resultLink}>
-                                      View Product →
-                                    </div>
-                                  </div>
-                                </div>
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {data.searchResults.collections.length > 0 && (
-                        <div style={styles.resultsSection}>
-                          <div style={styles.resultsSectionHeader}>
-                            <span style={styles.resultsIcon}>📁</span>
-                            <span style={styles.resultsTitle}>Collections Found ({data.searchResults.collections.length})</span>
-                          </div>
-                          <div style={styles.resultsGrid}>
-                            {data.searchResults.collections.map((collection) => (
-                              <a
-                                key={collection.id}
-                                href={collection.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{textDecoration: 'none'}}
-                              >
-                                <div style={styles.resultCard}>
-                                  {collection.image ? (
-                                    <img src={collection.image} alt={collection.title} style={styles.resultImage} />
-                                  ) : (
-                                    <div style={styles.resultImagePlaceholder}>
-                                      <svg width="40" height="40" viewBox="0 0 24 24" fill="#d1d5db">
-                                        <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                      </svg>
-                                    </div>
-                                  )}
-                                  <div style={styles.resultContent}>
-                                    <div style={styles.resultTitle}>{collection.title}</div>
-                                    <div style={styles.resultMeta}>
-                                      📦 {collection.productCount} products
-                                    </div>
-                                    {collection.description && (
-                                      <div style={styles.resultDescription}>
-                                        {collection.description}
+                                      {collection.description && (
+                                        <div style={styles.resultDescription}>
+                                          {collection.description}
+                                        </div>
+                                      )}
+                                      <div style={styles.resultLink}>
+                                        View Collection →
                                       </div>
-                                    )}
-                                    <div style={styles.resultLink}>
-                                      View Collection →
                                     </div>
                                   </div>
-                                </div>
-                              </a>
-                            ))}
+                                </a>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {data.searchResults.pages.length > 0 && (
-                        <div style={styles.resultsSection}>
-                          <div style={styles.resultsSectionHeader}>
-                            <span style={styles.resultsIcon}>📄</span>
-                            <span style={styles.resultsTitle}>Pages Found ({data.searchResults.pages.length})</span>
-                          </div>
-                          <div style={styles.pagesListWrapper}>
-                            {data.searchResults.pages.map((page) => (
-                              <a
-                                key={page.id}
-                                href={page.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{textDecoration: 'none'}}
-                              >
-                                <div style={styles.pageItem}>
-                                  <div style={styles.pageIcon}>📄</div>
-                                  <div style={styles.pageContent}>
-                                    <div style={styles.pageTitle}>{page.title}</div>
-                                    {page.description && (
-                                      <div style={styles.pageDescription}>{page.description}</div>
-                                    )}
-                                    <div style={styles.pageLink}>
-                                      View Page →
+                        {data.searchResults.pages.length > 0 && (
+                          <div style={styles.resultsSection}>
+                            <div style={styles.resultsSectionHeader}>
+                              <span style={styles.resultsIcon}>📄</span>
+                              <span style={styles.resultsTitle}>
+                                Pages Found ({data.searchResults.pages.length})
+                              </span>
+                            </div>
+                            <div style={styles.pagesListWrapper}>
+                              {data.searchResults.pages.map((page) => (
+                                <a key={page.id} href={page.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                                  <div style={styles.pageItem}>
+                                    <div style={styles.pageIcon}>📄</div>
+                                    <div style={styles.pageContent}>
+                                      <div style={styles.pageTitle}>{page.title}</div>
+                                      {page.description && (
+                                        <div style={styles.pageDescription}>
+                                          {page.description}
+                                        </div>
+                                      )}
+                                      <div style={styles.pageLink}>View Page →</div>
                                     </div>
                                   </div>
-                                </div>
-                              </a>
-                            ))}
+                                </a>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {data.searchResults.products.length === 0 && 
-                       data.searchResults.collections.length === 0 && 
-                       data.searchResults.pages.length === 0 && (
-                        <div style={styles.noResults}>
-                          <div style={styles.noResultsIcon}>😕</div>
-                          <div style={styles.noResultsText}>
-                            No matching products, collections, or pages found for "{selectedLog.query}"
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </>
+                        {data.searchResults.products.length === 0 &&
+                          data.searchResults.collections.length === 0 &&
+                          data.searchResults.pages.length === 0 && (
+                            <div style={styles.noResults}>
+                              <div style={styles.noResultsIcon}>😕</div>
+                              <div style={styles.noResultsText}>
+                                No matching products, collections, or pages found for
+                                "{selectedLog.query}"
+                              </div>
+                            </div>
+                          )}
+                      </>
+                    )}
+                  </div>
+                </>
+              )
             ) : (
               <div style={styles.emptyPanel}>
                 <div style={styles.emptyPanelIcon}>
@@ -667,7 +751,9 @@ export default function SearchAnalytics() {
                   </svg>
                 </div>
                 <h3 style={styles.emptyPanelTitle}>Select a search log</h3>
-                <p style={styles.emptyPanelText}>Click on any search to see what results were found</p>
+                <p style={styles.emptyPanelText}>
+                  Click on any search to see what results were found
+                </p>
               </div>
             )}
           </div>
@@ -677,56 +763,93 @@ export default function SearchAnalytics() {
   );
 }
 
-/* Same styles as before - keeping existing styles object */
+/* ============================================================
+   STYLES
+   ============================================================ */
 const styles = {
+  /* ── Layout ── */
   container: { minHeight: "100vh", background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)", padding: "24px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
   wrapper: { maxWidth: "1800px", margin: "0 auto" },
-  header: { marginBottom: 28 },
-  title: { fontSize: 36, fontWeight: 800, color: "#111827", margin: 0, marginBottom: 8, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' },
+  header: { marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 },
+  title: { fontSize: 36, fontWeight: 800, color: "#111827", margin: 0, marginBottom: 8, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" },
   subtitle: { fontSize: 16, color: "#6b7280", margin: 0, fontWeight: 500 },
+  planPill: { display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#fff7ed", border: "2px solid #fed7aa", borderRadius: 20, fontSize: 13, fontWeight: 700, color: "#c2410c" },
+  planPillDot: { width: 8, height: 8, borderRadius: "50%", background: "#f97316", display: "inline-block" },
+
+  /* ── Upgrade Banner ── */
+  upgradeBanner: { marginBottom: 24, borderRadius: 16, background: "linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)", border: "2px solid #fcd34d", padding: 20, boxShadow: "0 4px 12px rgba(251, 191, 36, 0.2)" },
+  upgradeBannerInner: { display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" },
+  upgradeLockIcon: { fontSize: 36, flexShrink: 0 },
+  upgradeText: { flex: 1, minWidth: 200 },
+  upgradeTitle: { fontSize: 16, fontWeight: 800, color: "#92400e", marginBottom: 4 },
+  upgradeSubtext: { fontSize: 13, color: "#b45309", fontWeight: 500 },
+  upgradeBtn: { padding: "12px 28px", background: "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)", color: "#fff", borderRadius: 12, fontWeight: 800, fontSize: 14, textDecoration: "none", flexShrink: 0, boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)", transition: "transform 0.2s", display: "inline-block" },
+
+  /* ── Stats ── */
   statsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, marginBottom: 24 },
-  statCard: { background: "#ffffff", border: "none", borderRadius: 16, padding: 24, display: "flex", alignItems: "center", gap: 20, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", transition: "transform 0.2s, box-shadow 0.2s", cursor: "pointer" },
-  statIcon: { width: 56, height: 56, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)" },
+  statCard: { background: "#ffffff", border: "2px solid transparent", borderRadius: 16, padding: 24, display: "flex", alignItems: "center", gap: 20, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", transition: "transform 0.2s, box-shadow 0.2s" },
+  statIcon: { width: 56, height: 56, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" },
   statIconSvg: { width: 28, height: 28, strokeWidth: 2.5 },
   statLabel: { fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" },
   statValue: { fontSize: 32, fontWeight: 800, color: "#111827" },
-  topSearchesCard: { background: "#ffffff", border: "none", borderRadius: 16, padding: 28, marginBottom: 24, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)" },
+
+  /* ── Top Searches ── */
+  topSearchesCard: { background: "#ffffff", borderRadius: 16, padding: 28, marginBottom: 24, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" },
   topSearchesTitle: { fontSize: 20, fontWeight: 700, color: "#111827", marginBottom: 20, margin: 0 },
   topSearchesList: { display: "flex", flexDirection: "column", gap: 12 },
-  topSearchItem: { display: "flex", alignItems: "center", gap: 16, padding: 16, background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)", borderRadius: 12, border: "1px solid #e5e7eb", transition: "all 0.2s" },
-  topSearchRank: { width: 40, height: 40, borderRadius: 10, color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, flexShrink: 0, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)" },
+  topSearchItem: { display: "flex", alignItems: "center", gap: 16, padding: 16, background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)", borderRadius: 12, border: "1px solid #e5e7eb" },
+  topSearchRank: { width: 40, height: 40, borderRadius: 10, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, flexShrink: 0 },
   topSearchQuery: { flex: 1, fontSize: 15, fontWeight: 600, color: "#111827" },
   topSearchCount: { fontSize: 14, color: "#6b7280", fontWeight: 500 },
-  searchSection: { background: "#ffffff", border: "none", borderRadius: 16, padding: 24, marginBottom: 24, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)" },
+
+  /* ── Filters ── */
+  searchSection: { background: "#ffffff", borderRadius: 16, padding: 24, marginBottom: 24, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" },
   searchForm: { display: "flex", flexDirection: "column", gap: 16 },
   searchInputWrapper: { position: "relative", flex: 1 },
   searchIcon: { position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", width: 20, height: 20, color: "#9ca3af", strokeWidth: 2 },
-  searchInput: { width: "100%", padding: "14px 50px 14px 50px", borderRadius: 12, border: "2px solid #e5e7eb", fontSize: 15, fontFamily: "inherit", outline: "none", transition: "border-color 0.2s", background: "#f9fafb" },
-  clearBtn: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "#f3f4f6", border: "none", cursor: "pointer", padding: 8, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, transition: "background 0.2s" },
+  searchInput: { width: "100%", padding: "14px 50px 14px 50px", borderRadius: 12, border: "2px solid #e5e7eb", fontSize: 15, fontFamily: "inherit", outline: "none", background: "#f9fafb" },
+  clearBtn: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "#f3f4f6", border: "none", cursor: "pointer", padding: 8, display: "flex", alignItems: "center", borderRadius: 8 },
   clearIcon: { width: 18, height: 18, color: "#6b7280", strokeWidth: 2 },
   filters: { display: "flex", gap: 12, alignItems: "center" },
   filterSelect: { padding: "12px 18px", borderRadius: 10, border: "2px solid #e5e7eb", fontSize: 14, fontFamily: "inherit", outline: "none", background: "#f9fafb", cursor: "pointer", minWidth: 160, fontWeight: 600 },
-  searchBtn: { display: "flex", alignItems: "center", gap: 8, padding: "12px 28px", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, color: "#ffffff", cursor: "pointer", marginLeft: "auto", boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)", transition: "transform 0.2s, box-shadow 0.2s" },
+  searchBtn: { display: "flex", alignItems: "center", gap: 8, padding: "12px 28px", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, color: "#ffffff", cursor: "pointer", marginLeft: "auto", boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)" },
   btnIcon: { width: 18, height: 18, strokeWidth: 2.5 },
+
+  /* ── Content Grid ── */
   contentGrid: { display: "grid", gridTemplateColumns: "480px 1fr", gap: 24, alignItems: "start" },
-  searchLogsList: { background: "#ffffff", border: "none", borderRadius: 16, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", overflow: "hidden", height: "calc(100vh - 480px)", minHeight: "600px", display: "flex", flexDirection: "column", position: "sticky", top: 24 },
-  sessionListHeader: { padding: 24, borderBottom: "2px solid #e5e7eb", background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)" },
+
+  /* ── Search Logs List ── */
+  searchLogsList: { background: "#ffffff", borderRadius: 16, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", overflow: "hidden", height: "calc(100vh - 480px)", minHeight: "600px", display: "flex", flexDirection: "column", position: "sticky", top: 24 },
+  sessionListHeader: { padding: "20px 24px", borderBottom: "2px solid #e5e7eb", background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)", display: "flex", justifyContent: "space-between", alignItems: "center" },
   sectionTitle: { fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 },
+  lockedBadge: { padding: "4px 12px", background: "#fff7ed", border: "2px solid #fed7aa", borderRadius: 20, fontSize: 12, fontWeight: 700, color: "#c2410c" },
   sessions: { overflowY: "auto", flex: 1, padding: "8px 0" },
+
+  /* ── Normal Log Card ── */
   searchLogCard: { padding: 18, margin: "0 12px 8px 12px", borderRadius: 12, cursor: "pointer", transition: "all 0.2s", border: "2px solid transparent" },
   sessionCardActive: { background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)", border: "2px solid #3b82f6", boxShadow: "0 2px 8px rgba(59, 130, 246, 0.2)" },
   logHeader: { display: "flex", alignItems: "center", gap: 14, marginBottom: 10 },
   logIconWrapper: { flexShrink: 0 },
   logIcon: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(102, 126, 234, 0.3)" },
-  logIconSvg: { width: 22, height: 22, strokeWidth: 2.5, stroke: "white" },
+  logIconSvg: { width: 22, height: 22, strokeWidth: 2.5 },
   logInfo: { flex: 1, minWidth: 0 },
   logQuery: { fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   logMeta: { fontSize: 13, display: "flex", alignItems: "center", gap: 6 },
   logDate: { fontSize: 12, color: "#9ca3af", marginLeft: 58, fontWeight: 500 },
-  messagePanel: { background: "#ffffff", border: "none", borderRadius: 16, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", minHeight: "calc(100vh - 480px)", display: "flex", flexDirection: "column" },
+
+  /* ── Blurred Log Card ── */
+  blurredCard: { margin: "0 12px 8px 12px", borderRadius: 12, border: "2px dashed #fcd34d", background: "linear-gradient(135deg, #fffbeb 0%, #fef9c3 100%)", overflow: "hidden" },
+  blurredInner: { padding: 18, display: "flex", alignItems: "center", gap: 14, filter: "blur(4px)", userSelect: "none", pointerEvents: "none" },
+  blurredIconCircle: { width: 44, height: 44, borderRadius: 12, background: "#e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  blurredTextBlock: { flex: 1 },
+  blurredLine: { height: 14, borderRadius: 6, background: "#d1d5db", width: "75%" },
+  blurredBadge: { padding: "6px 18px", background: "linear-gradient(90deg, #f59e0b, #ef4444)", color: "#fff", fontSize: 12, fontWeight: 800, textAlign: "center", letterSpacing: "0.3px" },
+
+  /* ── Detail Panel ── */
+  messagePanel: { background: "#ffffff", borderRadius: 16, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", minHeight: "calc(100vh - 480px)", display: "flex", flexDirection: "column" },
   messagePanelHeader: { padding: 24, borderBottom: "2px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)" },
   panelHeaderLeft: { display: "flex", alignItems: "center", gap: 16 },
-  panelAvatar: { width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)" },
+  panelAvatar: { width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", display: "flex", alignItems: "center", justifyContent: "center" },
   panelAvatarIcon: { width: 26, height: 26, strokeWidth: 2.5 },
   panelTitle: { fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 4 },
   panelSubtitle: { fontSize: 13, color: "#6b7280", fontWeight: 500 },
@@ -737,12 +860,24 @@ const styles = {
   infoItem: { display: "flex", alignItems: "center", gap: 12, padding: 12, background: "#f9fafb", borderRadius: 10, border: "1px solid #e5e7eb" },
   infoLabel: { fontSize: 14, color: "#6b7280", fontWeight: 600, minWidth: 70 },
   infoValue: { fontSize: 14, color: "#111827", fontWeight: 700 },
+
+  /* ── Blurred Panel ── */
+  blurredPanelWrap: { display: "flex", alignItems: "center", justifyContent: "center", flex: 1, padding: 40 },
+  blurredPanelBox: { textAlign: "center", maxWidth: 400 },
+  blurredPanelIcon: { fontSize: 64, marginBottom: 20 },
+  blurredPanelTitle: { fontSize: 24, fontWeight: 800, color: "#111827", margin: "0 0 12px" },
+  blurredPanelText: { fontSize: 15, color: "#6b7280", fontWeight: 500, lineHeight: 1.7, margin: "0 0 28px" },
+  blurredUpgradeBtn: { display: "inline-block", padding: "14px 36px", background: "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)", color: "#fff", borderRadius: 14, fontWeight: 800, fontSize: 16, textDecoration: "none", boxShadow: "0 6px 20px rgba(239, 68, 68, 0.35)", marginBottom: 32 },
+  planCompare: { background: "#f9fafb", borderRadius: 14, padding: 20, border: "2px solid #e5e7eb", display: "flex", flexDirection: "column", gap: 10 },
+  planRow: { display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600, color: "#374151", padding: "6px 4px", borderBottom: "1px solid #e5e7eb" },
+
+  /* ── Results ── */
   resultsSection: { marginBottom: 32 },
   resultsSectionHeader: { display: "flex", alignItems: "center", gap: 12, marginBottom: 20, paddingBottom: 14, borderBottom: "3px solid #e5e7eb" },
   resultsIcon: { fontSize: 28 },
   resultsTitle: { fontSize: 18, fontWeight: 700, color: "#111827" },
   resultsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18 },
-  resultCard: { border: "2px solid #e5e7eb", borderRadius: 14, overflow: "hidden", transition: "all 0.2s", cursor: "pointer", background: "#fff" },
+  resultCard: { border: "2px solid #e5e7eb", borderRadius: 14, overflow: "hidden", cursor: "pointer", background: "#fff" },
   resultImage: { width: "100%", height: 180, objectFit: "cover" },
   resultImagePlaceholder: { width: "100%", height: 180, background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)", display: "flex", alignItems: "center", justifyContent: "center" },
   resultContent: { padding: 16 },
@@ -750,25 +885,27 @@ const styles = {
   resultPrice: { fontSize: 18, fontWeight: 800, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 },
   resultMeta: { fontSize: 13, color: "#6b7280", marginBottom: 12, fontWeight: 600 },
   resultDescription: { fontSize: 13, color: "#6b7280", marginBottom: 12, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.5 },
-  resultLink: { fontSize: 13, color: "#3b82f6", textDecoration: "none", fontWeight: 700, display: "inline-block", marginTop: 4, transition: "color 0.2s" },
+  resultLink: { fontSize: 13, color: "#3b82f6", fontWeight: 700, display: "inline-block", marginTop: 4 },
   pagesListWrapper: { display: "flex", flexDirection: "column", gap: 14 },
-  pageItem: { display: "flex", gap: 14, padding: 18, border: "2px solid #e5e7eb", borderRadius: 14, background: "#fff", transition: "all 0.2s" },
+  pageItem: { display: "flex", gap: 14, padding: 18, border: "2px solid #e5e7eb", borderRadius: 14, background: "#fff" },
   pageIcon: { fontSize: 36, flexShrink: 0 },
   pageContent: { flex: 1 },
   pageTitle: { fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 8 },
   pageDescription: { fontSize: 14, color: "#6b7280", marginBottom: 10, lineHeight: 1.5 },
-  pageLink: { fontSize: 14, color: "#3b82f6", textDecoration: "none", fontWeight: 700 },
+  pageLink: { fontSize: 14, color: "#3b82f6", fontWeight: 700 },
   noResults: { textAlign: "center", padding: 50, background: "#f9fafb", borderRadius: 14 },
   noResultsIcon: { fontSize: 56, marginBottom: 20 },
   noResultsText: { fontSize: 16, color: "#6b7280", fontWeight: 600, lineHeight: 1.6 },
+
+  /* ── Empty States ── */
   emptyState: { padding: 70, textAlign: "center" },
   emptyIcon: { width: 72, height: 72, margin: "0 auto 24px", background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)", borderRadius: 20, display: "flex", alignItems: "center", justifyContent: "center" },
   emptyIconSvg: { width: 36, height: 36, color: "#d1d5db", strokeWidth: 2 },
-  emptyTitle: { fontSize: 20, fontWeight: 700, color: "#6b7280", margin: "0 0 10px 0" },
+  emptyTitle: { fontSize: 20, fontWeight: 700, color: "#6b7280", margin: "0 0 10px" },
   emptyText: { fontSize: 15, color: "#9ca3af", margin: 0, fontWeight: 500 },
   emptyPanel: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 70 },
   emptyPanelIcon: { width: 96, height: 96, background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 28 },
   emptyPanelIconSvg: { width: 48, height: 48, color: "#d1d5db", strokeWidth: 2 },
-  emptyPanelTitle: { fontSize: 22, fontWeight: 700, color: "#6b7280", margin: "0 0 10px 0" },
+  emptyPanelTitle: { fontSize: 22, fontWeight: 700, color: "#6b7280", margin: "0 0 10px" },
   emptyPanelText: { fontSize: 16, color: "#9ca3af", margin: 0, fontWeight: 500 },
 };
