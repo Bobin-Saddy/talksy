@@ -48,6 +48,16 @@ model ChatSession {
   isResolved Boolean       @default(false)
   resolvedAt DateTime?
   resolvedBy String?
+  
+  // ✅ NEW: Add these blur tracking fields
+  isBlurred  Boolean       @default(false)
+  blurredAt  DateTime?
+  
+  // ✅ NEW: Add these indexes for performance
+  @@index([shop])
+  @@index([sessionId])
+  @@index([isBlurred])
+  @@index([shop, createdAt])
 }
 
 model ChatMessage {
@@ -55,10 +65,13 @@ model ChatMessage {
   chatSessionId String
   session       ChatSession @relation(fields: [chatSessionId], references: [sessionId])
   message       String
-  sender        String      // "user" or "admin"
+  sender        String      // "user" or "admin" or "bot"
   fileUrl       String?     // URL to the uploaded file
   fileType      String?     // e.g., "image/png", "application/pdf"
   createdAt     DateTime    @default(now())
+  
+  @@index([chatSessionId])
+  @@index([createdAt])
 }
 
 model ChatSettings {
@@ -289,4 +302,5 @@ model Subscription {
   cancelledAt       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+    @@index([shop])
 }
