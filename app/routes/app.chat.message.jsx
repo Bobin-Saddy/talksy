@@ -6,7 +6,7 @@ import { canCreateChat } from "../planLimits.server";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type",
 };
 
 export const loader = () => json({}, { headers: corsHeaders });

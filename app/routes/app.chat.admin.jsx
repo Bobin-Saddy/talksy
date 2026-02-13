@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { canCreateChat, shouldBlurChat } from "../planLimits.server";
-import { useAppBridge } from "@shopify/app-bridge-react";
 
 // --- ICONS SET ---
 const Icons = {
@@ -18,7 +17,7 @@ const Icons = {
   FileText: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>,
   CheckCircle: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
   AlertCircle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
-  RotateCcw: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 0 1 0 2.13-9.36L1 10"></path></svg>,
+  RotateCcw: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>,
   Check: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
   TrendingUp: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
   AlertTriangle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
@@ -34,6 +33,7 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   if (!shop) throw new Response("Unauthorized", { status: 401 });
 
+  // ✅ FETCH ALL SESSIONS WITH INDEX - ORDERED BY CREATION TIME
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
     include: {
@@ -45,11 +45,15 @@ export const loader = async ({ request }) => {
     orderBy: { createdAt: "asc" }
   });
 
+  // ✅ GET PLAN LIMITS
   const chatLimit = await canCreateChat(shop);
 
+  // ✅ CHECK BLUR STATUS FOR EACH SESSION
   const sessionsWithLimitInfo = await Promise.all(
     sessions.map(async (session, index) => {
       const isOverLimit = chatLimit.max > 0 && index >= chatLimit.max;
+      
+      // ✅ Check if chat should be blurred based on retention policy
       const blurInfo = await shouldBlurChat(shop, session.createdAt);
       
       return {
@@ -64,6 +68,7 @@ export const loader = async ({ request }) => {
     })
   );
 
+  // ✅ Sort by updated time for display (but isOverLimit is already set)
   sessionsWithLimitInfo.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
   return json({ 
@@ -116,7 +121,6 @@ export const action = async ({ request }) => {
 
 export default function NeuralChatAdmin() {
   const { sessions: initialSessions, currentShop, planLimit: initialPlanLimit } = useLoaderData();
-  const app = useAppBridge();
   const [sessions, setSessions] = useState(initialSessions);
   const [planLimit, setPlanLimit] = useState(initialPlanLimit);
   const [activeSession, setActiveSession] = useState(null);
@@ -129,7 +133,7 @@ export default function NeuralChatAdmin() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [filterStatus, setFilterStatus] = useState("all");
-  const [showBlurPopup, setShowBlurPopup] = useState(false);
+  const [showBlurPopup, setShowBlurPopup] = useState(false); // ✅ NEW: Blur popup state
 
   const fetcher = useFetcher();
   const scrollRef = useRef(null);
@@ -137,80 +141,9 @@ export default function NeuralChatAdmin() {
   const audioRef = useRef(null);
   const lastMessageIdRef = useRef(null);
   const isFirstLoadRef = useRef(true);
+  const lastSessionCountRef = useRef(initialSessions.length);
 
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
-
-  // ✅ BroadcastChannel for instant cross-tab communication
-  const broadcastChannelRef = useRef(null);
-
-  useEffect(() => {
-    // Create broadcast channel for real-time updates
-    broadcastChannelRef.current = new BroadcastChannel('chat_updates');
-    
-    // Listen for updates from other tabs/windows
-    broadcastChannelRef.current.onmessage = (event) => {
-      if (event.data.type === 'NEW_MESSAGE' && activeSession?.sessionId === event.data.sessionId) {
-        // Immediately fetch new messages
-        fetchMessagesNow(event.data.sessionId);
-      }
-      if (event.data.type === 'NEW_SESSION') {
-        // Refresh sessions list
-        fetchSessionsNow();
-      }
-    };
-
-    return () => {
-      broadcastChannelRef.current?.close();
-    };
-  }, [activeSession?.sessionId]);
-
-  // ✅ Instant message fetch function
-  const fetchMessagesNow = async (sessionId) => {
-    try {
-      const res = await authenticatedFetch("/app/chat/messages?sessionId=" + sessionId);
-      if (res.ok) {
-        const data = await res.json();
-        if (!data.error && Array.isArray(data)) {
-          setMessages(data);
-          if (data.length > 0) {
-            lastMessageIdRef.current = data[data.length - 1].id;
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Instant fetch error:", err);
-    }
-  };
-
-  // ✅ Instant session fetch function
-  const fetchSessionsNow = async () => {
-    try {
-      const res = await authenticatedFetch(window.location.pathname, {
-        headers: { 'Accept': 'application/json' }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.sessions && data.planLimit) {
-          setSessions(data.sessions);
-          setPlanLimit(data.planLimit);
-        }
-      }
-    } catch (err) {
-      console.error("Instant session fetch error:", err);
-    }
-  };
-
-  // ✅ Helper function for authenticated fetch
-  const authenticatedFetch = async (url, options = {}) => {
-    const sessionToken = await app.idToken();
-    return fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        'Authorization': `Bearer ${sessionToken}`,
-      },
-    });
-  };
 
   useEffect(() => {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
@@ -219,98 +152,72 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
-  // ✅ OPTIMIZED SINGLE POLLING LOOP - Reduced from 2 separate intervals to 1
+  // ✅ REAL-TIME SESSION UPDATES
   useEffect(() => {
-    let isMounted = true;
-    let failureCount = 0;
-    const MAX_FAILURES = 3;
-    
-    const fetchUpdates = async () => {
-      if (!isMounted) return;
-      
+    const interval = setInterval(async () => {
       try {
-        const res = await authenticatedFetch(window.location.pathname, {
-          headers: { 'Accept': 'application/json' }
+        const res = await fetch(window.location.pathname, {
+          headers: {
+            'Accept': 'application/json'
+          }
         });
-        
-        // ✅ Check if response is actually JSON
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.warn('Server returned non-JSON response, likely redirecting to auth');
-          failureCount++;
-          if (failureCount >= MAX_FAILURES) {
-            console.log('Multiple auth failures detected, reloading page...');
-            window.location.reload();
-          }
-          return;
-        }
-        
-        if (!res.ok) {
-          console.warn('Server returned error status:', res.status);
-          if (res.status === 401 || res.status === 403) {
-            window.location.reload(); // Force re-authentication
-          }
-          return;
-        }
-        
         const data = await res.json();
         
-        // Reset failure count on success
-        failureCount = 0;
-        
-        if (!isMounted || !data.sessions || !data.planLimit) return;
-        
-        const currentSessionIds = sessions.map(s => s.sessionId);
-        const newSessions = data.sessions.filter(s => !currentSessionIds.includes(s.sessionId));
-        
-        // Check if active session just became blurred
-        if (activeSession) {
-          const updatedActiveSession = data.sessions.find(s => s.sessionId === activeSession.sessionId);
-          if (updatedActiveSession && !activeSession.shouldBlur && updatedActiveSession.shouldBlur) {
-            setShowBlurPopup(true);
-            setMessages([]);
-          }
-          if (updatedActiveSession) {
-            setActiveSession(updatedActiveSession);
-          }
-        }
-        
-        setSessions(data.sessions);
-        setPlanLimit(data.planLimit);
-        
-        // Notifications for new sessions
-        if (newSessions.length > 0) {
-          if (audioRef.current) audioRef.current.play().catch(() => {});
-          if (Notification.permission === "granted") {
-            newSessions.forEach(s => {
-              new Notification("New Chat Request", {
-                body: "From: " + (s.email || 'Customer'),
-                icon: '/favicon.ico'
+        if (data.sessions && data.planLimit) {
+          const newSessionCount = data.sessions.length;
+          const previousCount = lastSessionCountRef.current;
+          
+          const currentSessionIds = sessions.map(s => s.sessionId);
+          const newSessions = data.sessions.filter(s => 
+            !currentSessionIds.includes(s.sessionId)
+          );
+          
+          const updatedSessions = data.sessions.filter(newS => {
+            const oldS = sessions.find(s => s.sessionId === newS.sessionId);
+            return oldS && new Date(newS.updatedAt) > new Date(oldS.updatedAt);
+          });
+          
+          setSessions(data.sessions);
+          setPlanLimit(data.planLimit);
+          
+          if (newSessions.length > 0) {
+            console.log("🆕 New chat(s) detected!", newSessions.length, "new sessions");
+            
+            if (audioRef.current) {
+              audioRef.current.play().catch(() => {});
+            }
+            
+            if (Notification.permission === "granted") {
+              newSessions.forEach(newSession => {
+                new Notification("New Chat Request", {
+                  body: "From: " + (newSession.email || 'Customer'),
+                  icon: '/favicon.ico'
+                });
               });
-            });
+            }
+            
+            const hasOverLimitNewChat = newSessions.some(s => s.isOverLimit);
+            if (hasOverLimitNewChat) {
+              console.log("📬 New over-limit chat - switching to Requests tab");
+              setFilterStatus("requests");
+            }
           }
-          if (newSessions.some(s => s.isOverLimit)) {
-            setFilterStatus("requests");
+          
+          if (updatedSessions.length > 0 && newSessions.length === 0) {
+            console.log("📨 Message updates detected in", updatedSessions.length, "sessions");
           }
+          
+          lastSessionCountRef.current = newSessionCount;
         }
       } catch (e) {
-        // Silently fail - don't spam console on network issues
-        if (e.name !== 'SyntaxError') {
-          console.error("Polling error:", e);
-        }
+        console.error("Session refresh failed:", e);
       }
-    };
+    }, 1500);
     
-    const interval = setInterval(fetchUpdates, 3000); // ⚡ Increased from 1.5s to 3s
-    fetchUpdates(); // Initial fetch
-    
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [sessions.length, activeSession?.sessionId, activeSession?.shouldBlur]);
+    return () => clearInterval(interval);
+  }, [sessions]);
 
-  // ✅ FILTER SESSIONS (memoized for performance)
+  // ✅ FILTER SESSIONS
   const filteredSessions = useMemo(() => {
     let filtered = sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
     
@@ -329,9 +236,11 @@ export default function NeuralChatAdmin() {
     return filtered;
   }, [sessions, searchTerm, filterStatus]);
 
+  // ✅ CHECK IF ACTIVE SESSION IS OVER LIMIT OR BLURRED
   const isActiveSessionOverLimit = activeSession?.isOverLimit === true;
   const isActiveSessionBlurred = activeSession?.shouldBlur === true;
 
+  // ✅ COUNT SESSIONS FOR TABS
   const withinLimitSessions = sessions.filter(s => s.isOverLimit !== true);
   const overLimitSessions = sessions.filter(s => s.isOverLimit === true);
 
@@ -351,46 +260,13 @@ export default function NeuralChatAdmin() {
     }
   };
 
-  // ✅ MESSAGE POLLING - Only when active session is selected and not blurred
+  // ✅ POLL ACTIVE CHAT MESSAGES
   useEffect(() => {
-    if (!activeSession || isActiveSessionBlurred) return;
-    
-    let isMounted = true;
-    
-    const fetchMessages = async () => {
-      if (!isMounted) return;
-      
+    if (!activeSession) return;
+    const interval = setInterval(async () => {
       try {
-        const res = await authenticatedFetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
-        
-        // ✅ Handle authentication errors
-        if (res.status === 401 || res.status === 403) {
-          console.warn('Messages endpoint auth failure, reloading...');
-          window.location.reload();
-          return;
-        }
-        
-        // ✅ Check if response is actually JSON
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.warn('Messages endpoint returned non-JSON response');
-          return;
-        }
-        
-        if (!res.ok) {
-          console.warn('Messages endpoint error:', res.status);
-          return;
-        }
-        
+        const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
         const data = await res.json();
-        
-        if (!isMounted) return;
-        
-        // Handle error response from server
-        if (data.error) {
-          console.warn('Messages API error:', data.error);
-          return;
-        }
         
         if (data.length !== messages.length || 
             (data.length > 0 && data[data.length - 1].id !== lastMessageIdRef.current)) {
@@ -410,23 +286,15 @@ export default function NeuralChatAdmin() {
           }
         }
       } catch (err) {
-        // Silently fail on JSON parse errors
-        if (err.name !== 'SyntaxError') {
-          console.error("Message polling error", err);
-        }
+        console.error("Message polling error", err);
       }
-    };
-    
-    const interval = setInterval(fetchMessages, 1000); // ⚡ Reduced to 1s for faster updates
-    
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [activeSession?.sessionId, messages.length, isActiveSessionBlurred]);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [activeSession, messages.length]);
 
   // ✅ LOAD CHAT - WITH BLUR CHECK
   const loadChat = async (session) => {
+    // ✅ If chat is blurred, show popup instead of loading
     if (session.shouldBlur) {
       setShowBlurPopup(true);
       return;
@@ -435,16 +303,13 @@ export default function NeuralChatAdmin() {
     setActiveSession(session);
     setUnreadCounts(prev => ({ ...prev, [session.sessionId]: 0 }));
     isFirstLoadRef.current = true;
-    
     try {
-      const res = await authenticatedFetch("/app/chat/messages?sessionId=" + session.sessionId);
+      const res = await fetch("/app/chat/messages?sessionId=" + session.sessionId);
       const data = await res.json();
       if (data.length > 0) lastMessageIdRef.current = data[data.length - 1].id;
       setMessages(data);
       setTimeout(() => { isFirstLoadRef.current = false; }, 500);
-    } catch (err) {
-      console.error("Load chat error:", err);
-    }
+    } catch (err) {}
   };
 
   const handleFileSelect = (e) => {
@@ -491,7 +356,7 @@ export default function NeuralChatAdmin() {
     setShowEmojiPicker(false);
     
     try {
-      const response = await authenticatedFetch("/app/chat/message", {
+      const response = await fetch("/app/chat/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newMessage)
@@ -500,14 +365,7 @@ export default function NeuralChatAdmin() {
       const result = await response.json();
       
       if (result.success) {
-        // ✅ Immediately fetch new messages without waiting for polling
-        await fetchMessagesNow(activeSession.sessionId);
-        
-        // ✅ Broadcast to other tabs
-        broadcastChannelRef.current?.postMessage({
-          type: 'NEW_MESSAGE',
-          sessionId: activeSession.sessionId
-        });
+        console.log("✅ Message sent successfully:", result.newMessage?.id);
       } else {
         console.error("❌ Failed to send message:", result.error);
         alert("Failed to send message. Please try again.");
@@ -582,6 +440,7 @@ export default function NeuralChatAdmin() {
               position: 'relative'
             }}
           >
+            {/* Close button */}
             <button
               onClick={() => setShowBlurPopup(false)}
               style={{
@@ -601,6 +460,7 @@ export default function NeuralChatAdmin() {
               <Icons.X size={20} color="#9ca3af" />
             </button>
 
+            {/* Icon */}
             <div style={{ 
               width: '80px', 
               height: '80px', 
@@ -615,6 +475,7 @@ export default function NeuralChatAdmin() {
               <Icons.EyeOff />
             </div>
 
+            {/* Title */}
             <h2 style={{ 
               fontSize: '24px', 
               fontWeight: '700', 
@@ -625,6 +486,7 @@ export default function NeuralChatAdmin() {
               Chat History Expired
             </h2>
 
+            {/* Description */}
             <p style={{ 
               fontSize: '15px', 
               color: '#6b7280', 
@@ -636,6 +498,7 @@ export default function NeuralChatAdmin() {
               Upgrade to <strong>Standard</strong> or <strong>Premium</strong> to access full chat history.
             </p>
 
+            {/* Features */}
             <div style={{ 
               background: '#f9fafb', 
               borderRadius: '12px', 
@@ -700,6 +563,7 @@ export default function NeuralChatAdmin() {
               </div>
             </div>
 
+            {/* Buttons */}
             <div style={{ display: 'flex', gap: '12px' }}>
               <button 
                 onClick={() => setShowBlurPopup(false)}
@@ -763,6 +627,7 @@ export default function NeuralChatAdmin() {
           <p style={{ fontSize: '13px', color: '#6b7280', marginTop: 4 }}>Manage customer conversations</p>
         </div>
 
+        {/* ✅ OVER LIMIT WARNING */}
         {planLimit.isOverLimit && (
           <div style={{ 
             margin: '0 16px 16px', 
@@ -801,6 +666,7 @@ export default function NeuralChatAdmin() {
           </div>
         )}
 
+        {/* ✅ 4-TAB FILTER */}
         <div style={{ padding: '0 16px 16px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', borderBottom: '1px solid #f3f4f6' }}>
           <button 
             onClick={() => setFilterStatus("all")}
@@ -921,51 +787,40 @@ export default function NeuralChatAdmin() {
         </div>
       </div>
 
-      {/* CHAT AREA */}
+      {/* CHAT AREA - Rest of the component remains the same */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
         {activeSession ? (
           <>
-            <div style={{ padding: '20px 32px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: (isActiveSessionOverLimit || isActiveSessionBlurred) ? '#fef3c7' : '#fff' }}>
+            <div style={{ padding: '20px 32px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isActiveSessionOverLimit ? '#fef3c7' : '#fff' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <h3 style={{ margin: 0, fontWeight: '700', fontSize: '18px', color: '#111827' }}>{activeSession.email}</h3>
-                  {isActiveSessionBlurred && (
-                    <div style={{ background: '#f59e0b', color: 'white', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Icons.EyeOff />
-                      Expired
-                    </div>
-                  )}
-                  {isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                  {isActiveSessionOverLimit && (
                     <div style={{ background: '#f59e0b', color: 'white', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Icons.Lock />
                       Over Limit
                     </div>
                   )}
-                  {activeSession.isResolved && !isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                  {activeSession.isResolved && !isActiveSessionOverLimit && (
                     <div style={{ background: '#d1fae5', color: '#065f46', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Icons.Check />
                       Resolved
                     </div>
                   )}
                 </div>
-                {isActiveSessionBlurred && (
-                  <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px', fontWeight: '500' }}>
-                    This chat has expired. Upgrade to access full history.
-                  </div>
-                )}
-                {isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                {isActiveSessionOverLimit && (
                   <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px', fontWeight: '500' }}>
                     This chat is over your plan limit. Upgrade to respond.
                   </div>
                 )}
-                {activeSession.resolvedAt && !isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                {activeSession.resolvedAt && !isActiveSessionOverLimit && (
                   <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                     Resolved on {new Date(activeSession.resolvedAt).toLocaleDateString()}
                   </div>
                 )}
               </div>
               
-              {!isActiveSessionOverLimit && !isActiveSessionBlurred && !activeSession.isResolved && (
+              {!isActiveSessionOverLimit && !activeSession.isResolved && (
                 <button 
                   onClick={handleMarkResolved}
                   style={{ 
@@ -991,7 +846,7 @@ export default function NeuralChatAdmin() {
                 </button>
               )}
               
-              {!isActiveSessionOverLimit && !isActiveSessionBlurred && activeSession.isResolved && (
+              {!isActiveSessionOverLimit && activeSession.isResolved && (
                 <button 
                   onClick={handleReopenChat}
                   style={{ 
@@ -1016,7 +871,7 @@ export default function NeuralChatAdmin() {
                 </button>
               )}
 
-              {(isActiveSessionOverLimit || isActiveSessionBlurred) && (
+              {isActiveSessionOverLimit && (
                 <button 
                   onClick={() => window.location.href = '/app/subscription'}
                   style={{ 
@@ -1040,70 +895,26 @@ export default function NeuralChatAdmin() {
               )}
             </div>
 
-            {!isActiveSessionBlurred ? (
-              <div ref={scrollRef} style={{ flex: 1, padding: '32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', background: '#f9fafb' }}>
-                {messages.map((msg, i) => (
-                  <div key={msg.id || i} style={{ alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '65%' }}>
-                    <div style={{ padding: '12px 16px', borderRadius: '16px', background: msg.sender === 'admin' ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : (msg.sender === 'bot' ? '#fef3c7' : '#fff'), color: msg.sender === 'admin' ? '#fff' : '#111827', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: msg.sender === 'admin' ? 'none' : (msg.sender === 'bot' ? '1px solid #fbbf24' : '1px solid #e5e7eb') }}>
-                      {msg.fileUrl ? (
-                        msg.fileUrl.includes('image') || msg.fileUrl.startsWith('data:image') ? 
-                        <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '10px', cursor: 'zoom-in' }} alt="attachment" /> :
-                        <div style={{display:'flex', gap:'8px', alignItems: 'center'}}><Icons.FileText /><a href={msg.fileUrl} target="_blank" rel="noreferrer" style={{color: 'inherit', fontWeight: '600', textDecoration: 'none'}}>View Document</a></div>
-                      ) : (
-                        <div style={{ fontSize: '14px', lineHeight: '1.5' }}>{msg.message}</div>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', textAlign: msg.sender === 'admin' ? 'right' : 'left' }}>
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
+            <div ref={scrollRef} style={{ flex: 1, padding: '32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', background: '#f9fafb' }}>
+              {messages.map((msg, i) => (
+                <div key={msg.id || i} style={{ alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '65%' }}>
+                  <div style={{ padding: '12px 16px', borderRadius: '16px', background: msg.sender === 'admin' ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : (msg.sender === 'bot' ? '#fef3c7' : '#fff'), color: msg.sender === 'admin' ? '#fff' : '#111827', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: msg.sender === 'admin' ? 'none' : (msg.sender === 'bot' ? '1px solid #fbbf24' : '1px solid #e5e7eb') }}>
+                    {msg.fileUrl ? (
+                      msg.fileUrl.includes('image') || msg.fileUrl.startsWith('data:image') ? 
+                      <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '10px', cursor: 'zoom-in' }} alt="attachment" /> :
+                      <div style={{display:'flex', gap:'8px', alignItems: 'center'}}><Icons.FileText /><a href={msg.fileUrl} target="_blank" rel="noreferrer" style={{color: 'inherit', fontWeight: '600', textDecoration: 'none'}}>View Document</a></div>
+                    ) : (
+                      <div style={{ fontSize: '14px', lineHeight: '1.5' }}>{msg.message}</div>
+                    )}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', padding: '40px' }}>
-                <div style={{ 
-                  width: '100px', 
-                  height: '100px', 
-                  borderRadius: '50%', 
-                  background: '#fef3c7',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '24px',
-                  color: '#92400e'
-                }}>
-                  <Icons.EyeOff />
+                  <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', textAlign: msg.sender === 'admin' ? 'right' : 'left' }}>
+                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
-                <h3 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', marginBottom: '12px' }}>
-                  Chat History Expired
-                </h3>
-                <p style={{ fontSize: '14px', color: '#6b7280', textAlign: 'center', maxWidth: '400px', marginBottom: '24px' }}>
-                  This conversation is older than your FREE plan retention period. Upgrade to Standard or Premium to access full chat history.
-                </p>
-                <button 
-                  onClick={() => window.location.href = '/app/subscription'}
-                  style={{ 
-                    padding: '12px 24px', 
-                    borderRadius: '10px', 
-                    border: 'none', 
-                    background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-                    color: '#fff',
-                    fontWeight: '600',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)'
-                  }}
-                >
-                  <Icons.Zap />
-                  Upgrade Now
-                </button>
-              </div>
-            )}
+              ))}
+            </div>
 
-            {filePreview && !isActiveSessionOverLimit && !isActiveSessionBlurred && (
+            {filePreview && !isActiveSessionOverLimit && (
               <div style={{ padding: '12px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ position: 'relative' }}>
                   {filePreview.type.includes('image') ? (
@@ -1120,7 +931,7 @@ export default function NeuralChatAdmin() {
               </div>
             )}
 
-            {!isActiveSessionOverLimit && !isActiveSessionBlurred ? (
+            {!isActiveSessionOverLimit ? (
               <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid #e5e7eb', position: 'relative' }}>
                 {showEmojiPicker && (
                   <div style={{ position: 'absolute', bottom: '80px', left: '32px', background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', zIndex: 10 }}>
@@ -1143,15 +954,13 @@ export default function NeuralChatAdmin() {
             ) : (
               <div style={{ padding: '20px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', borderRadius: '12px', border: '2px dashed #f59e0b' }}>
-                  {isActiveSessionBlurred ? <Icons.EyeOff /> : <Icons.Lock />}
+                  <Icons.Lock />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '14px', fontWeight: '600', color: '#92400e', marginBottom: '4px' }}>
-                      {isActiveSessionBlurred ? 'Chat Expired' : 'Chat Locked - Over Plan Limit'}
+                      Chat Locked - Over Plan Limit
                     </div>
                     <div style={{ fontSize: '12px', color: '#92400e' }}>
-                      {isActiveSessionBlurred 
-                        ? 'Upgrade to Standard or Premium to access chat history' 
-                        : 'Upgrade your plan to respond to this customer request'}
+                      Upgrade your plan to respond to this customer request
                     </div>
                   </div>
                   <button 
@@ -1226,13 +1035,13 @@ export default function NeuralChatAdmin() {
 
         {activeSession && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ padding: '16px', background: isActiveSessionBlurred ? '#fef3c7' : (activeSession.isResolved ? '#d1fae5' : (isActiveSessionOverLimit ? '#fee2e2' : '#fef3c7')), borderRadius: '12px', border: isActiveSessionBlurred ? '1px solid #fcd34d' : (activeSession.isResolved ? '1px solid #86efac' : (isActiveSessionOverLimit ? '1px solid #fca5a5' : '1px solid #fcd34d')) }}>
-              <div style={{ fontSize: '10px', color: isActiveSessionBlurred ? '#92400e' : (activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e')), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
+            <div style={{ padding: '16px', background: activeSession.isResolved ? '#d1fae5' : (isActiveSessionOverLimit ? '#fee2e2' : '#fef3c7'), borderRadius: '12px', border: activeSession.isResolved ? '1px solid #86efac' : (isActiveSessionOverLimit ? '1px solid #fca5a5' : '1px solid #fcd34d') }}>
+              <div style={{ fontSize: '10px', color: activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e'), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
                 STATUS
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '15px', color: isActiveSessionBlurred ? '#92400e' : (activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e')) }}>
-                {isActiveSessionBlurred ? <Icons.EyeOff /> : (activeSession.isResolved ? <Icons.CheckCircle /> : (isActiveSessionOverLimit ? <Icons.Lock /> : <Icons.AlertCircle />))}
-                {isActiveSessionBlurred ? 'Expired' : (activeSession.isResolved ? 'Resolved' : (isActiveSessionOverLimit ? 'Over Limit' : 'Pending'))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '15px', color: activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e') }}>
+                {activeSession.isResolved ? <Icons.CheckCircle /> : (isActiveSessionOverLimit ? <Icons.Lock /> : <Icons.AlertCircle />)}
+                {activeSession.isResolved ? 'Resolved' : (isActiveSessionOverLimit ? 'Over Limit' : 'Pending')}
               </div>
             </div>
 
@@ -1246,11 +1055,9 @@ export default function NeuralChatAdmin() {
             <div style={{ padding: '16px', background: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe' }}>
               <div style={{ fontSize: '10px', color: '#1e40af', fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>MESSAGES</div>
               <div style={{ fontSize: '28px', fontWeight: '800', color: '#1e40af' }}>
-                {isActiveSessionBlurred ? '—' : messages.length}
+                {messages.length}
               </div>
-              <div style={{ fontSize: '11px', color: '#60a5fa', marginTop: 4 }}>
-                {isActiveSessionBlurred ? 'Expired' : 'Total exchanges'}
-              </div>
+              <div style={{ fontSize: '11px', color: '#60a5fa', marginTop: 4 }}>Total exchanges</div>
             </div>
           </div>
         )}
