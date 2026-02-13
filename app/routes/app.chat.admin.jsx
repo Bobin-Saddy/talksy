@@ -133,7 +133,7 @@ export default function NeuralChatAdmin() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [filterStatus, setFilterStatus] = useState("all");
-  const [showBlurPopup, setShowBlurPopup] = useState(false); // ✅ NEW: Blur popup state
+  const [showBlurPopup, setShowBlurPopup] = useState(false);
 
   const fetcher = useFetcher();
   const scrollRef = useRef(null);
@@ -152,7 +152,7 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
-  // ✅ REAL-TIME SESSION UPDATES
+  // ✅ REAL-TIME SESSION UPDATES WITH BLUR CHECK
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -165,8 +165,6 @@ export default function NeuralChatAdmin() {
         
         if (data.sessions && data.planLimit) {
           const newSessionCount = data.sessions.length;
-          const previousCount = lastSessionCountRef.current;
-          
           const currentSessionIds = sessions.map(s => s.sessionId);
           const newSessions = data.sessions.filter(s => 
             !currentSessionIds.includes(s.sessionId)
@@ -176,6 +174,23 @@ export default function NeuralChatAdmin() {
             const oldS = sessions.find(s => s.sessionId === newS.sessionId);
             return oldS && new Date(newS.updatedAt) > new Date(oldS.updatedAt);
           });
+          
+          // ✅ CHECK IF ACTIVE SESSION JUST BECAME BLURRED
+          if (activeSession) {
+            const updatedActiveSession = data.sessions.find(s => s.sessionId === activeSession.sessionId);
+            if (updatedActiveSession) {
+              // ✅ If session was not blurred before but is now blurred, show popup
+              if (!activeSession.shouldBlur && updatedActiveSession.shouldBlur) {
+                console.log("⏰ Active chat just expired! Showing popup...");
+                setShowBlurPopup(true);
+                // Clear messages to prevent viewing expired content
+                setMessages([]);
+              }
+              
+              // ✅ Update active session with latest data
+              setActiveSession(updatedActiveSession);
+            }
+          }
           
           setSessions(data.sessions);
           setPlanLimit(data.planLimit);
@@ -215,7 +230,7 @@ export default function NeuralChatAdmin() {
     }, 1500);
     
     return () => clearInterval(interval);
-  }, [sessions]);
+  }, [sessions, activeSession]); // ✅ Added activeSession as dependency
 
   // ✅ FILTER SESSIONS
   const filteredSessions = useMemo(() => {
@@ -260,9 +275,10 @@ export default function NeuralChatAdmin() {
     }
   };
 
-  // ✅ POLL ACTIVE CHAT MESSAGES
+  // ✅ POLL ACTIVE CHAT MESSAGES - ONLY IF NOT BLURRED
   useEffect(() => {
-    if (!activeSession) return;
+    if (!activeSession || isActiveSessionBlurred) return;
+    
     const interval = setInterval(async () => {
       try {
         const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
@@ -290,7 +306,7 @@ export default function NeuralChatAdmin() {
       }
     }, 1500);
     return () => clearInterval(interval);
-  }, [activeSession, messages.length]);
+  }, [activeSession, messages.length, isActiveSessionBlurred]); // ✅ Added isActiveSessionBlurred
 
   // ✅ LOAD CHAT - WITH BLUR CHECK
   const loadChat = async (session) => {
@@ -787,40 +803,51 @@ export default function NeuralChatAdmin() {
         </div>
       </div>
 
-      {/* CHAT AREA - Rest of the component remains the same */}
+      {/* CHAT AREA - Keeping existing structure but hiding messages if blurred */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
         {activeSession ? (
           <>
-            <div style={{ padding: '20px 32px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isActiveSessionOverLimit ? '#fef3c7' : '#fff' }}>
+            <div style={{ padding: '20px 32px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: (isActiveSessionOverLimit || isActiveSessionBlurred) ? '#fef3c7' : '#fff' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <h3 style={{ margin: 0, fontWeight: '700', fontSize: '18px', color: '#111827' }}>{activeSession.email}</h3>
-                  {isActiveSessionOverLimit && (
+                  {isActiveSessionBlurred && (
+                    <div style={{ background: '#f59e0b', color: 'white', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Icons.EyeOff />
+                      Expired
+                    </div>
+                  )}
+                  {isActiveSessionOverLimit && !isActiveSessionBlurred && (
                     <div style={{ background: '#f59e0b', color: 'white', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Icons.Lock />
                       Over Limit
                     </div>
                   )}
-                  {activeSession.isResolved && !isActiveSessionOverLimit && (
+                  {activeSession.isResolved && !isActiveSessionOverLimit && !isActiveSessionBlurred && (
                     <div style={{ background: '#d1fae5', color: '#065f46', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Icons.Check />
                       Resolved
                     </div>
                   )}
                 </div>
-                {isActiveSessionOverLimit && (
+                {isActiveSessionBlurred && (
+                  <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px', fontWeight: '500' }}>
+                    This chat has expired. Upgrade to access full history.
+                  </div>
+                )}
+                {isActiveSessionOverLimit && !isActiveSessionBlurred && (
                   <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px', fontWeight: '500' }}>
                     This chat is over your plan limit. Upgrade to respond.
                   </div>
                 )}
-                {activeSession.resolvedAt && !isActiveSessionOverLimit && (
+                {activeSession.resolvedAt && !isActiveSessionOverLimit && !isActiveSessionBlurred && (
                   <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                     Resolved on {new Date(activeSession.resolvedAt).toLocaleDateString()}
                   </div>
                 )}
               </div>
               
-              {!isActiveSessionOverLimit && !activeSession.isResolved && (
+              {!isActiveSessionOverLimit && !isActiveSessionBlurred && !activeSession.isResolved && (
                 <button 
                   onClick={handleMarkResolved}
                   style={{ 
@@ -846,7 +873,7 @@ export default function NeuralChatAdmin() {
                 </button>
               )}
               
-              {!isActiveSessionOverLimit && activeSession.isResolved && (
+              {!isActiveSessionOverLimit && !isActiveSessionBlurred && activeSession.isResolved && (
                 <button 
                   onClick={handleReopenChat}
                   style={{ 
@@ -871,7 +898,7 @@ export default function NeuralChatAdmin() {
                 </button>
               )}
 
-              {isActiveSessionOverLimit && (
+              {(isActiveSessionOverLimit || isActiveSessionBlurred) && (
                 <button 
                   onClick={() => window.location.href = '/app/subscription'}
                   style={{ 
@@ -895,26 +922,71 @@ export default function NeuralChatAdmin() {
               )}
             </div>
 
-            <div ref={scrollRef} style={{ flex: 1, padding: '32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', background: '#f9fafb' }}>
-              {messages.map((msg, i) => (
-                <div key={msg.id || i} style={{ alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '65%' }}>
-                  <div style={{ padding: '12px 16px', borderRadius: '16px', background: msg.sender === 'admin' ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : (msg.sender === 'bot' ? '#fef3c7' : '#fff'), color: msg.sender === 'admin' ? '#fff' : '#111827', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: msg.sender === 'admin' ? 'none' : (msg.sender === 'bot' ? '1px solid #fbbf24' : '1px solid #e5e7eb') }}>
-                    {msg.fileUrl ? (
-                      msg.fileUrl.includes('image') || msg.fileUrl.startsWith('data:image') ? 
-                      <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '10px', cursor: 'zoom-in' }} alt="attachment" /> :
-                      <div style={{display:'flex', gap:'8px', alignItems: 'center'}}><Icons.FileText /><a href={msg.fileUrl} target="_blank" rel="noreferrer" style={{color: 'inherit', fontWeight: '600', textDecoration: 'none'}}>View Document</a></div>
-                    ) : (
-                      <div style={{ fontSize: '14px', lineHeight: '1.5' }}>{msg.message}</div>
-                    )}
+            {/* ✅ Show messages only if NOT blurred */}
+            {!isActiveSessionBlurred ? (
+              <div ref={scrollRef} style={{ flex: 1, padding: '32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', background: '#f9fafb' }}>
+                {messages.map((msg, i) => (
+                  <div key={msg.id || i} style={{ alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '65%' }}>
+                    <div style={{ padding: '12px 16px', borderRadius: '16px', background: msg.sender === 'admin' ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : (msg.sender === 'bot' ? '#fef3c7' : '#fff'), color: msg.sender === 'admin' ? '#fff' : '#111827', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: msg.sender === 'admin' ? 'none' : (msg.sender === 'bot' ? '1px solid #fbbf24' : '1px solid #e5e7eb') }}>
+                      {msg.fileUrl ? (
+                        msg.fileUrl.includes('image') || msg.fileUrl.startsWith('data:image') ? 
+                        <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '10px', cursor: 'zoom-in' }} alt="attachment" /> :
+                        <div style={{display:'flex', gap:'8px', alignItems: 'center'}}><Icons.FileText /><a href={msg.fileUrl} target="_blank" rel="noreferrer" style={{color: 'inherit', fontWeight: '600', textDecoration: 'none'}}>View Document</a></div>
+                      ) : (
+                        <div style={{ fontSize: '14px', lineHeight: '1.5' }}>{msg.message}</div>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', textAlign: msg.sender === 'admin' ? 'right' : 'left' }}>
+                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', textAlign: msg.sender === 'admin' ? 'right' : 'left' }}>
-                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', padding: '40px' }}>
+                <div style={{ 
+                  width: '100px', 
+                  height: '100px', 
+                  borderRadius: '50%', 
+                  background: '#fef3c7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '24px',
+                  color: '#92400e'
+                }}>
+                  <Icons.EyeOff />
                 </div>
-              ))}
-            </div>
+                <h3 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', marginBottom: '12px' }}>
+                  Chat History Expired
+                </h3>
+                <p style={{ fontSize: '14px', color: '#6b7280', textAlign: 'center', maxWidth: '400px', marginBottom: '24px' }}>
+                  This conversation is older than your FREE plan retention period. Upgrade to Standard or Premium to access full chat history.
+                </p>
+                <button 
+                  onClick={() => window.location.href = '/app/subscription'}
+                  style={{ 
+                    padding: '12px 24px', 
+                    borderRadius: '10px', 
+                    border: 'none', 
+                    background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+                    color: '#fff',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)'
+                  }}
+                >
+                  <Icons.Zap />
+                  Upgrade Now
+                </button>
+              </div>
+            )}
 
-            {filePreview && !isActiveSessionOverLimit && (
+            {filePreview && !isActiveSessionOverLimit && !isActiveSessionBlurred && (
               <div style={{ padding: '12px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ position: 'relative' }}>
                   {filePreview.type.includes('image') ? (
@@ -931,7 +1003,7 @@ export default function NeuralChatAdmin() {
               </div>
             )}
 
-            {!isActiveSessionOverLimit ? (
+            {!isActiveSessionOverLimit && !isActiveSessionBlurred ? (
               <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid #e5e7eb', position: 'relative' }}>
                 {showEmojiPicker && (
                   <div style={{ position: 'absolute', bottom: '80px', left: '32px', background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', zIndex: 10 }}>
@@ -954,13 +1026,15 @@ export default function NeuralChatAdmin() {
             ) : (
               <div style={{ padding: '20px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', borderRadius: '12px', border: '2px dashed #f59e0b' }}>
-                  <Icons.Lock />
+                  {isActiveSessionBlurred ? <Icons.EyeOff /> : <Icons.Lock />}
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '14px', fontWeight: '600', color: '#92400e', marginBottom: '4px' }}>
-                      Chat Locked - Over Plan Limit
+                      {isActiveSessionBlurred ? 'Chat Expired' : 'Chat Locked - Over Plan Limit'}
                     </div>
                     <div style={{ fontSize: '12px', color: '#92400e' }}>
-                      Upgrade your plan to respond to this customer request
+                      {isActiveSessionBlurred 
+                        ? 'Upgrade to Standard or Premium to access chat history' 
+                        : 'Upgrade your plan to respond to this customer request'}
                     </div>
                   </div>
                   <button 
@@ -1035,13 +1109,13 @@ export default function NeuralChatAdmin() {
 
         {activeSession && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ padding: '16px', background: activeSession.isResolved ? '#d1fae5' : (isActiveSessionOverLimit ? '#fee2e2' : '#fef3c7'), borderRadius: '12px', border: activeSession.isResolved ? '1px solid #86efac' : (isActiveSessionOverLimit ? '1px solid #fca5a5' : '1px solid #fcd34d') }}>
-              <div style={{ fontSize: '10px', color: activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e'), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
+            <div style={{ padding: '16px', background: isActiveSessionBlurred ? '#fef3c7' : (activeSession.isResolved ? '#d1fae5' : (isActiveSessionOverLimit ? '#fee2e2' : '#fef3c7')), borderRadius: '12px', border: isActiveSessionBlurred ? '1px solid #fcd34d' : (activeSession.isResolved ? '1px solid #86efac' : (isActiveSessionOverLimit ? '1px solid #fca5a5' : '1px solid #fcd34d')) }}>
+              <div style={{ fontSize: '10px', color: isActiveSessionBlurred ? '#92400e' : (activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e')), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
                 STATUS
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '15px', color: activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e') }}>
-                {activeSession.isResolved ? <Icons.CheckCircle /> : (isActiveSessionOverLimit ? <Icons.Lock /> : <Icons.AlertCircle />)}
-                {activeSession.isResolved ? 'Resolved' : (isActiveSessionOverLimit ? 'Over Limit' : 'Pending')}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '15px', color: isActiveSessionBlurred ? '#92400e' : (activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e')) }}>
+                {isActiveSessionBlurred ? <Icons.EyeOff /> : (activeSession.isResolved ? <Icons.CheckCircle /> : (isActiveSessionOverLimit ? <Icons.Lock /> : <Icons.AlertCircle />))}
+                {isActiveSessionBlurred ? 'Expired' : (activeSession.isResolved ? 'Resolved' : (isActiveSessionOverLimit ? 'Over Limit' : 'Pending'))}
               </div>
             </div>
 
@@ -1055,9 +1129,11 @@ export default function NeuralChatAdmin() {
             <div style={{ padding: '16px', background: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe' }}>
               <div style={{ fontSize: '10px', color: '#1e40af', fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>MESSAGES</div>
               <div style={{ fontSize: '28px', fontWeight: '800', color: '#1e40af' }}>
-                {messages.length}
+                {isActiveSessionBlurred ? '—' : messages.length}
               </div>
-              <div style={{ fontSize: '11px', color: '#60a5fa', marginTop: 4 }}>Total exchanges</div>
+              <div style={{ fontSize: '11px', color: '#60a5fa', marginTop: 4 }}>
+                {isActiveSessionBlurred ? 'Expired' : 'Total exchanges'}
+              </div>
             </div>
           </div>
         )}
