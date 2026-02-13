@@ -69,34 +69,32 @@ export const loader = async ({ request }) => {
     }
 
     // ✅ If subscription approved
-// If subscription approved
-if (
-  appSubscription.status === "ACTIVE" ||
-  appSubscription.status === "TRIALING"
-) {
-  await prisma.subscription.update({
-    where: { shop },
-    data: {
-      plan: planKey,
-      status:
-        appSubscription.status === "TRIALING"
-          ? "trialing"
-          : "active",
-      billingId: appSubscription.id,
-      currentPeriodEnd: appSubscription.currentPeriodEnd
-        ? new Date(appSubscription.currentPeriodEnd)
-        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    },
-  });
+    if (
+      appSubscription.status === "ACTIVE" ||
+      appSubscription.status === "TRIALING"
+    ) {
+      await prisma.subscription.update({
+        where: { shop },
+        data: {
+          plan: planKey,
+          status:
+            appSubscription.status === "TRIALING"
+              ? "trialing"
+              : "active",
+          billingId: appSubscription.id,
+          currentPeriodEnd: appSubscription.currentPeriodEnd
+            ? new Date(appSubscription.currentPeriodEnd)
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
 
-  console.log("🎉 Subscription activated:", planKey);
+      console.log("🎉 Subscription activated:", planKey);
 
-  // ✅ Redirect back to subscription page (embedded safe)
-  return redirect(
+      // 🔥 IMPORTANT: Redirect to /app (forces layout reload)
+     return redirect(
     `/app/subscription?success=true&plan=${planKey}`
   );
-}
-
+    }
 
     // ❌ Any other status (CANCELLED, EXPIRED, FROZEN)
     await prisma.subscription.update({
