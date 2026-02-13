@@ -130,9 +130,10 @@ export async function cleanupOldChats(shop) {
 
   const sessionIdsToDelete = sessionsToDelete.map((s) => s.sessionId);
 
-  // ✅ Delete messages first (foreign key), then sessions
+  // ✅ Delete messages first (foreign key constraint), then sessions
+  // NOTE: ChatMessage model uses `chatSessionId` (not `sessionId`) as the FK field
   await prisma.chatMessage.deleteMany({
-    where: { sessionId: { in: sessionIdsToDelete } },
+    where: { chatSessionId: { in: sessionIdsToDelete } },
   });
 
   await prisma.chatSession.deleteMany({
