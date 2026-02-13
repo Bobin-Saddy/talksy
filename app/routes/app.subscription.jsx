@@ -1,4 +1,4 @@
-// app/routes/app.subscription.jsx - FIXED WITH BILLING CANCELLATION HANDLING
+// app/routes/app.subscription.jsx - WITH TEST MODE FOR TESTING
 import { json, redirect } from "@remix-run/node";
 import { useLoaderData, useNavigate, Form, useSearchParams, useActionData } from "react-router";
 import { useEffect } from "react";
@@ -18,6 +18,9 @@ import {
 import { CheckIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+
+// ✅ TEST MODE TOGGLE - Set to true for testing, false for production
+const TEST_MODE = true; // ⚠️ CHANGE TO false FOR PRODUCTION
 
 // Plan definitions
 const PLANS = {
@@ -111,6 +114,7 @@ export const loader = async ({ request }) => {
     subscription,
     chatCount,
     plans: PLANS,
+    testMode: TEST_MODE, // ✅ Pass test mode to frontend
   });
 };
 
@@ -121,6 +125,7 @@ export const action = async ({ request }) => {
   const selectedPlan = formData.get("plan");
 
   console.log("🔵 Action triggered - Selected plan:", selectedPlan);
+  console.log(TEST_MODE ? "⚠️ TEST MODE ENABLED" : "✅ PRODUCTION MODE");
 
   if (selectedPlan === "FREE") {
     // Downgrade to free - cancel any active subscription
@@ -171,29 +176,32 @@ export const action = async ({ request }) => {
   // For paid plans, create subscription via GraphQL
   const planConfig = PLANS[selectedPlan];
   
-  console.log("🔵 Creating LIVE subscription for:", planConfig.name);
+  console.log(`🔵 Creating ${TEST_MODE ? 'TEST' : 'LIVE'} subscription for:`, planConfig.name);
   
   try {
     console.log("🔵 Calling GraphQL API...");
     
-    // ✅ PRODUCTION BILLING - NO TEST MODE
+    // ✅ GraphQL mutation with TEST MODE support
     const response = await admin.graphql(
       `#graphql
       mutation AppSubscriptionCreate(
         $name: String!
         $returnUrl: URL!
         $trialDays: Int
+        $test: Boolean
         $lineItems: [AppSubscriptionLineItemInput!]!
       ) {
         appSubscriptionCreate(
           name: $name
           returnUrl: $returnUrl
           trialDays: $trialDays
+          test: $test
           lineItems: $lineItems
         ) {
           appSubscription {
             id
             status
+            test
           }
           confirmationUrl
           userErrors {
@@ -207,6 +215,7 @@ export const action = async ({ request }) => {
           name: `${planConfig.name} Plan`,
           returnUrl: `https://${shop}/admin/apps/${process.env.SHOPIFY_APP_HANDLE || 'talksy'}/app/subscription/confirm?plan=${selectedPlan}`,
           trialDays: planConfig.trialDays || 0,
+          test: TEST_MODE, // ✅ Enable test mode
           lineItems: [
             {
               plan: {
@@ -243,12 +252,12 @@ export const action = async ({ request }) => {
 
     const subscriptionId = subscriptionData.appSubscription.id;
     const confirmationUrl = subscriptionData.confirmationUrl;
+    const isTestSubscription = subscriptionData.appSubscription.test;
 
-    console.log("✅ LIVE Subscription created:", subscriptionId);
+    console.log(`✅ ${isTestSubscription ? 'TEST' : 'LIVE'} Subscription created:`, subscriptionId);
     console.log("🔵 Confirmation URL:", confirmationUrl);
 
-    // ✅ IMPORTANT: Mark subscription as "pending_approval" not "pending"
-    // This way we can differentiate between "waiting for billing" vs "billing approved"
+    // ✅ Mark subscription as "pending_approval"
     await prisma.subscription.update({
       where: { shop },
       data: {
@@ -276,7 +285,7 @@ export const action = async ({ request }) => {
 };
 
 export default function Subscription() {
-  const { currentPlan, subscription, chatCount, plans } = useLoaderData();
+  const { currentPlan, subscription, chatCount, plans, testMode } = useLoaderData();
   const actionData = useActionData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -309,6 +318,15 @@ export default function Subscription() {
       subtitle="Choose the plan that fits your business needs"
     >
       <Layout>
+        {/* ✅ TEST MODE WARNING */}
+        {testMode && (
+          <Layout.Section>
+            <Banner tone="warning">
+              <strong>⚠️ TEST MODE ENABLED</strong> - You won't be charged. Set TEST_MODE = false in code for production.
+            </Banner>
+          </Layout.Section>
+        )}
+
         {/* ✅ SUCCESS BANNER - Only show if billing was actually approved */}
         {success === 'true' && upgradedPlan && (
           <Layout.Section>
@@ -334,7 +352,7 @@ export default function Subscription() {
           </Layout.Section>
         )}
 
-        {/* ✅ NEW: Show info banner if user cancelled billing */}
+        {/* ✅ CANCELLED BANNER - Show when user cancels billing */}
         {billingStatus === 'cancelled' && (
           <Layout.Section>
             <Banner
@@ -385,7 +403,7 @@ export default function Subscription() {
                 {subscription.status === "active" && currentPlan !== "FREE" && (
                   <Badge tone="success">Active</Badge>
                 )}
-                {/* ✅ Show "Pending Approval" badge if user didn't complete billing */}
+                {/* ✅ Show "Pending Approval" badge */}
                 {subscription.status === "pending_approval" && (
                   <Badge tone="warning">Pending Approval</Badge>
                 )}

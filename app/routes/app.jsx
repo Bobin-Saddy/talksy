@@ -1,4 +1,4 @@
-// app/routes/app.jsx - FIXED WITH PLAN-BASED NAVIGATION
+// app/routes/app.jsx - FIXED TO HIDE FEATURES UNTIL BILLING APPROVED
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
@@ -8,10 +8,16 @@ import "@shopify/polaris/build/esm/styles.css";
 import { authenticate } from "../shopify.server";
 import { useEffect } from "react";
 import { getUsageStats } from "../planLimits.server";
+import prisma from "../db.server";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+  
+  // ✅ Get subscription status to check if billing is approved
+  const subscription = await prisma.subscription.findUnique({
+    where: { shop },
+  });
   
   // Get usage statistics with error handling
   let usage = null;
@@ -45,20 +51,25 @@ export const loader = async ({ request }) => {
   return { 
     apiKey: process.env.SHOPIFY_API_KEY || "",
     usage,
+    subscriptionStatus: subscription?.status || "active", // ✅ Pass subscription status
   };
 };
 
 export default function App() {
-  const { apiKey, usage } = useLoaderData();
+  const { apiKey, usage, subscriptionStatus } = useLoaderData();
   
   // Calculate if user is approaching limit (only if usage is available)
   const isApproachingLimit = usage && typeof usage.chats.percentage === 'number' && usage.chats.percentage > 80;
   const isAtLimit = usage && typeof usage.chats.percentage === 'number' && usage.chats.percentage >= 100;
 
-  // Check plan level
-  const isPaidPlan = usage && (usage.plan === "STANDARD" || usage.plan === "PREMIUM");
-  const canManageFAQs = usage && usage.faqs.canManage;
-  const canCustomizeWidget = usage && usage.features.canCustomizeWidget;
+  // ✅ CRITICAL: Only show paid features if billing is approved (status = "active" or "trialing")
+  // Do NOT show if status is "pending_approval" (waiting for billing approval)
+  const isBillingApproved = subscriptionStatus === "active" || subscriptionStatus === "trialing";
+  
+  // Check plan level - but also verify billing is approved
+  const isPaidPlan = usage && (usage.plan === "STANDARD" || usage.plan === "PREMIUM") && isBillingApproved;
+  const canManageFAQs = usage && usage.faqs.canManage && isBillingApproved;
+  const canCustomizeWidget = usage && usage.features.canCustomizeWidget && isBillingApproved;
 
   // Heartbeat Logic 🚀
   useEffect(() => {
@@ -83,17 +94,17 @@ export default function App() {
         <s-app-nav>
           <s-link href="/app/chat/admin">Chats</s-link>
           
-          {/* Only show Search for paid plans */}
+          {/* ✅ Only show Search if billing is approved AND plan is paid */}
           {isPaidPlan && (
             <s-link href="/app/admin/search">Search</s-link>
           )}
           
-          {/* Only show Settings for paid plans */}
+          {/* ✅ Only show Settings if billing is approved AND plan allows customization */}
           {canCustomizeWidget && (
             <s-link href="/app/settings">Settings</s-link>
           )}
           
-          {/* Only show FAQs for paid plans */}
+          {/* ✅ Only show FAQs if billing is approved AND plan allows FAQ management */}
           {canManageFAQs && (
             <s-link href="/app/faq">FAQs</s-link>
           )}
@@ -112,11 +123,35 @@ export default function App() {
                 <Badge tone="critical">Limit Reached</Badge>
               </span>
             )}
+            {/* ✅ Show "Pending" badge if waiting for billing approval */}
+            {subscriptionStatus === "pending_approval" && (
+              <span style={{ marginLeft: "8px" }}>
+                <Badge tone="info">Pending</Badge>
+              </span>
+            )}
           </s-link>
         </s-app-nav>
         
+        {/* ✅ Show banner if billing is pending approval */}
+        {subscriptionStatus === "pending_approval" && (
+          <div style={{ 
+            padding: "12px 20px", 
+            backgroundColor: "#E3F2FD",
+            borderBottom: "1px solid #90CAF9",
+            textAlign: "center"
+          }}>
+            <span style={{ fontWeight: 600 }}>
+              ⏳ Your subscription upgrade is pending billing approval.
+            </span>
+            {" "}
+            <a href="/app/subscription" style={{ color: "#005BD3", textDecoration: "underline" }}>
+              Complete billing approval
+            </a>
+          </div>
+        )}
+        
         {/* Show banner if approaching or at limit */}
-        {usage && (isApproachingLimit || isAtLimit) && (
+        {usage && (isApproachingLimit || isAtLimit) && isBillingApproved && (
           <div style={{ 
             padding: "12px 20px", 
             backgroundColor: isAtLimit ? "#FED3D1" : "#FFF4E5",
