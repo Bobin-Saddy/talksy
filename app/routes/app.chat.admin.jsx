@@ -148,6 +148,8 @@ export default function NeuralChatAdmin() {
   // ✅ OPTIMIZED SINGLE POLLING LOOP - Reduced from 2 separate intervals to 1
   useEffect(() => {
     let isMounted = true;
+    let failureCount = 0;
+    const MAX_FAILURES = 3;
     
     const fetchUpdates = async () => {
       if (!isMounted) return;
@@ -156,7 +158,31 @@ export default function NeuralChatAdmin() {
         const res = await fetch(window.location.pathname, {
           headers: { 'Accept': 'application/json' }
         });
+        
+        // ✅ Check if response is actually JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.warn('Server returned non-JSON response, likely redirecting to auth');
+          failureCount++;
+          if (failureCount >= MAX_FAILURES) {
+            console.log('Multiple auth failures detected, reloading page...');
+            window.location.reload();
+          }
+          return;
+        }
+        
+        if (!res.ok) {
+          console.warn('Server returned error status:', res.status);
+          if (res.status === 401 || res.status === 403) {
+            window.location.reload(); // Force re-authentication
+          }
+          return;
+        }
+        
         const data = await res.json();
+        
+        // Reset failure count on success
+        failureCount = 0;
         
         if (!isMounted || !data.sessions || !data.planLimit) return;
         
@@ -194,7 +220,10 @@ export default function NeuralChatAdmin() {
           }
         }
       } catch (e) {
-        console.error("Polling error:", e);
+        // Silently fail - don't spam console on network issues
+        if (e.name !== 'SyntaxError') {
+          console.error("Polling error:", e);
+        }
       }
     };
     
@@ -259,9 +288,35 @@ export default function NeuralChatAdmin() {
       
       try {
         const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
+        
+        // ✅ Handle authentication errors
+        if (res.status === 401 || res.status === 403) {
+          console.warn('Messages endpoint auth failure, reloading...');
+          window.location.reload();
+          return;
+        }
+        
+        // ✅ Check if response is actually JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.warn('Messages endpoint returned non-JSON response');
+          return;
+        }
+        
+        if (!res.ok) {
+          console.warn('Messages endpoint error:', res.status);
+          return;
+        }
+        
         const data = await res.json();
         
         if (!isMounted) return;
+        
+        // Handle error response from server
+        if (data.error) {
+          console.warn('Messages API error:', data.error);
+          return;
+        }
         
         if (data.length !== messages.length || 
             (data.length > 0 && data[data.length - 1].id !== lastMessageIdRef.current)) {
@@ -281,7 +336,10 @@ export default function NeuralChatAdmin() {
           }
         }
       } catch (err) {
-        console.error("Message polling error", err);
+        // Silently fail on JSON parse errors
+        if (err.name !== 'SyntaxError') {
+          console.error("Message polling error", err);
+        }
       }
     };
     

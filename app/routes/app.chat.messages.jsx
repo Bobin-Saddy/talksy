@@ -1,5 +1,6 @@
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
+import { authenticate } from "../shopify.server";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +11,17 @@ const corsHeaders = {
 export const loader = async ({ request }) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // ✅ Add authentication to prevent HTML redirects
+  try {
+    const { session } = await authenticate.admin(request);
+    if (!session?.shop) {
+      return json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+    }
+  } catch (error) {
+    console.error("Auth error in messages route:", error);
+    return json({ error: "Authentication failed" }, { status: 401, headers: corsHeaders });
   }
 
   const url = new URL(request.url);
