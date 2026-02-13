@@ -1,4 +1,4 @@
-// app/routes/app.subscription.jsx - FIXED BILLING WITH APP BRIDGE REDIRECT
+// app/routes/app.subscription.jsx - FIXED WITH BILLING CANCELLATION HANDLING
 import { json, redirect } from "@remix-run/node";
 import { useLoaderData, useNavigate, Form, useSearchParams, useActionData } from "react-router";
 import { useEffect } from "react";
@@ -247,11 +247,13 @@ export const action = async ({ request }) => {
     console.log("✅ LIVE Subscription created:", subscriptionId);
     console.log("🔵 Confirmation URL:", confirmationUrl);
 
+    // ✅ IMPORTANT: Mark subscription as "pending_approval" not "pending"
+    // This way we can differentiate between "waiting for billing" vs "billing approved"
     await prisma.subscription.update({
       where: { shop },
       data: {
         plan: selectedPlan,
-        status: "pending",
+        status: "pending_approval", // ✅ Custom status for tracking
         billingId: subscriptionId,
       },
     });
@@ -272,6 +274,7 @@ export const action = async ({ request }) => {
     }, { status: 500 });
   }
 };
+
 export default function Subscription() {
   const { currentPlan, subscription, chatCount, plans } = useLoaderData();
   const actionData = useActionData();
@@ -291,10 +294,13 @@ export default function Subscription() {
   const success = searchParams.get('success');
   const error = searchParams.get('error');
   const upgradedPlan = searchParams.get('plan');
+  
+  // ✅ Check if user came back without approving billing
+  const billingStatus = searchParams.get('billing');
 
   const currentPlanConfig = PLANS[currentPlan];
   const usagePercentage = currentPlanConfig.limits.maxChats > 0 
-    ? (chatCount / currentPlanConfig.limits.maxChats) * 2 
+    ? (chatCount / currentPlanConfig.limits.maxChats) * 100 
     : 0;
 
   return (
@@ -303,7 +309,7 @@ export default function Subscription() {
       subtitle="Choose the plan that fits your business needs"
     >
       <Layout>
-        {/* Success/Error Banners */}
+        {/* ✅ SUCCESS BANNER - Only show if billing was actually approved */}
         {success === 'true' && upgradedPlan && (
           <Layout.Section>
             <Banner
@@ -324,6 +330,19 @@ export default function Subscription() {
               onDismiss={() => navigate('/app/subscription')}
             >
               You've been downgraded to the Free plan. Your paid features will remain active until the end of your billing period.
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {/* ✅ NEW: Show info banner if user cancelled billing */}
+        {billingStatus === 'cancelled' && (
+          <Layout.Section>
+            <Banner
+              title="Subscription not completed"
+              tone="info"
+              onDismiss={() => navigate('/app/subscription')}
+            >
+              You cancelled the billing approval. Your current plan remains unchanged. You can upgrade anytime!
             </Banner>
           </Layout.Section>
         )}
@@ -365,6 +384,10 @@ export default function Subscription() {
                 )}
                 {subscription.status === "active" && currentPlan !== "FREE" && (
                   <Badge tone="success">Active</Badge>
+                )}
+                {/* ✅ Show "Pending Approval" badge if user didn't complete billing */}
+                {subscription.status === "pending_approval" && (
+                  <Badge tone="warning">Pending Approval</Badge>
                 )}
               </InlineStack>
 

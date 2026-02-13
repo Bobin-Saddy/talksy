@@ -1,4 +1,4 @@
-// app/routes/app.subscription.confirm.jsx - CORRECTED VERSION
+// app/routes/app.subscription.confirm.jsx - FIXED WITH BILLING CANCELLATION DETECTION
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "react-router";
 import { useEffect } from "react";
@@ -38,7 +38,7 @@ export const loader = async ({ request }) => {
       });
     }
 
-    // Query Shopify to get the subscription status
+    // ✅ IMPORTANT: Query Shopify to check ACTUAL subscription status
     const response = await admin.graphql(
       `#graphql
       query GetAppSubscription($id: ID!) {
@@ -71,7 +71,36 @@ export const loader = async ({ request }) => {
       });
     }
 
-    console.log("✅ Subscription verified:", appSubscription);
+    console.log("✅ Subscription status from Shopify:", appSubscription.status);
+
+    // ✅ CRITICAL: Check if user actually approved the billing
+    // If status is still PENDING, it means user didn't approve or cancelled
+    if (appSubscription.status === "PENDING") {
+      console.log("⚠️ Billing not approved yet - user may have cancelled");
+      
+      // Reset subscription back to previous plan
+      // Find what the previous plan was (before pending_approval)
+      const chatCount = await prisma.chatSession.count({
+        where: { shop },
+      }).catch(() => 0);
+      
+      // Determine appropriate free plan based on usage
+      const fallbackPlan = chatCount > 2 ? "FREE" : "FREE";
+      
+      await prisma.subscription.update({
+        where: { shop },
+        data: {
+          plan: fallbackPlan,
+          status: "active",
+          billingId: null, // Clear the pending billing ID
+        },
+      });
+
+      return json({ 
+        cancelled: true,
+        redirect: "/app/subscription?billing=cancelled"
+      });
+    }
 
     // Map Shopify status to our status
     const statusMap = {
@@ -84,27 +113,45 @@ export const loader = async ({ request }) => {
 
     const status = statusMap[appSubscription.status] || "pending";
 
-    // Update subscription without trialDays
-    await prisma.subscription.update({
-      where: { shop },
-      data: {
-        plan: planKey,
-        status: status,
-        billingId: appSubscription.id,
-        currentPeriodEnd: appSubscription.currentPeriodEnd 
-          ? new Date(appSubscription.currentPeriodEnd)
-          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    });
+    // ✅ Only update to the new plan if status is ACTIVE or acceptable
+    if (status === "active" || appSubscription.status === "ACTIVE") {
+      await prisma.subscription.update({
+        where: { shop },
+        data: {
+          plan: planKey,
+          status: status,
+          billingId: appSubscription.id,
+          currentPeriodEnd: appSubscription.currentPeriodEnd 
+            ? new Date(appSubscription.currentPeriodEnd)
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
 
-    // ✅ FIXED: Using proper string concatenation instead of template literal
-    console.log("✅ Subscription confirmed for " + shop + ": " + planKey + " (" + status + ")");
+      console.log("✅ Subscription confirmed for " + shop + ": " + planKey + " (" + status + ")");
 
-    // Return success for client-side redirect
-    return json({ 
-      success: true,
-      redirect: "/app/subscription?success=true&plan=" + planKey
-    });
+      // Return success for client-side redirect
+      return json({ 
+        success: true,
+        redirect: "/app/subscription?success=true&plan=" + planKey
+      });
+    } else {
+      // Status is not active - something went wrong
+      console.log("⚠️ Subscription not active: " + appSubscription.status);
+      
+      await prisma.subscription.update({
+        where: { shop },
+        data: {
+          plan: "FREE",
+          status: "active",
+          billingId: null,
+        },
+      });
+
+      return json({ 
+        error: "billing-not-active",
+        redirect: "/app/subscription?error=confirmation-failed"
+      });
+    }
 
   } catch (error) {
     console.error("❌ Error confirming subscription:", error);
@@ -122,8 +169,10 @@ export default function SubscriptionConfirm() {
 
   useEffect(() => {
     if (data?.redirect) {
-      // Use navigate for embedded app context
-      navigate(data.redirect);
+      // Small delay to ensure state is updated
+      setTimeout(() => {
+        navigate(data.redirect);
+      }, 500);
     }
   }, [data, navigate]);
 
@@ -137,11 +186,22 @@ export default function SubscriptionConfirm() {
       fontFamily: 'system-ui, sans-serif'
     }}>
       <div style={{ textAlign: 'center', maxWidth: '400px', padding: '24px' }}>
-        {data?.error ? (
+        {data?.error || data?.cancelled ? (
           <>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
-            <h2 style={{ color: '#dc2626', marginBottom: '8px' }}>Confirmation Failed</h2>
-            <p style={{ color: '#6b7280' }}>Redirecting you back to subscription page...</p>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>
+              {data?.cancelled ? '⏸️' : '⚠️'}
+            </div>
+            <h2 style={{ 
+              color: data?.cancelled ? '#f59e0b' : '#dc2626', 
+              marginBottom: '8px' 
+            }}>
+              {data?.cancelled ? 'Billing Cancelled' : 'Confirmation Failed'}
+            </h2>
+            <p style={{ color: '#6b7280' }}>
+              {data?.cancelled 
+                ? 'Returning you to subscription page...'
+                : 'Redirecting you back to subscription page...'}
+            </p>
           </>
         ) : (
           <>
