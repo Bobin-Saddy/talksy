@@ -1,4 +1,4 @@
-// app/utils/planLimits.server.js - FIXED TO ALLOW VIEWING OVER-LIMIT CHATS
+// app/utils/planLimits.server.js - WITH AUTO CHAT HISTORY DELETION
 import prisma from "./db.server";
 
 // Plan definitions (must match subscription page)
@@ -6,15 +6,15 @@ export const PLAN_LIMITS = {
   FREE: {
     maxChats: 2,
     maxSearchUsers: 2,
-    chatHistoryDays: 30,
+    chatHistoryDays: 0.00139, // ⚠️ TESTING: 2 minutes (0.00139 days) | PRODUCTION: change to 30
     canManageFAQs: false,
     canCustomizeWidget: false,
     canCreateCustomFAQPage: false,
   },
   STANDARD: {
-    maxChats: 3,
-    maxSearchUsers: 3,
-    chatHistoryDays: 90,
+    maxChats: 500,
+    maxSearchUsers: 500,
+    chatHistoryDays: 180, // 6 months
     canManageFAQs: true,
     canCustomizeWidget: true,
     canCreateCustomFAQPage: false,
@@ -22,22 +22,27 @@ export const PLAN_LIMITS = {
   PREMIUM: {
     maxChats: -1, // Unlimited
     maxSearchUsers: -1,
-    chatHistoryDays: -1,
+    chatHistoryDays: -1, // Never delete
     canManageFAQs: true,
     canCustomizeWidget: true,
     canCreateCustomFAQPage: true,
   },
 };
 
+// ✅ HUMAN-READABLE PLAN NAMES FOR MESSAGES
+export const PLAN_HISTORY_LABELS = {
+  FREE: "2 minutes (Testing) / 30 days (Production)",
+  STANDARD: "6 months",
+  PREMIUM: "Forever",
+};
+
 /**
  * Get current subscription and limits for a shop
- * ✅ FIXED: Uses upsert to prevent race conditions
  */
 export async function getShopLimits(shop) {
-  // Use upsert to atomically get-or-create subscription
   const subscription = await prisma.subscription.upsert({
     where: { shop },
-    update: {}, // Don't modify if it exists
+    update: {},
     create: {
       shop,
       plan: "FREE",
@@ -57,29 +62,26 @@ export async function getShopLimits(shop) {
 
 /**
  * Check if shop can create NEW chat session
- * ✅ This ONLY blocks NEW chats, existing chats are always accessible
  */
 export async function canCreateChat(shop) {
   const { limits } = await getShopLimits(shop);
-  
-  // Unlimited plan
+
   if (limits.maxChats === -1) {
-    return { 
+    return {
       allowed: true,
       current: 0,
       max: -1,
       remaining: -1,
-      unlimited: true
+      unlimited: true,
     };
   }
 
-  // Count existing chat sessions
   const chatCount = await prisma.chatSession.count({
     where: { shop },
   });
 
   const allowed = chatCount < limits.maxChats;
-  
+
   return {
     allowed,
     current: chatCount,
@@ -90,33 +92,122 @@ export async function canCreateChat(shop) {
 }
 
 /**
- * ✅ NEW FUNCTION: Check if shop has exceeded their limit
- * This is used for DISPLAY purposes only, not blocking access
+ * ✅ AUTO CLEANUP: Delete old chats based on plan limits
+ * FREE    → 2 min (testing) / 30 days (production)
+ * STANDARD → 180 days (6 months)
+ * PREMIUM  → Never
+ * Returns array of deleted sessionIds so frontend can show message
+ */
+export async function cleanupOldChats(shop) {
+  const { limits, plan } = await getShopLimits(shop);
+
+  // Premium = never delete
+  if (limits.chatHistoryDays === -1) {
+    return { deleted: 0, deletedSessionIds: [], plan };
+  }
+
+  // Calculate cutoff date
+  const cutoffDate = new Date(
+    Date.now() - limits.chatHistoryDays * 24 * 60 * 60 * 1000
+  );
+
+  // ✅ First, get the sessions that WILL be deleted (to return their IDs)
+  const sessionsToDelete = await prisma.chatSession.findMany({
+    where: {
+      shop,
+      updatedAt: { lt: cutoffDate },
+    },
+    select: {
+      sessionId: true,
+      email: true,
+      updatedAt: true,
+    },
+  });
+
+  if (sessionsToDelete.length === 0) {
+    return { deleted: 0, deletedSessionIds: [], plan };
+  }
+
+  const sessionIdsToDelete = sessionsToDelete.map((s) => s.sessionId);
+
+  // ✅ Delete messages first (foreign key), then sessions
+  await prisma.chatMessage.deleteMany({
+    where: { sessionId: { in: sessionIdsToDelete } },
+  });
+
+  await prisma.chatSession.deleteMany({
+    where: { sessionId: { in: sessionIdsToDelete } },
+  });
+
+  console.log(
+    `🗑️ Auto-deleted ${sessionsToDelete.length} old chat(s) for shop: ${shop} | Plan: ${plan} | Cutoff: ${cutoffDate.toISOString()}`
+  );
+
+  return {
+    deleted: sessionsToDelete.length,
+    deletedSessionIds: sessionIdsToDelete,
+    plan,
+    cutoffDate,
+  };
+}
+
+/**
+ * ✅ Run cleanup and return which active session was deleted
+ * Used by admin panel to show "Chat deleted" message
+ */
+export async function runCleanupAndGetDeleted(shop, currentSessionId = null) {
+  const result = await cleanupOldChats(shop);
+
+  return {
+    ...result,
+    activeSessionDeleted:
+      currentSessionId &&
+      result.deletedSessionIds.includes(currentSessionId),
+  };
+}
+
+/**
+ * Check if a specific session has been deleted
+ */
+export async function isSessionDeleted(sessionId) {
+  const session = await prisma.chatSession.findUnique({
+    where: { sessionId },
+    select: { sessionId: true },
+  });
+  return !session;
+}
+
+/**
+ * Get chat history retention info for a shop
+ */
+export async function getChatHistoryDays(shop) {
+  const { limits, plan } = await getShopLimits(shop);
+
+  return {
+    days: limits.chatHistoryDays === -1 ? null : limits.chatHistoryDays,
+    unlimited: limits.chatHistoryDays === -1,
+    label: PLAN_HISTORY_LABELS[plan] || "Unknown",
+    plan,
+  };
+}
+
+/**
+ * Check if shop has exceeded their chat limit
  */
 export async function hasExceededChatLimit(shop) {
   const { limits } = await getShopLimits(shop);
-  
-  if (limits.maxChats === -1) return false; // Unlimited
-  
-  const chatCount = await prisma.chatSession.count({
-    where: { shop },
-  });
-
+  if (limits.maxChats === -1) return false;
+  const chatCount = await prisma.chatSession.count({ where: { shop } });
   return chatCount > limits.maxChats;
 }
 
 /**
- * ✅ NEW FUNCTION: Get how many chats are over the limit
+ * Get how many chats are over the limit
  */
 export async function getOverLimitCount(shop) {
   const { limits } = await getShopLimits(shop);
-  
-  if (limits.maxChats === -1) return 0; // Unlimited
-  
-  const chatCount = await prisma.chatSession.count({
-    where: { shop },
-  });
-
+  if (limits.maxChats === -1) return 0;
+  const chatCount = await prisma.chatSession.count({ where: { shop } });
   return Math.max(0, chatCount - limits.maxChats);
 }
 
@@ -125,18 +216,11 @@ export async function getOverLimitCount(shop) {
  */
 export async function canSearchUsers(shop, requestedLimit = 10) {
   const { limits } = await getShopLimits(shop);
-  
   if (limits.maxSearchUsers === -1) {
     return { allowed: true, limit: requestedLimit };
   }
-
   const actualLimit = Math.min(requestedLimit, limits.maxSearchUsers);
-  
-  return {
-    allowed: true,
-    limit: actualLimit,
-    planLimit: limits.maxSearchUsers,
-  };
+  return { allowed: true, limit: actualLimit, planLimit: limits.maxSearchUsers };
 }
 
 /**
@@ -144,11 +228,7 @@ export async function canSearchUsers(shop, requestedLimit = 10) {
  */
 export async function canManageFAQs(shop) {
   const { limits } = await getShopLimits(shop);
-  
-  return {
-    allowed: limits.canManageFAQs,
-    requiresUpgrade: !limits.canManageFAQs,
-  };
+  return { allowed: limits.canManageFAQs, requiresUpgrade: !limits.canManageFAQs };
 }
 
 /**
@@ -156,11 +236,7 @@ export async function canManageFAQs(shop) {
  */
 export async function canCustomizeWidget(shop) {
   const { limits } = await getShopLimits(shop);
-  
-  return {
-    allowed: limits.canCustomizeWidget,
-    requiresUpgrade: !limits.canCustomizeWidget,
-  };
+  return { allowed: limits.canCustomizeWidget, requiresUpgrade: !limits.canCustomizeWidget };
 }
 
 /**
@@ -168,79 +244,29 @@ export async function canCustomizeWidget(shop) {
  */
 export async function canCreateCustomFAQPage(shop) {
   const { limits } = await getShopLimits(shop);
-  
-  return {
-    allowed: limits.canCreateCustomFAQPage,
-    requiresUpgrade: !limits.canCreateCustomFAQPage,
-  };
-}
-
-/**
- * Get chat history retention period
- */
-export async function getChatHistoryDays(shop) {
-  const { limits } = await getShopLimits(shop);
-  
-  return {
-    days: limits.chatHistoryDays === -1 ? null : limits.chatHistoryDays,
-    unlimited: limits.chatHistoryDays === -1,
-  };
-}
-
-/**
- * Clean up old chat sessions based on plan limits
- */
-export async function cleanupOldChats(shop) {
-  const { days, unlimited } = await getChatHistoryDays(shop);
-  
-  if (unlimited || !days) return { deleted: 0 };
-
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.setDate() - days);
-
-  const result = await prisma.chatSession.deleteMany({
-    where: {
-      shop,
-      updatedAt: {
-        lt: cutoffDate,
-      },
-    },
-  });
-
-  return { deleted: result.count };
+  return { allowed: limits.canCreateCustomFAQPage, requiresUpgrade: !limits.canCreateCustomFAQPage };
 }
 
 /**
  * Get usage statistics for a shop
- * ✅ UPDATED: Shows if over limit
  */
 export async function getUsageStats(shop) {
   const { limits, plan } = await getShopLimits(shop);
-  
-  // Get chat count safely
-  const chatCount = await prisma.chatSession.count({
-    where: { shop },
-  }).catch(err => {
-    console.error("Error counting chats:", err);
-    return 0;
-  });
 
-  // Calculate if over limit
+  const chatCount = await prisma.chatSession
+    .count({ where: { shop } })
+    .catch(() => 0);
+
   const isOverLimit = limits.maxChats > 0 && chatCount > limits.maxChats;
   const overLimitBy = isOverLimit ? chatCount - limits.maxChats : 0;
 
-  // Try to get FAQ count, but handle if table doesn't exist
   let faqCount = 0;
   try {
-    // Check if FAQ model exists in prisma schema
     if (prisma.fAQ) {
-      faqCount = await prisma.fAQ.count({
-        where: { shop },
-      });
+      faqCount = await prisma.fAQ.count({ where: { shop } });
     }
   } catch (err) {
-    // FAQ table doesn't exist yet - that's okay
-    console.log("FAQ table not available (this is normal if not created yet)");
+    console.log("FAQ table not available");
   }
 
   return {
@@ -253,16 +279,14 @@ export async function getUsageStats(shop) {
       isOverLimit,
       overLimitBy,
     },
-    faqs: {
-      current: faqCount,
-      canManage: limits.canManageFAQs,
-    },
+    faqs: { current: faqCount, canManage: limits.canManageFAQs },
     features: {
       canCustomizeWidget: limits.canCustomizeWidget,
       canCreateCustomFAQPage: limits.canCreateCustomFAQPage,
     },
     retention: {
       days: limits.chatHistoryDays === -1 ? "Unlimited" : limits.chatHistoryDays,
+      label: PLAN_HISTORY_LABELS[plan],
     },
   };
 }
