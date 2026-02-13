@@ -160,9 +160,8 @@ export default function NeuralChatAdmin() {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        // ✅ Use clean pathname without query params
-        const pathname = window.location.pathname.split('?')[0];
-        const res = await fetch(pathname, {
+        // ✅ Use the .data endpoint for React Router
+        const res = await fetch('/app/chat/admin.data', {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
