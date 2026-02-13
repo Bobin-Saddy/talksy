@@ -1,4 +1,4 @@
-// app/routes/app.jsx - FIXED TO HIDE FEATURES UNTIL BILLING APPROVED
+// app/routes/app.jsx - FIXED: Nav items show immediately after plan selection
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
@@ -13,21 +13,27 @@ import prisma from "../db.server";
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
-  
-  // ✅ Get subscription status to check if billing is approved
-  const subscription = await prisma.subscription.findUnique({
+
+  // ✅ FIXED: Use upsert so subscription always exists from first load
+  const subscription = await prisma.subscription.upsert({
     where: { shop },
+    update: {},
+    create: {
+      shop,
+      plan: "FREE",
+      status: "active",
+      currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    },
   });
-  
+
   // Get usage statistics with error handling
   let usage = null;
   try {
     usage = await getUsageStats(shop);
   } catch (error) {
     console.error("Error getting usage stats:", error);
-    // Provide default usage if stats fail
     usage = {
-      plan: "FREE",
+      plan: subscription.plan || "FREE",
       chats: {
         current: 0,
         max: 100,
@@ -47,31 +53,54 @@ export const loader = async ({ request }) => {
       },
     };
   }
-  
-  return { 
+
+  // ✅ FIXED: Read plan directly from DB subscription (source of truth)
+  // Don't rely on usage.plan alone — subscription.plan is always fresh from DB
+  const currentPlan = subscription.plan || "FREE";
+  const currentStatus = subscription.status || "active";
+
+  return {
     apiKey: process.env.SHOPIFY_API_KEY || "",
     usage,
-    subscriptionStatus: subscription?.status || "active", // ✅ Pass subscription status
+    subscriptionStatus: currentStatus,
+    currentPlan, // ✅ Pass plan directly so nav doesn't depend on usage object timing
   };
 };
 
 export default function App() {
-  const { apiKey, usage, subscriptionStatus } = useLoaderData();
-  
-  // Calculate if user is approaching limit (only if usage is available)
-  const isApproachingLimit = usage && typeof usage.chats.percentage === 'number' && usage.chats.percentage > 80;
-  const isAtLimit = usage && typeof usage.chats.percentage === 'number' && usage.chats.percentage >= 100;
+  const { apiKey, usage, subscriptionStatus, currentPlan } = useLoaderData();
 
-  // ✅ CRITICAL: Only show paid features if billing is approved (status = "active" or "trialing")
-  // Do NOT show if status is "pending_approval" (waiting for billing approval)
-  const isBillingApproved = subscriptionStatus === "active" || subscriptionStatus === "trialing";
-  
-  // Check plan level - but also verify billing is approved
-  const isPaidPlan = usage && (usage.plan === "STANDARD" || usage.plan === "PREMIUM") && isBillingApproved;
-  const canManageFAQs = usage && usage.faqs.canManage && isBillingApproved;
-  const canCustomizeWidget = usage && usage.features.canCustomizeWidget && isBillingApproved;
+  const isApproachingLimit =
+    usage &&
+    typeof usage.chats.percentage === "number" &&
+    usage.chats.percentage > 80;
+  const isAtLimit =
+    usage &&
+    typeof usage.chats.percentage === "number" &&
+    usage.chats.percentage >= 100;
 
-  // Heartbeat Logic 🚀
+  // ✅ FIXED: Use currentPlan from DB directly for nav visibility
+  // This ensures nav items appear immediately after plan selection
+  const isBillingApproved =
+    subscriptionStatus === "active" || subscriptionStatus === "trialing";
+
+  // ✅ FIXED: Check plan from currentPlan (DB value), not usage.plan
+  const isPaidPlan =
+    (currentPlan === "STANDARD" || currentPlan === "PREMIUM") &&
+    isBillingApproved;
+
+  const canManageFAQs =
+    (currentPlan === "STANDARD" || currentPlan === "PREMIUM") &&
+    isBillingApproved;
+
+  const canCustomizeWidget =
+    (currentPlan === "STANDARD" || currentPlan === "PREMIUM") &&
+    isBillingApproved;
+
+  // Search Analytics — paid plans only
+  const canViewSearchAnalytics = isPaidPlan;
+
+  // Heartbeat Logic
   useEffect(() => {
     const updateHeartbeat = async () => {
       try {
@@ -81,10 +110,9 @@ export default function App() {
         console.error("Heartbeat error:", err);
       }
     };
-    
-    updateHeartbeat(); // Immediate call when app loads
-    const interval = setInterval(updateHeartbeat, 30000); // Every 30s
-    
+
+    updateHeartbeat();
+    const interval = setInterval(updateHeartbeat, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -93,37 +121,37 @@ export default function App() {
       <PolarisAppProvider i18n={enTranslations}>
         <s-app-nav>
           <s-link href="/app/chat/admin">Chats</s-link>
-          
-          {/* ✅ Only show Search if billing is approved AND plan is paid */}
-          {isPaidPlan && (
+
+          {/* ✅ Search — visible immediately after Standard/Premium plan activation */}
+          {canViewSearchAnalytics && (
             <s-link href="/app/admin/search">Search</s-link>
           )}
-          
-          {/* ✅ Only show Settings if billing is approved AND plan allows customization */}
+
+          {/* ✅ Settings — visible immediately after paid plan activation */}
           {canCustomizeWidget && (
             <s-link href="/app/settings">Settings</s-link>
           )}
-          
-          {/* ✅ Only show FAQs if billing is approved AND plan allows FAQ management */}
+
+          {/* ✅ FAQs — visible immediately after paid plan activation */}
           {canManageFAQs && (
             <s-link href="/app/faq">FAQs</s-link>
           )}
-          
+
           <s-link href="/app/subscription">
             Subscription
-            {usage && isApproachingLimit && !isAtLimit && usage.chats.remaining !== "Unlimited" && (
-              <span style={{ marginLeft: "8px" }}>
-                <Badge tone="warning">
-                  {usage.chats.remaining} left
-                </Badge>
-              </span>
-            )}
+            {usage &&
+              isApproachingLimit &&
+              !isAtLimit &&
+              usage.chats.remaining !== "Unlimited" && (
+                <span style={{ marginLeft: "8px" }}>
+                  <Badge tone="warning">{usage.chats.remaining} left</Badge>
+                </span>
+              )}
             {usage && isAtLimit && (
               <span style={{ marginLeft: "8px" }}>
                 <Badge tone="critical">Limit Reached</Badge>
               </span>
             )}
-            {/* ✅ Show "Pending" badge if waiting for billing approval */}
             {subscriptionStatus === "pending_approval" && (
               <span style={{ marginLeft: "8px" }}>
                 <Badge tone="info">Pending</Badge>
@@ -131,45 +159,53 @@ export default function App() {
             )}
           </s-link>
         </s-app-nav>
-        
-        {/* ✅ Show banner if billing is pending approval */}
+
+        {/* Pending billing banner */}
         {subscriptionStatus === "pending_approval" && (
-          <div style={{ 
-            padding: "12px 20px", 
-            backgroundColor: "#E3F2FD",
-            borderBottom: "1px solid #90CAF9",
-            textAlign: "center"
-          }}>
+          <div
+            style={{
+              padding: "12px 20px",
+              backgroundColor: "#E3F2FD",
+              borderBottom: "1px solid #90CAF9",
+              textAlign: "center",
+            }}
+          >
             <span style={{ fontWeight: 600 }}>
               ⏳ Your subscription upgrade is pending billing approval.
-            </span>
-            {" "}
-            <a href="/app/subscription" style={{ color: "#005BD3", textDecoration: "underline" }}>
+            </span>{" "}
+            <a
+              href="/app/subscription"
+              style={{ color: "#005BD3", textDecoration: "underline" }}
+            >
               Complete billing approval
             </a>
           </div>
         )}
-        
-        {/* Show banner if approaching or at limit */}
+
+        {/* Approaching / at limit banner */}
         {usage && (isApproachingLimit || isAtLimit) && isBillingApproved && (
-          <div style={{ 
-            padding: "12px 20px", 
-            backgroundColor: isAtLimit ? "#FED3D1" : "#FFF4E5",
-            borderBottom: "1px solid #ddd",
-            textAlign: "center"
-          }}>
+          <div
+            style={{
+              padding: "12px 20px",
+              backgroundColor: isAtLimit ? "#FED3D1" : "#FFF4E5",
+              borderBottom: "1px solid #ddd",
+              textAlign: "center",
+            }}
+          >
             <span style={{ fontWeight: 600 }}>
-              {isAtLimit 
-                ? `⚠️ You've reached your ${usage.plan} plan limit (${usage.chats.current}/${usage.chats.max} chats).` 
-                : `⚡ You're using ${Math.round(usage.chats.percentage)}% of your ${usage.plan} plan.`}
-            </span>
-            {" "}
-            <a href="/app/subscription" style={{ color: "#005BD3", textDecoration: "underline" }}>
+              {isAtLimit
+                ? `⚠️ You've reached your ${currentPlan} plan limit (${usage.chats.current}/${usage.chats.max} chats).`
+                : `⚡ You're using ${Math.round(usage.chats.percentage)}% of your ${currentPlan} plan.`}
+            </span>{" "}
+            <a
+              href="/app/subscription"
+              style={{ color: "#005BD3", textDecoration: "underline" }}
+            >
               {isAtLimit ? "Upgrade now to continue" : "Upgrade your plan"}
             </a>
           </div>
         )}
-        
+
         <Outlet />
       </PolarisAppProvider>
     </ShopifyAppProvider>
