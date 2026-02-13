@@ -5,7 +5,7 @@ import { authenticate } from "../shopify.server";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
 export const loader = async ({ request }) => {
@@ -13,12 +13,9 @@ export const loader = async ({ request }) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // ✅ Add authentication to prevent HTML redirects
+  // ✅ Authenticate using Shopify's built-in method (handles both session and Bearer tokens)
   try {
-    const { session } = await authenticate.admin(request);
-    if (!session?.shop) {
-      return json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
-    }
+    await authenticate.admin(request);
   } catch (error) {
     console.error("Auth error in messages route:", error);
     return json({ error: "Authentication failed" }, { status: 401, headers: corsHeaders });

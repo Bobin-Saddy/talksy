@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { canCreateChat, shouldBlurChat } from "../planLimits.server";
+import { useAppBridge } from "@shopify/app-bridge-react";
 
 // --- ICONS SET ---
 const Icons = {
@@ -115,6 +116,7 @@ export const action = async ({ request }) => {
 
 export default function NeuralChatAdmin() {
   const { sessions: initialSessions, currentShop, planLimit: initialPlanLimit } = useLoaderData();
+  const app = useAppBridge();
   const [sessions, setSessions] = useState(initialSessions);
   const [planLimit, setPlanLimit] = useState(initialPlanLimit);
   const [activeSession, setActiveSession] = useState(null);
@@ -138,6 +140,18 @@ export default function NeuralChatAdmin() {
 
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
 
+  // ✅ Helper function for authenticated fetch
+  const authenticatedFetch = async (url, options = {}) => {
+    const sessionToken = await app.idToken();
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': `Bearer ${sessionToken}`,
+      },
+    });
+  };
+
   useEffect(() => {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
     if ("Notification" in window && Notification.permission === "default") {
@@ -155,7 +169,7 @@ export default function NeuralChatAdmin() {
       if (!isMounted) return;
       
       try {
-        const res = await fetch(window.location.pathname, {
+        const res = await authenticatedFetch(window.location.pathname, {
           headers: { 'Accept': 'application/json' }
         });
         
@@ -287,7 +301,7 @@ export default function NeuralChatAdmin() {
       if (!isMounted) return;
       
       try {
-        const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
+        const res = await authenticatedFetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
         
         // ✅ Handle authentication errors
         if (res.status === 401 || res.status === 403) {
@@ -363,7 +377,7 @@ export default function NeuralChatAdmin() {
     isFirstLoadRef.current = true;
     
     try {
-      const res = await fetch("/app/chat/messages?sessionId=" + session.sessionId);
+      const res = await authenticatedFetch("/app/chat/messages?sessionId=" + session.sessionId);
       const data = await res.json();
       if (data.length > 0) lastMessageIdRef.current = data[data.length - 1].id;
       setMessages(data);
@@ -417,7 +431,7 @@ export default function NeuralChatAdmin() {
     setShowEmojiPicker(false);
     
     try {
-      const response = await fetch("/app/chat/message", {
+      const response = await authenticatedFetch("/app/chat/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newMessage)
