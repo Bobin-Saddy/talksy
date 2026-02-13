@@ -140,6 +140,66 @@ export default function NeuralChatAdmin() {
 
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
 
+  // ✅ BroadcastChannel for instant cross-tab communication
+  const broadcastChannelRef = useRef(null);
+
+  useEffect(() => {
+    // Create broadcast channel for real-time updates
+    broadcastChannelRef.current = new BroadcastChannel('chat_updates');
+    
+    // Listen for updates from other tabs/windows
+    broadcastChannelRef.current.onmessage = (event) => {
+      if (event.data.type === 'NEW_MESSAGE' && activeSession?.sessionId === event.data.sessionId) {
+        // Immediately fetch new messages
+        fetchMessagesNow(event.data.sessionId);
+      }
+      if (event.data.type === 'NEW_SESSION') {
+        // Refresh sessions list
+        fetchSessionsNow();
+      }
+    };
+
+    return () => {
+      broadcastChannelRef.current?.close();
+    };
+  }, [activeSession?.sessionId]);
+
+  // ✅ Instant message fetch function
+  const fetchMessagesNow = async (sessionId) => {
+    try {
+      const res = await authenticatedFetch("/app/chat/messages?sessionId=" + sessionId);
+      if (res.ok) {
+        const data = await res.json();
+        if (!data.error && Array.isArray(data)) {
+          setMessages(data);
+          if (data.length > 0) {
+            lastMessageIdRef.current = data[data.length - 1].id;
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Instant fetch error:", err);
+    }
+  };
+
+  // ✅ Instant session fetch function
+  const fetchSessionsNow = async () => {
+    try {
+      const res = await authenticatedFetch(window.location.pathname, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sessions && data.planLimit) {
+          setSessions(data.sessions);
+          setPlanLimit(data.planLimit);
+        }
+      }
+    } catch (err) {
+      console.error("Instant session fetch error:", err);
+    }
+  };
+
   // ✅ Helper function for authenticated fetch
   const authenticatedFetch = async (url, options = {}) => {
     const sessionToken = await app.idToken();
@@ -357,7 +417,7 @@ export default function NeuralChatAdmin() {
       }
     };
     
-    const interval = setInterval(fetchMessages, 2000); // ⚡ Increased from 1.5s to 2s
+    const interval = setInterval(fetchMessages, 1000); // ⚡ Reduced to 1s for faster updates
     
     return () => {
       isMounted = false;
@@ -439,7 +499,16 @@ export default function NeuralChatAdmin() {
       
       const result = await response.json();
       
-      if (!result.success) {
+      if (result.success) {
+        // ✅ Immediately fetch new messages without waiting for polling
+        await fetchMessagesNow(activeSession.sessionId);
+        
+        // ✅ Broadcast to other tabs
+        broadcastChannelRef.current?.postMessage({
+          type: 'NEW_MESSAGE',
+          sessionId: activeSession.sessionId
+        });
+      } else {
         console.error("❌ Failed to send message:", result.error);
         alert("Failed to send message. Please try again.");
       }

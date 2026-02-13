@@ -1,15 +1,24 @@
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
+import { authenticate } from "../shopify.server";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
 export const loader = async ({ request }) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // ✅ Authenticate using Shopify's built-in method (handles both session and Bearer tokens)
+  try {
+    await authenticate.admin(request);
+  } catch (error) {
+    console.error("Auth error in messages route:", error);
+    return json({ error: "Authentication failed" }, { status: 401, headers: corsHeaders });
   }
 
   const url = new URL(request.url);
