@@ -156,7 +156,7 @@ export default function NeuralChatAdmin() {
     }
   }, [messages]);
 
-  // ✅ IMPROVED: REAL-TIME SESSION UPDATES WITH FASTER POLLING
+  // ✅ IMPROVED: ULTRA-FAST REAL-TIME SESSION UPDATES (500ms polling)
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -234,7 +234,7 @@ export default function NeuralChatAdmin() {
       } catch (e) {
         console.error("Session refresh failed:", e.message || e);
       }
-    }, 1500); // ✅ Keep at 1500ms to avoid overwhelming the server
+    }, 500); // ✅ Changed from 1500ms to 500ms for ultra-fast real-time updates
     
     return () => clearInterval(interval);
   }, [sessions]);
@@ -274,7 +274,7 @@ export default function NeuralChatAdmin() {
     }
   };
 
-  // ✅ IMPROVED: REAL-TIME MESSAGE POLLING FOR ACTIVE CHAT (FASTER & MORE RELIABLE)
+  // ✅ IMPROVED: ULTRA-FAST MESSAGE POLLING (500ms for instant updates)
   useEffect(() => {
     if (!activeSession) return;
     
@@ -337,8 +337,8 @@ export default function NeuralChatAdmin() {
     // ✅ Poll immediately on mount
     pollMessages();
     
-    // ✅ Then poll every 1000ms for fast updates
-    const interval = setInterval(pollMessages, 1000);
+    // ✅ Then poll every 500ms for instant updates
+    const interval = setInterval(pollMessages, 500);
     
     return () => clearInterval(interval);
   }, [activeSession?.sessionId, messages.length]); // ✅ Removed messages from dependency to prevent infinite loops
