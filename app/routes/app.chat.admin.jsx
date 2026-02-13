@@ -161,10 +161,27 @@ export default function NeuralChatAdmin() {
     const interval = setInterval(async () => {
       try {
         const res = await fetch(window.location.pathname, {
+          method: 'GET',
           headers: {
-            'Accept': 'application/json'
-          }
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          credentials: 'same-origin'
         });
+        
+        // Check if response is OK and is JSON
+        if (!res.ok) {
+          console.error("Session refresh failed: HTTP", res.status);
+          return;
+        }
+        
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error("Session refresh failed: Expected JSON but got", contentType);
+          return;
+        }
+        
         const data = await res.json();
         
         if (data.sessions && data.planLimit) {
@@ -214,9 +231,9 @@ export default function NeuralChatAdmin() {
           lastSessionCountRef.current = newSessionCount;
         }
       } catch (e) {
-        console.error("Session refresh failed:", e);
+        console.error("Session refresh failed:", e.message || e);
       }
-    }, 1000); // ✅ Reduced from 1500ms to 1000ms for faster updates
+    }, 1500); // ✅ Keep at 1500ms to avoid overwhelming the server
     
     return () => clearInterval(interval);
   }, [sessions]);
@@ -262,7 +279,28 @@ export default function NeuralChatAdmin() {
     
     const pollMessages = async () => {
       try {
-        const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
+        const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          credentials: 'same-origin'
+        });
+        
+        // Check if response is OK and is JSON
+        if (!res.ok) {
+          console.error("Message polling failed: HTTP", res.status);
+          return;
+        }
+        
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error("Message polling failed: Expected JSON but got", contentType);
+          return;
+        }
+        
         const data = await res.json();
         
         // ✅ Check if there are new messages
@@ -289,15 +327,15 @@ export default function NeuralChatAdmin() {
           }
         }
       } catch (err) {
-        console.error("Message polling error", err);
+        console.error("Message polling error:", err.message || err);
       }
     };
     
     // ✅ Poll immediately on mount
     pollMessages();
     
-    // ✅ Then poll every 800ms for super fast updates
-    const interval = setInterval(pollMessages, 800);
+    // ✅ Then poll every 1000ms for fast updates
+    const interval = setInterval(pollMessages, 1000);
     
     return () => clearInterval(interval);
   }, [activeSession?.sessionId, messages.length]); // ✅ Removed messages from dependency to prevent infinite loops
@@ -314,13 +352,36 @@ export default function NeuralChatAdmin() {
     isFirstLoadRef.current = true;
     
     try {
-      const res = await fetch("/app/chat/messages?sessionId=" + session.sessionId);
+      const res = await fetch("/app/chat/messages?sessionId=" + session.sessionId, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+      });
+      
+      if (!res.ok) {
+        console.error("Failed to load chat: HTTP", res.status);
+        setMessages([]);
+        return;
+      }
+      
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error("Failed to load chat: Expected JSON but got", contentType);
+        setMessages([]);
+        return;
+      }
+      
       const data = await res.json();
       if (data.length > 0) lastMessageIdRef.current = data[data.length - 1].id;
       setMessages(data);
       setTimeout(() => { isFirstLoadRef.current = false; }, 500);
     } catch (err) {
-      console.error("Error loading chat:", err);
+      console.error("Error loading chat:", err.message || err);
+      setMessages([]);
     }
   };
 
