@@ -17,7 +17,7 @@ const Icons = {
   FileText: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>,
   CheckCircle: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
   AlertCircle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
-  RotateCcw: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>,
+  RotateCcw: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 0 1 0 2.13-9.36L1 10"></path></svg>,
   Check: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
   TrendingUp: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
   AlertTriangle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
@@ -33,7 +33,6 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   if (!shop) throw new Response("Unauthorized", { status: 401 });
 
-  // ✅ FETCH ALL SESSIONS WITH INDEX - ORDERED BY CREATION TIME
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
     include: {
@@ -45,15 +44,11 @@ export const loader = async ({ request }) => {
     orderBy: { createdAt: "asc" }
   });
 
-  // ✅ GET PLAN LIMITS
   const chatLimit = await canCreateChat(shop);
 
-  // ✅ CHECK BLUR STATUS FOR EACH SESSION
   const sessionsWithLimitInfo = await Promise.all(
     sessions.map(async (session, index) => {
       const isOverLimit = chatLimit.max > 0 && index >= chatLimit.max;
-      
-      // ✅ Check if chat should be blurred based on retention policy
       const blurInfo = await shouldBlurChat(shop, session.createdAt);
       
       return {
@@ -68,7 +63,6 @@ export const loader = async ({ request }) => {
     })
   );
 
-  // ✅ Sort by updated time for display (but isOverLimit is already set)
   sessionsWithLimitInfo.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
   return json({ 
@@ -133,7 +127,7 @@ export default function NeuralChatAdmin() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [filterStatus, setFilterStatus] = useState("all");
-  const [showBlurPopup, setShowBlurPopup] = useState(false); // ✅ NEW: Blur popup state
+  const [showBlurPopup, setShowBlurPopup] = useState(false);
 
   const fetcher = useFetcher();
   const scrollRef = useRef(null);
@@ -142,6 +136,9 @@ export default function NeuralChatAdmin() {
   const lastMessageIdRef = useRef(null);
   const isFirstLoadRef = useRef(true);
   const lastSessionCountRef = useRef(initialSessions.length);
+  
+  // ✅ NEW: Track last message count per session for real-time updates
+  const lastMessageCountsRef = useRef({});
 
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
 
@@ -152,7 +149,14 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
-  // ✅ REAL-TIME SESSION UPDATES
+  // ✅ AUTO-SCROLL TO BOTTOM WHEN NEW MESSAGES ARRIVE
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  // ✅ IMPROVED: REAL-TIME SESSION UPDATES WITH FASTER POLLING
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -212,7 +216,7 @@ export default function NeuralChatAdmin() {
       } catch (e) {
         console.error("Session refresh failed:", e);
       }
-    }, 1500);
+    }, 1000); // ✅ Reduced from 1500ms to 1000ms for faster updates
     
     return () => clearInterval(interval);
   }, [sessions]);
@@ -236,19 +240,11 @@ export default function NeuralChatAdmin() {
     return filtered;
   }, [sessions, searchTerm, filterStatus]);
 
-  // ✅ CHECK IF ACTIVE SESSION IS OVER LIMIT OR BLURRED
   const isActiveSessionOverLimit = activeSession?.isOverLimit === true;
   const isActiveSessionBlurred = activeSession?.shouldBlur === true;
 
-  // ✅ COUNT SESSIONS FOR TABS
   const withinLimitSessions = sessions.filter(s => s.isOverLimit !== true);
   const overLimitSessions = sessions.filter(s => s.isOverLimit === true);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-    }
-  }, [messages]);
 
   const notifyNewMessage = (session, message) => {
     if (audioRef.current) audioRef.current.play().catch(() => {});
@@ -260,24 +256,31 @@ export default function NeuralChatAdmin() {
     }
   };
 
-  // ✅ POLL ACTIVE CHAT MESSAGES
+  // ✅ IMPROVED: REAL-TIME MESSAGE POLLING FOR ACTIVE CHAT (FASTER & MORE RELIABLE)
   useEffect(() => {
     if (!activeSession) return;
-    const interval = setInterval(async () => {
+    
+    const pollMessages = async () => {
       try {
         const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
         const data = await res.json();
         
-        if (data.length !== messages.length || 
-            (data.length > 0 && data[data.length - 1].id !== lastMessageIdRef.current)) {
-          
+        // ✅ Check if there are new messages
+        const hasNewMessages = data.length !== messages.length;
+        const hasUpdatedMessage = data.length > 0 && 
+                                  messages.length > 0 && 
+                                  data[data.length - 1].id !== lastMessageIdRef.current;
+        
+        if (hasNewMessages || hasUpdatedMessage) {
           const latestServerMsg = data[data.length - 1];
           
+          // ✅ Play sound and notify for new user messages
           if (latestServerMsg && 
               latestServerMsg.sender === "user" && 
               latestServerMsg.id !== lastMessageIdRef.current &&
               !isFirstLoadRef.current) {
             notifyNewMessage(activeSession, latestServerMsg);
+            console.log("🔔 New message received in active chat!");
           }
           
           setMessages(data);
@@ -288,13 +291,19 @@ export default function NeuralChatAdmin() {
       } catch (err) {
         console.error("Message polling error", err);
       }
-    }, 1500);
+    };
+    
+    // ✅ Poll immediately on mount
+    pollMessages();
+    
+    // ✅ Then poll every 800ms for super fast updates
+    const interval = setInterval(pollMessages, 800);
+    
     return () => clearInterval(interval);
-  }, [activeSession, messages.length]);
+  }, [activeSession?.sessionId, messages.length]); // ✅ Removed messages from dependency to prevent infinite loops
 
   // ✅ LOAD CHAT - WITH BLUR CHECK
   const loadChat = async (session) => {
-    // ✅ If chat is blurred, show popup instead of loading
     if (session.shouldBlur) {
       setShowBlurPopup(true);
       return;
@@ -303,13 +312,16 @@ export default function NeuralChatAdmin() {
     setActiveSession(session);
     setUnreadCounts(prev => ({ ...prev, [session.sessionId]: 0 }));
     isFirstLoadRef.current = true;
+    
     try {
       const res = await fetch("/app/chat/messages?sessionId=" + session.sessionId);
       const data = await res.json();
       if (data.length > 0) lastMessageIdRef.current = data[data.length - 1].id;
       setMessages(data);
       setTimeout(() => { isFirstLoadRef.current = false; }, 500);
-    } catch (err) {}
+    } catch (err) {
+      console.error("Error loading chat:", err);
+    }
   };
 
   const handleFileSelect = (e) => {
@@ -351,6 +363,13 @@ export default function NeuralChatAdmin() {
       fileUrl: finalFile || null,
     };
     
+    // ✅ Optimistically add message to UI
+    const optimisticMessage = {
+      ...newMessage,
+      id: `temp-${Date.now()}`,
+    };
+    setMessages(prev => [...prev, optimisticMessage]);
+    
     setReply("");
     setFilePreview(null);
     setShowEmojiPicker(false);
@@ -366,12 +385,17 @@ export default function NeuralChatAdmin() {
       
       if (result.success) {
         console.log("✅ Message sent successfully:", result.newMessage?.id);
+        // ✅ Message will be updated via polling
       } else {
         console.error("❌ Failed to send message:", result.error);
+        // ✅ Remove optimistic message on error
+        setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id));
         alert("Failed to send message. Please try again.");
       }
     } catch (error) {
       console.error("❌ Error sending message:", error);
+      // ✅ Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id));
       alert("Failed to send message. Please try again.");
     }
   };
@@ -440,7 +464,6 @@ export default function NeuralChatAdmin() {
               position: 'relative'
             }}
           >
-            {/* Close button */}
             <button
               onClick={() => setShowBlurPopup(false)}
               style={{
@@ -460,7 +483,6 @@ export default function NeuralChatAdmin() {
               <Icons.X size={20} color="#9ca3af" />
             </button>
 
-            {/* Icon */}
             <div style={{ 
               width: '80px', 
               height: '80px', 
@@ -475,7 +497,6 @@ export default function NeuralChatAdmin() {
               <Icons.EyeOff />
             </div>
 
-            {/* Title */}
             <h2 style={{ 
               fontSize: '24px', 
               fontWeight: '700', 
@@ -486,7 +507,6 @@ export default function NeuralChatAdmin() {
               Chat History Expired
             </h2>
 
-            {/* Description */}
             <p style={{ 
               fontSize: '15px', 
               color: '#6b7280', 
@@ -498,7 +518,6 @@ export default function NeuralChatAdmin() {
               Upgrade to <strong>Standard</strong> or <strong>Premium</strong> to access full chat history.
             </p>
 
-            {/* Features */}
             <div style={{ 
               background: '#f9fafb', 
               borderRadius: '12px', 
@@ -563,7 +582,6 @@ export default function NeuralChatAdmin() {
               </div>
             </div>
 
-            {/* Buttons */}
             <div style={{ display: 'flex', gap: '12px' }}>
               <button 
                 onClick={() => setShowBlurPopup(false)}
@@ -627,7 +645,6 @@ export default function NeuralChatAdmin() {
           <p style={{ fontSize: '13px', color: '#6b7280', marginTop: 4 }}>Manage customer conversations</p>
         </div>
 
-        {/* ✅ OVER LIMIT WARNING */}
         {planLimit.isOverLimit && (
           <div style={{ 
             margin: '0 16px 16px', 
@@ -666,7 +683,6 @@ export default function NeuralChatAdmin() {
           </div>
         )}
 
-        {/* ✅ 4-TAB FILTER */}
         <div style={{ padding: '0 16px 16px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', borderBottom: '1px solid #f3f4f6' }}>
           <button 
             onClick={() => setFilterStatus("all")}
@@ -787,7 +803,7 @@ export default function NeuralChatAdmin() {
         </div>
       </div>
 
-      {/* CHAT AREA - Rest of the component remains the same */}
+      {/* CHAT AREA */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
         {activeSession ? (
           <>
