@@ -3,7 +3,7 @@ import { useLoaderData, useFetcher } from "react-router";
 import { useState, useEffect, useRef, useMemo } from "react";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
-import { canCreateChat } from "../planLimits.server";
+import { canCreateChat, shouldBlurChat } from "../planLimits.server";
 
 // --- ICONS SET ---
 const Icons = {
@@ -25,16 +25,13 @@ const Icons = {
   Lock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>,
   Eye: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>,
   EyeOff: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>,
+  Zap: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>,
 };
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
   if (!shop) throw new Response("Unauthorized", { status: 401 });
-
-  // ✅ AUTOMATICALLY MARK EXPIRED CHATS AS BLURRED (runs in background)
-  const { markExpiredChatsAsBlurred, shouldBlurChat, getShopLimits } = await import("../planLimits.server");
-  await markExpiredChatsAsBlurred(shop).catch(err => console.error("Blur job error:", err));
 
   // ✅ FETCH ALL SESSIONS WITH INDEX - ORDERED BY CREATION TIME
   const sessions = await prisma.chatSession.findMany({
@@ -50,32 +47,33 @@ export const loader = async ({ request }) => {
 
   // ✅ GET PLAN LIMITS
   const chatLimit = await canCreateChat(shop);
-  const { limits, plan } = await getShopLimits(shop);
 
-  // ✅ MARK SESSIONS AS OVER-LIMIT AND CHECK BLUR STATUS
-  const sessionsWithLimitInfo = await Promise.all(sessions.map(async (session, index) => {
-    const isOverLimit = chatLimit.max > 0 && index >= chatLimit.max;
-    
-    // Check if chat should be blurred
-    const blurCheck = await shouldBlurChat(shop, session.createdAt);
-    
-    return {
-      ...session,
-      chatIndex: index + 1,
-      isOverLimit: isOverLimit,
-      sBlurred: blurCheck.shouldBlur,  // ✅ Use real-time calculation only
-      blurReason: blurCheck.reason,
-      daysUntilBlur: blurCheck.daysUntilBlur,
-      retentionDays: blurCheck.retentionDays,
-    };
-  }));
+  // ✅ CHECK BLUR STATUS FOR EACH SESSION
+  const sessionsWithLimitInfo = await Promise.all(
+    sessions.map(async (session, index) => {
+      const isOverLimit = chatLimit.max > 0 && index >= chatLimit.max;
+      
+      // ✅ Check if chat should be blurred based on retention policy
+      const blurInfo = await shouldBlurChat(shop, session.createdAt);
+      
+      return {
+        ...session,
+        chatIndex: index + 1,
+        isOverLimit: isOverLimit,
+        shouldBlur: blurInfo.shouldBlur,
+        blurReason: blurInfo.reason,
+        retentionDays: blurInfo.retentionDays,
+        currentPlan: blurInfo.plan,
+      };
+    })
+  );
 
+  // ✅ Sort by updated time for display (but isOverLimit is already set)
   sessionsWithLimitInfo.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
   return json({ 
     sessions: sessionsWithLimitInfo,
     currentShop: shop,
-    currentPlan: plan,
     planLimit: {
       current: sessions.length,
       max: chatLimit.max,
@@ -84,7 +82,6 @@ export const loader = async ({ request }) => {
       isAtLimit: !chatLimit.allowed,
       isOverLimit: chatLimit.max > 0 && sessions.length > chatLimit.max,
       overLimitBy: chatLimit.max > 0 ? Math.max(0, sessions.length - chatLimit.max) : 0,
-      retentionDays: limits.chatHistoryDays === -1 ? "Unlimited" : limits.chatHistoryDays,
     }
   });
 };
@@ -123,7 +120,7 @@ export const action = async ({ request }) => {
 };
 
 export default function NeuralChatAdmin() {
-  const { sessions: initialSessions, currentShop, currentPlan, planLimit: initialPlanLimit } = useLoaderData();
+  const { sessions: initialSessions, currentShop, planLimit: initialPlanLimit } = useLoaderData();
   const [sessions, setSessions] = useState(initialSessions);
   const [planLimit, setPlanLimit] = useState(initialPlanLimit);
   const [activeSession, setActiveSession] = useState(null);
@@ -136,7 +133,7 @@ export default function NeuralChatAdmin() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [filterStatus, setFilterStatus] = useState("all");
-  const [showBlurModal, setShowBlurModal] = useState(false);
+  const [showBlurPopup, setShowBlurPopup] = useState(false); // ✅ NEW: Blur popup state
 
   const fetcher = useFetcher();
   const scrollRef = useRef(null);
@@ -160,13 +157,21 @@ export default function NeuralChatAdmin() {
     const interval = setInterval(async () => {
       try {
         const res = await fetch(window.location.pathname, {
-          headers: { 'Accept': 'application/json' }
+          headers: {
+            'Accept': 'application/json'
+          }
         });
         const data = await res.json();
         
         if (data.sessions && data.planLimit) {
+          const newSessionCount = data.sessions.length;
+          const previousCount = lastSessionCountRef.current;
+          
           const currentSessionIds = sessions.map(s => s.sessionId);
-          const newSessions = data.sessions.filter(s => !currentSessionIds.includes(s.sessionId));
+          const newSessions = data.sessions.filter(s => 
+            !currentSessionIds.includes(s.sessionId)
+          );
+          
           const updatedSessions = data.sessions.filter(newS => {
             const oldS = sessions.find(s => s.sessionId === newS.sessionId);
             return oldS && new Date(newS.updatedAt) > new Date(oldS.updatedAt);
@@ -176,7 +181,12 @@ export default function NeuralChatAdmin() {
           setPlanLimit(data.planLimit);
           
           if (newSessions.length > 0) {
-            if (audioRef.current) audioRef.current.play().catch(() => {});
+            console.log("🆕 New chat(s) detected!", newSessions.length, "new sessions");
+            
+            if (audioRef.current) {
+              audioRef.current.play().catch(() => {});
+            }
+            
             if (Notification.permission === "granted") {
               newSessions.forEach(newSession => {
                 new Notification("New Chat Request", {
@@ -185,35 +195,19 @@ export default function NeuralChatAdmin() {
                 });
               });
             }
+            
             const hasOverLimitNewChat = newSessions.some(s => s.isOverLimit);
-            if (hasOverLimitNewChat) setFilterStatus("requests");
-          }
-          
-          lastSessionCountRef.current = data.sessions.length;
-          
-          // ✅ CHECK IF ACTIVE SESSION BECAME BLURRED
-              if (activeSession) {
-            const updatedActiveSession = data.sessions.find(s => s.sessionId === activeSession.sessionId);
-            if (updatedActiveSession) {
-              // ✅ Chat became blurred
-              if (updatedActiveSession.isBlurred && !activeSession.isBlurred) {
-                console.log("⚠️ Active chat became blurred!");
-                setActiveSession(updatedActiveSession);
-                setShowBlurModal(true);
-              }
-              // ✅ Chat became unblurred (plan upgraded!)
-              else if (!updatedActiveSession.isBlurred && activeSession.isBlurred) {
-                console.log("✅ Active chat became unblurred (plan upgraded)!");
-                setActiveSession(updatedActiveSession);
-                setShowBlurModal(false);
-                loadChat(updatedActiveSession);
-              }
-              // ✅ Update state
-              else if (updatedActiveSession.isBlurred !== activeSession.isBlurred) {
-                setActiveSession(updatedActiveSession);
-              }
+            if (hasOverLimitNewChat) {
+              console.log("📬 New over-limit chat - switching to Requests tab");
+              setFilterStatus("requests");
             }
           }
+          
+          if (updatedSessions.length > 0 && newSessions.length === 0) {
+            console.log("📨 Message updates detected in", updatedSessions.length, "sessions");
+          }
+          
+          lastSessionCountRef.current = newSessionCount;
         }
       } catch (e) {
         console.error("Session refresh failed:", e);
@@ -221,7 +215,7 @@ export default function NeuralChatAdmin() {
     }, 1500);
     
     return () => clearInterval(interval);
-  }, [sessions, activeSession]);
+  }, [sessions]);
 
   // ✅ FILTER SESSIONS
   const filteredSessions = useMemo(() => {
@@ -242,9 +236,11 @@ export default function NeuralChatAdmin() {
     return filtered;
   }, [sessions, searchTerm, filterStatus]);
 
+  // ✅ CHECK IF ACTIVE SESSION IS OVER LIMIT OR BLURRED
   const isActiveSessionOverLimit = activeSession?.isOverLimit === true;
-  const isActiveSessionBlurred = activeSession?.isBlurred === true;
+  const isActiveSessionBlurred = activeSession?.shouldBlur === true;
 
+  // ✅ COUNT SESSIONS FOR TABS
   const withinLimitSessions = sessions.filter(s => s.isOverLimit !== true);
   const overLimitSessions = sessions.filter(s => s.isOverLimit === true);
 
@@ -266,8 +262,7 @@ export default function NeuralChatAdmin() {
 
   // ✅ POLL ACTIVE CHAT MESSAGES
   useEffect(() => {
-    
-    if (isActiveSessionBlurred) return;
+    if (!activeSession) return;
     const interval = setInterval(async () => {
       try {
         const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
@@ -295,17 +290,16 @@ export default function NeuralChatAdmin() {
       }
     }, 1500);
     return () => clearInterval(interval);
-  }, [activeSession, messages.length, isActiveSessionBlurred]);
+  }, [activeSession, messages.length]);
 
+  // ✅ LOAD CHAT - WITH BLUR CHECK
   const loadChat = async (session) => {
-    // ✅ CHECK IF CHAT IS BLURRED
-    if (session.isBlurred) {
-      setActiveSession(session);
-      setShowBlurModal(true);
-      setMessages([]);
+    // ✅ If chat is blurred, show popup instead of loading
+    if (session.shouldBlur) {
+      setShowBlurPopup(true);
       return;
     }
-    
+
     setActiveSession(session);
     setUnreadCounts(prev => ({ ...prev, [session.sessionId]: 0 }));
     isFirstLoadRef.current = true;
@@ -340,7 +334,7 @@ export default function NeuralChatAdmin() {
     }
 
     if (isActiveSessionBlurred) {
-      setShowBlurModal(true);
+      setShowBlurPopup(true);
       return;
     }
 
@@ -415,34 +409,63 @@ export default function NeuralChatAdmin() {
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb', color: '#111827', fontFamily: '"Inter", system-ui, sans-serif' }}>
       
-      {/* ✅ BLUR MODAL */}
-      {showBlurModal && (
-        <div style={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          width: '100vw', 
-          height: '100vh', 
-          backgroundColor: 'rgba(0, 0, 0, 0.7)', 
-          zIndex: 10000, 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          backdropFilter: 'blur(8px)'
-        }}>
-          <div style={{ 
-            background: 'white', 
-            borderRadius: '20px', 
-            padding: '40px', 
-            maxWidth: '500px',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-            textAlign: 'center'
-          }}>
+      {/* ✅ BLUR UPGRADE POPUP */}
+      {showBlurPopup && (
+        <div 
+          onClick={() => setShowBlurPopup(false)} 
+          style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            width: '100vw', 
+            height: '100vh', 
+            backgroundColor: 'rgba(0, 0, 0, 0.7)', 
+            zIndex: 10000, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            backdropFilter: 'blur(8px)',
+            cursor: 'pointer'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ 
+              background: 'white', 
+              borderRadius: '20px', 
+              padding: '40px', 
+              maxWidth: '500px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              cursor: 'default',
+              position: 'relative'
+            }}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setShowBlurPopup(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <Icons.X size={20} color="#9ca3af" />
+            </button>
+
+            {/* Icon */}
             <div style={{ 
               width: '80px', 
               height: '80px', 
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              borderRadius: '50%',
+              borderRadius: '50%', 
+              background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -451,66 +474,139 @@ export default function NeuralChatAdmin() {
             }}>
               <Icons.EyeOff />
             </div>
-            
-            <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '12px', color: '#111827' }}>
+
+            {/* Title */}
+            <h2 style={{ 
+              fontSize: '24px', 
+              fontWeight: '700', 
+              color: '#111827', 
+              textAlign: 'center',
+              marginBottom: '12px'
+            }}>
               Chat History Expired
             </h2>
-            
-            <p style={{ fontSize: '15px', color: '#6b7280', lineHeight: '1.6', marginBottom: '24px' }}>
-              {currentPlan === "FREE" 
-                ? "Your FREE plan only retains chats for 2 minutes (testing mode). Upgrade to keep your chat history longer."
-                : currentPlan === "STANDARD"
-                ? "Your chat has been automatically deleted after 6 months on the STANDARD plan. Upgrade to PREMIUM for unlimited chat history."
-                : "This chat has expired based on your plan's retention policy."}
-            </p>
-            
-            <div style={{ 
-              background: '#fef3c7', 
-              padding: '16px', 
-              borderRadius: '12px', 
-              marginBottom: '24px',
-              border: '2px dashed #f59e0b'
+
+            {/* Description */}
+            <p style={{ 
+              fontSize: '15px', 
+              color: '#6b7280', 
+              textAlign: 'center',
+              lineHeight: '1.6',
+              marginBottom: '24px'
             }}>
-              <div style={{ fontSize: '13px', color: '#92400e', fontWeight: '600' }}>
-                Current Plan: {currentPlan}
+              This chat is older than your <strong>FREE plan</strong> retention period (2 minutes). 
+              Upgrade to <strong>Standard</strong> or <strong>Premium</strong> to access full chat history.
+            </p>
+
+            {/* Features */}
+            <div style={{ 
+              background: '#f9fafb', 
+              borderRadius: '12px', 
+              padding: '20px',
+              marginBottom: '24px'
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#9ca3af', marginBottom: '12px', letterSpacing: '0.5px' }}>
+                UPGRADE BENEFITS:
               </div>
-              <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>
-                Retention: {planLimit.retentionDays === "Unlimited" ? "Unlimited" : `${planLimit.retentionDays} days`}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ 
+                    width: '20px', 
+                    height: '20px', 
+                    borderRadius: '50%', 
+                    background: '#10b981',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <Icons.Check />
+                  </div>
+                  <span style={{ fontSize: '14px', color: '#111827' }}>
+                    <strong>Standard:</strong> 180 days chat history
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ 
+                    width: '20px', 
+                    height: '20px', 
+                    borderRadius: '50%', 
+                    background: '#10b981',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <Icons.Check />
+                  </div>
+                  <span style={{ fontSize: '14px', color: '#111827' }}>
+                    <strong>Premium:</strong> Unlimited chat history
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ 
+                    width: '20px', 
+                    height: '20px', 
+                    borderRadius: '50%', 
+                    background: '#10b981',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <Icons.Check />
+                  </div>
+                  <span style={{ fontSize: '14px', color: '#111827' }}>
+                    Access to advanced features
+                  </span>
+                </div>
               </div>
             </div>
-            
+
+            {/* Buttons */}
             <div style={{ display: 'flex', gap: '12px' }}>
               <button 
-                onClick={() => setShowBlurModal(false)}
+                onClick={() => setShowBlurPopup(false)}
                 style={{ 
                   flex: 1,
-                  padding: '14px 24px', 
-                  borderRadius: '12px', 
-                  border: '2px solid #e5e7eb',
-                  background: 'white',
+                  padding: '14px 20px', 
+                  borderRadius: '10px', 
+                  border: '2px solid #e5e7eb', 
+                  background: '#fff',
                   color: '#6b7280',
                   fontWeight: '600',
                   fontSize: '14px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
               >
-                Close
+                Maybe Later
               </button>
               <button 
                 onClick={() => window.location.href = '/app/subscription'}
                 style={{ 
                   flex: 1,
-                  padding: '14px 24px', 
-                  borderRadius: '12px', 
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                  color: 'white',
+                  padding: '14px 20px', 
+                  borderRadius: '10px', 
+                  border: 'none', 
+                  background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+                  color: '#fff',
                   fontWeight: '600',
                   fontSize: '14px',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)',
+                  transition: 'all 0.2s'
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
+                <Icons.Zap />
                 Upgrade Now
               </button>
             </div>
@@ -531,6 +627,7 @@ export default function NeuralChatAdmin() {
           <p style={{ fontSize: '13px', color: '#6b7280', marginTop: 4 }}>Manage customer conversations</p>
         </div>
 
+        {/* ✅ OVER LIMIT WARNING */}
         {planLimit.isOverLimit && (
           <div style={{ 
             margin: '0 16px 16px', 
@@ -569,6 +666,7 @@ export default function NeuralChatAdmin() {
           </div>
         )}
 
+        {/* ✅ 4-TAB FILTER */}
         <div style={{ padding: '0 16px 16px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', borderBottom: '1px solid #f3f4f6' }}>
           <button 
             onClick={() => setFilterStatus("all")}
@@ -650,10 +748,10 @@ export default function NeuralChatAdmin() {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px' }}>
           {filteredSessions.map(session => (
-            <div key={session.sessionId} onClick={() => loadChat(session)} style={{ position: 'relative', padding: '12px', borderRadius: '12px', cursor: 'pointer', marginBottom: '6px', background: activeSession?.sessionId === session.sessionId ? '#f0f9ff' : 'transparent', border: activeSession?.sessionId === session.sessionId ? '1px solid #bae6fd' : '1px solid transparent', transition: 'all 0.2s', opacity: session.isBlurred ? 0.6 : 1 }}>
+            <div key={session.sessionId} onClick={() => loadChat(session)} style={{ position: 'relative', padding: '12px', borderRadius: '12px', cursor: 'pointer', marginBottom: '6px', background: activeSession?.sessionId === session.sessionId ? '#f0f9ff' : 'transparent', border: activeSession?.sessionId === session.sessionId ? '1px solid #bae6fd' : '1px solid transparent', transition: 'all 0.2s', opacity: session.shouldBlur ? 0.6 : 1 }}>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: activeSession?.sessionId === session.sessionId ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : (session.isOverLimit ? '#fef3c7' : (session.isBlurred ? '#fee2e2' : '#f3f4f6')), display: 'flex', alignItems: 'center', justifyContent: 'center', color: activeSession?.sessionId === session.sessionId ? 'white' : (session.isOverLimit ? '#92400e' : (session.isBlurred ? '#991b1b' : '#9ca3af')), flexShrink: 0 }}>
-                  {session.isBlurred ? <Icons.EyeOff /> : (session.isOverLimit ? <Icons.Lock /> : <Icons.User size={20} />)}
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: session.shouldBlur ? '#fef3c7' : (activeSession?.sessionId === session.sessionId ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : (session.isOverLimit ? '#fef3c7' : '#f3f4f6')), display: 'flex', alignItems: 'center', justifyContent: 'center', color: session.shouldBlur ? '#92400e' : (activeSession?.sessionId === session.sessionId ? 'white' : (session.isOverLimit ? '#92400e' : '#9ca3af')), flexShrink: 0 }}>
+                  {session.shouldBlur ? <Icons.EyeOff /> : (session.isOverLimit ? <Icons.Lock /> : <Icons.User size={20} />)}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 2 }}>
@@ -663,19 +761,19 @@ export default function NeuralChatAdmin() {
                         <Icons.Check />
                       </div>
                     )}
-                    {session.isBlurred && (
-                      <div style={{ background: '#ef4444', color: 'white', fontSize: '9px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px' }}>
+                    {session.shouldBlur && (
+                      <div style={{ background: '#f59e0b', color: 'white', fontSize: '9px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px' }}>
                         EXPIRED
                       </div>
                     )}
-                    {session.isOverLimit && !session.isBlurred && (
+                    {session.isOverLimit && !session.shouldBlur && (
                       <div style={{ background: '#f59e0b', color: 'white', fontSize: '9px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px' }}>
                         REQUEST
                       </div>
                     )}
                   </div>
                   <div style={{ fontSize: '12px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {session.isBlurred ? '••••••••' : (session.messages[0]?.message || 'New Chat')}
+                    {session.shouldBlur ? 'Chat history expired' : (session.messages[0]?.message || 'New Chat')}
                   </div>
                 </div>
                 {unreadCounts[session.sessionId] > 0 && (
@@ -689,51 +787,40 @@ export default function NeuralChatAdmin() {
         </div>
       </div>
 
-      {/* CHAT AREA */}
+      {/* CHAT AREA - Rest of the component remains the same */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
         {activeSession ? (
           <>
-            <div style={{ padding: '20px 32px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isActiveSessionBlurred ? '#fee2e2' : (isActiveSessionOverLimit ? '#fef3c7' : '#fff') }}>
+            <div style={{ padding: '20px 32px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isActiveSessionOverLimit ? '#fef3c7' : '#fff' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <h3 style={{ margin: 0, fontWeight: '700', fontSize: '18px', color: '#111827' }}>{activeSession.email}</h3>
-                  {isActiveSessionBlurred && (
-                    <div style={{ background: '#ef4444', color: 'white', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Icons.EyeOff />
-                      Expired
-                    </div>
-                  )}
-                  {isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                  {isActiveSessionOverLimit && (
                     <div style={{ background: '#f59e0b', color: 'white', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Icons.Lock />
                       Over Limit
                     </div>
                   )}
-                  {activeSession.isResolved && !isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                  {activeSession.isResolved && !isActiveSessionOverLimit && (
                     <div style={{ background: '#d1fae5', color: '#065f46', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Icons.Check />
                       Resolved
                     </div>
                   )}
                 </div>
-                {isActiveSessionBlurred && (
-                  <div style={{ fontSize: '12px', color: '#991b1b', marginTop: '4px', fontWeight: '500' }}>
-                    Chat expired. Upgrade to keep chat history longer.
-                  </div>
-                )}
-                {isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                {isActiveSessionOverLimit && (
                   <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px', fontWeight: '500' }}>
                     This chat is over your plan limit. Upgrade to respond.
                   </div>
                 )}
-                {activeSession.resolvedAt && !isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                {activeSession.resolvedAt && !isActiveSessionOverLimit && (
                   <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                     Resolved on {new Date(activeSession.resolvedAt).toLocaleDateString()}
                   </div>
                 )}
               </div>
               
-              {!isActiveSessionOverLimit && !isActiveSessionBlurred && !activeSession.isResolved && (
+              {!isActiveSessionOverLimit && !activeSession.isResolved && (
                 <button 
                   onClick={handleMarkResolved}
                   style={{ 
@@ -751,13 +838,15 @@ export default function NeuralChatAdmin() {
                     boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
                     transition: 'all 0.2s'
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                   <Icons.CheckCircle />
                   Mark as Resolved
                 </button>
               )}
               
-              {!isActiveSessionOverLimit && !isActiveSessionBlurred && activeSession.isResolved && (
+              {!isActiveSessionOverLimit && activeSession.isResolved && (
                 <button 
                   onClick={handleReopenChat}
                   style={{ 
@@ -774,20 +863,22 @@ export default function NeuralChatAdmin() {
                     gap: '6px',
                     transition: 'all 0.2s'
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#fffbeb'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
                 >
                   <Icons.RotateCcw />
                   Reopen Chat
                 </button>
               )}
 
-              {(isActiveSessionOverLimit || isActiveSessionBlurred) && (
+              {isActiveSessionOverLimit && (
                 <button 
                   onClick={() => window.location.href = '/app/subscription'}
                   style={{ 
                     padding: '10px 18px', 
                     borderRadius: '10px', 
                     border: 'none', 
-                    background: isActiveSessionBlurred ? '#ef4444' : '#f59e0b',
+                    background: '#f59e0b',
                     color: '#fff',
                     fontWeight: '600',
                     fontSize: '13px',
@@ -804,139 +895,92 @@ export default function NeuralChatAdmin() {
               )}
             </div>
 
-            {/* ✅ BLURRED MESSAGES VIEW */}
-            {isActiveSessionBlurred ? (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', padding: '32px' }}>
-                <div style={{ textAlign: 'center', maxWidth: '500px' }}>
-                  <div style={{ 
-                    width: '100px', 
-                    height: '100px', 
-                    background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 24px',
-                    color: '#dc2626'
-                  }}>
-                    <Icons.EyeOff />
+            <div ref={scrollRef} style={{ flex: 1, padding: '32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', background: '#f9fafb' }}>
+              {messages.map((msg, i) => (
+                <div key={msg.id || i} style={{ alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '65%' }}>
+                  <div style={{ padding: '12px 16px', borderRadius: '16px', background: msg.sender === 'admin' ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : (msg.sender === 'bot' ? '#fef3c7' : '#fff'), color: msg.sender === 'admin' ? '#fff' : '#111827', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: msg.sender === 'admin' ? 'none' : (msg.sender === 'bot' ? '1px solid #fbbf24' : '1px solid #e5e7eb') }}>
+                    {msg.fileUrl ? (
+                      msg.fileUrl.includes('image') || msg.fileUrl.startsWith('data:image') ? 
+                      <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '10px', cursor: 'zoom-in' }} alt="attachment" /> :
+                      <div style={{display:'flex', gap:'8px', alignItems: 'center'}}><Icons.FileText /><a href={msg.fileUrl} target="_blank" rel="noreferrer" style={{color: 'inherit', fontWeight: '600', textDecoration: 'none'}}>View Document</a></div>
+                    ) : (
+                      <div style={{ fontSize: '14px', lineHeight: '1.5' }}>{msg.message}</div>
+                    )}
                   </div>
-                  <h3 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', marginBottom: '12px' }}>
-                    Chat History Deleted
-                  </h3>
-                  <p style={{ fontSize: '14px', color: '#6b7280', lineHeight: '1.6', marginBottom: '24px' }}>
-                    This chat was automatically deleted based on your plan's retention policy. 
-                    {currentPlan === "FREE" && " FREE plan keeps chats for 2 minutes (testing mode)."}
-                    {currentPlan === "STANDARD" && " STANDARD plan keeps chats for 6 months."}
-                  </p>
-                  <button 
-                    onClick={() => window.location.href = '/app/subscription'}
-                    style={{ 
-                      padding: '14px 28px', 
-                      borderRadius: '12px', 
-                      border: 'none',
-                      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                      color: 'white',
-                      fontWeight: '600',
-                      fontSize: '14px',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
-                    }}
-                  >
-                    Upgrade to Keep Chat History
-                  </button>
+                  <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', textAlign: msg.sender === 'admin' ? 'right' : 'left' }}>
+                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filePreview && !isActiveSessionOverLimit && (
+              <div style={{ padding: '12px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ position: 'relative' }}>
+                  {filePreview.type.includes('image') ? (
+                     <img src={filePreview.url} style={{ height: '50px', width:'50px', objectFit:'cover', borderRadius: '8px', border: '1px solid #e5e7eb' }} alt="preview" />
+                  ) : (
+                    <div style={{height:'50px', width:'50px', background:'#f3f4f6', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'8px'}}><Icons.FileText /></div>
+                  )}
+                  <button onClick={() => setFilePreview(null)} style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', borderRadius: '50%', border: 'none', cursor: 'pointer', padding: '4px', display:'flex' }}><Icons.X size={12} color="white" /></button>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#111827' }}>{filePreview.name}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>Ready to send</div>
+                </div>
+              </div>
+            )}
+
+            {!isActiveSessionOverLimit ? (
+              <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid #e5e7eb', position: 'relative' }}>
+                {showEmojiPicker && (
+                  <div style={{ position: 'absolute', bottom: '80px', left: '32px', background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', zIndex: 10 }}>
+                    {emojis.map(e => (
+                      <button key={e} onClick={() => addEmoji(e)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', padding: '6px', borderRadius: '8px', transition: 'all 0.2s' }} onMouseEnter={(e) => e.target.style.background = '#f3f4f6'} onMouseLeave={(e) => e.target.style.background = 'none'}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', background: '#f9fafb', borderRadius: '12px', padding: '6px 8px', border: '1px solid #e5e7eb' }}>
+                  <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} accept="image/*,.pdf" />
+                  <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: showEmojiPicker ? accentColor : '#9ca3af', padding: '8px' }}><Icons.Smile /></button>
+                  <button onClick={() => fileInputRef.current.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', margin: '0 8px', color: '#9ca3af', padding: '8px' }}><Icons.Paperclip /></button>
+                  <input placeholder="Type a message..." style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '14px', color: '#111827' }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyPress={(e) => { if(e.key === 'Enter') handleReply(); }} />
+                  <button onClick={() => handleReply()} style={{ width: '40px', height: '40px', borderRadius: '10px', background: (reply.trim() || filePreview) ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : '#e5e7eb', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}><Icons.Send /></button>
                 </div>
               </div>
             ) : (
-              <>
-                <div ref={scrollRef} style={{ flex: 1, padding: '32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', background: '#f9fafb' }}>
-                  {messages.map((msg, i) => (
-                    <div key={msg.id || i} style={{ alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '65%' }}>
-                      <div style={{ padding: '12px 16px', borderRadius: '16px', background: msg.sender === 'admin' ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : (msg.sender === 'bot' ? '#fef3c7' : '#fff'), color: msg.sender === 'admin' ? '#fff' : '#111827', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: msg.sender === 'admin' ? 'none' : (msg.sender === 'bot' ? '1px solid #fbbf24' : '1px solid #e5e7eb') }}>
-                        {msg.fileUrl ? (
-                          msg.fileUrl.includes('image') || msg.fileUrl.startsWith('data:image') ? 
-                          <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '10px', cursor: 'zoom-in' }} alt="attachment" /> :
-                          <div style={{display:'flex', gap:'8px', alignItems: 'center'}}><Icons.FileText /><a href={msg.fileUrl} target="_blank" rel="noreferrer" style={{color: 'inherit', fontWeight: '600', textDecoration: 'none'}}>View Document</a></div>
-                        ) : (
-                          <div style={{ fontSize: '14px', lineHeight: '1.5' }}>{msg.message}</div>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', textAlign: msg.sender === 'admin' ? 'right' : 'left' }}>
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
+              <div style={{ padding: '20px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', borderRadius: '12px', border: '2px dashed #f59e0b' }}>
+                  <Icons.Lock />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#92400e', marginBottom: '4px' }}>
+                      Chat Locked - Over Plan Limit
                     </div>
-                  ))}
+                    <div style={{ fontSize: '12px', color: '#92400e' }}>
+                      Upgrade your plan to respond to this customer request
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => window.location.href = '/app/subscription'}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#f59e0b', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '8px', 
+                      fontWeight: '600', 
+                      fontSize: '12px', 
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Upgrade Now
+                  </button>
                 </div>
-
-                {filePreview && !isActiveSessionOverLimit && (
-                  <div style={{ padding: '12px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ position: 'relative' }}>
-                      {filePreview.type.includes('image') ? (
-                        <img src={filePreview.url} style={{ height: '50px', width:'50px', objectFit:'cover', borderRadius: '8px', border: '1px solid #e5e7eb' }} alt="preview" />
-                      ) : (
-                        <div style={{height:'50px', width:'50px', background:'#f3f4f6', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'8px'}}><Icons.FileText /></div>
-                      )}
-                      <button onClick={() => setFilePreview(null)} style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', borderRadius: '50%', border: 'none', cursor: 'pointer', padding: '4px', display:'flex' }}><Icons.X size={12} color="white" /></button>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#111827' }}>{filePreview.name}</div>
-                      <div style={{ fontSize: '11px', color: '#6b7280' }}>Ready to send</div>
-                    </div>
-                  </div>
-                )}
-
-                {!isActiveSessionOverLimit ? (
-                  <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid #e5e7eb', position: 'relative' }}>
-                    {showEmojiPicker && (
-                      <div style={{ position: 'absolute', bottom: '80px', left: '32px', background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', zIndex: 10 }}>
-                        {emojis.map(e => (
-                          <button key={e} onClick={() => addEmoji(e)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', padding: '6px', borderRadius: '8px', transition: 'all 0.2s' }}>
-                            {e}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    <div style={{ display: 'flex', alignItems: 'center', background: '#f9fafb', borderRadius: '12px', padding: '6px 8px', border: '1px solid #e5e7eb' }}>
-                      <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} accept="image/*,.pdf" />
-                      <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: showEmojiPicker ? accentColor : '#9ca3af', padding: '8px' }}><Icons.Smile /></button>
-                      <button onClick={() => fileInputRef.current.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', margin: '0 8px', color: '#9ca3af', padding: '8px' }}><Icons.Paperclip /></button>
-                      <input placeholder="Type a message..." style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '14px', color: '#111827' }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyPress={(e) => { if(e.key === 'Enter') handleReply(); }} />
-                      <button onClick={() => handleReply()} style={{ width: '40px', height: '40px', borderRadius: '10px', background: (reply.trim() || filePreview) ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : '#e5e7eb', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}><Icons.Send /></button>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ padding: '20px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', borderRadius: '12px', border: '2px dashed #f59e0b' }}>
-                      <Icons.Lock />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '14px', fontWeight: '600', color: '#92400e', marginBottom: '4px' }}>
-                          Chat Locked - Over Plan Limit
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#92400e' }}>
-                          Upgrade your plan to respond to this customer request
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => window.location.href = '/app/subscription'}
-                        style={{ 
-                          padding: '8px 16px', 
-                          background: '#f59e0b', 
-                          color: 'white', 
-                          border: 'none', 
-                          borderRadius: '8px', 
-                          fontWeight: '600', 
-                          fontSize: '12px', 
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        Upgrade Now
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
+              </div>
             )}
           </>
         ) : (
@@ -968,9 +1012,6 @@ export default function NeuralChatAdmin() {
                 ? 'At limit - upgrade to continue' 
                 : planLimit.remaining + " chat" + (planLimit.remaining !== 1 ? 's' : '') + " remaining"}
           </div>
-          <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.1)' }}>
-            Retention: {planLimit.retentionDays === "Unlimited" ? "∞ Unlimited" : `${planLimit.retentionDays} days`}
-          </div>
           {(planLimit.isAtLimit || planLimit.isOverLimit) && (
             <button 
               onClick={() => window.location.href = '/app/subscription'}
@@ -994,13 +1035,13 @@ export default function NeuralChatAdmin() {
 
         {activeSession && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ padding: '16px', background: activeSession.isBlurred ? '#fee2e2' : (activeSession.isResolved ? '#d1fae5' : (isActiveSessionOverLimit ? '#fee2e2' : '#fef3c7')), borderRadius: '12px', border: activeSession.isBlurred ? '1px solid #fca5a5' : (activeSession.isResolved ? '1px solid #86efac' : (isActiveSessionOverLimit ? '1px solid #fca5a5' : '1px solid #fcd34d')) }}>
-              <div style={{ fontSize: '10px', color: activeSession.isBlurred ? '#991b1b' : (activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e')), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
+            <div style={{ padding: '16px', background: activeSession.isResolved ? '#d1fae5' : (isActiveSessionOverLimit ? '#fee2e2' : '#fef3c7'), borderRadius: '12px', border: activeSession.isResolved ? '1px solid #86efac' : (isActiveSessionOverLimit ? '1px solid #fca5a5' : '1px solid #fcd34d') }}>
+              <div style={{ fontSize: '10px', color: activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e'), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
                 STATUS
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '15px', color: activeSession.isBlurred ? '#991b1b' : (activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e')) }}>
-                {activeSession.isBlurred ? <Icons.EyeOff /> : (activeSession.isResolved ? <Icons.CheckCircle /> : (isActiveSessionOverLimit ? <Icons.Lock /> : <Icons.AlertCircle />))}
-                {activeSession.isBlurred ? 'Expired' : (activeSession.isResolved ? 'Resolved' : (isActiveSessionOverLimit ? 'Over Limit' : 'Pending'))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '15px', color: activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e') }}>
+                {activeSession.isResolved ? <Icons.CheckCircle /> : (isActiveSessionOverLimit ? <Icons.Lock /> : <Icons.AlertCircle />)}
+                {activeSession.isResolved ? 'Resolved' : (isActiveSessionOverLimit ? 'Over Limit' : 'Pending')}
               </div>
             </div>
 
@@ -1011,15 +1052,13 @@ export default function NeuralChatAdmin() {
               </div>
             </div>
 
-            {!isActiveSessionBlurred && (
-              <div style={{ padding: '16px', background: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe' }}>
-                <div style={{ fontSize: '10px', color: '#1e40af', fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>MESSAGES</div>
-                <div style={{ fontSize: '28px', fontWeight: '800', color: '#1e40af' }}>
-                  {messages.length}
-                </div>
-                <div style={{ fontSize: '11px', color: '#60a5fa', marginTop: 4 }}>Total exchanges</div>
+            <div style={{ padding: '16px', background: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe' }}>
+              <div style={{ fontSize: '10px', color: '#1e40af', fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>MESSAGES</div>
+              <div style={{ fontSize: '28px', fontWeight: '800', color: '#1e40af' }}>
+                {messages.length}
               </div>
-            )}
+              <div style={{ fontSize: '11px', color: '#60a5fa', marginTop: 4 }}>Total exchanges</div>
+            </div>
           </div>
         )}
       </div>
