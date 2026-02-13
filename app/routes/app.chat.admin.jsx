@@ -33,6 +33,8 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   if (!shop) throw new Response("Unauthorized", { status: 401 });
 
+  // ✅ CRITICAL FIX: Order by updatedAt DESC to get newest activity first
+  // This ensures new registrations appear immediately at the top
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
     include: {
@@ -41,19 +43,26 @@ export const loader = async ({ request }) => {
         take: 1
       }
     },
-    orderBy: { createdAt: "asc" }
+    orderBy: { updatedAt: "desc" } // ✅ Changed from createdAt to updatedAt
   });
 
   const chatLimit = await canCreateChat(shop);
 
+  // ✅ Calculate isOverLimit based on CREATION order, not display order
+  const sessionsByCreation = [...sessions].sort((a, b) => 
+    new Date(a.createdAt) - new Date(b.createdAt)
+  );
+
   const sessionsWithLimitInfo = await Promise.all(
-    sessions.map(async (session, index) => {
-      const isOverLimit = chatLimit.max > 0 && index >= chatLimit.max;
+    sessions.map(async (session) => {
+      // ✅ Find the creation index for this session
+      const creationIndex = sessionsByCreation.findIndex(s => s.sessionId === session.sessionId);
+      const isOverLimit = chatLimit.max > 0 && creationIndex >= chatLimit.max;
       const blurInfo = await shouldBlurChat(shop, session.createdAt);
       
       return {
         ...session,
-        chatIndex: index + 1,
+        chatIndex: creationIndex + 1,
         isOverLimit: isOverLimit,
         shouldBlur: blurInfo.shouldBlur,
         blurReason: blurInfo.reason,
@@ -63,7 +72,8 @@ export const loader = async ({ request }) => {
     })
   );
 
-  sessionsWithLimitInfo.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  // ✅ Sessions are already sorted by updatedAt DESC from the query
+  // No need to sort again - newest activity is already at the top
 
   return json({ 
     sessions: sessionsWithLimitInfo,
