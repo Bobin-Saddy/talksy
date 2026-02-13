@@ -247,23 +247,36 @@ export default function NeuralChatAdmin() {
   }, [sessions, activeSession, activeSessionDeleted, historyInfo]);
 
   // ✅ MESSAGE POLLING
-  useEffect(() => {
-    if (!activeSession || activeSessionDeleted) return;
-    const iv = setInterval(async () => {
-      try {
-        const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
-        if (res.status === 404) { setActiveSessionDeleted(true); setMessages([]); addToast("🗑️ Chat server se delete ho gayi.", "warning"); return; }
-        const data = await res.json();
-        if (data.length !== messages.length || (data.length > 0 && data[data.length-1].id !== lastMessageIdRef.current)) {
-          const latest = data[data.length-1];
-          if (latest?.sender === "user" && latest.id !== lastMessageIdRef.current && !isFirstLoadRef.current) audioRef.current?.play().catch(()=>{});
-          setMessages(data);
-          if (data.length > 0) lastMessageIdRef.current = data[data.length-1].id;
-        }
-      } catch {}
-    }, 1500);
-    return () => clearInterval(iv);
-  }, [activeSession, messages.length, activeSessionDeleted]);
+useEffect(() => {
+  if (!sessionId) return;
+
+  const interval = setInterval(async () => {
+    try {
+      const res = await fetch(
+        `/app/chat/messages?sessionId=${sessionId}`
+      );
+
+      // 🔥 If session deleted
+      if (res.status === 404) {
+        console.log("Session deleted from server");
+
+        localStorage.removeItem("chatSessionId");
+        setMessages([]);
+        setSessionId(null);
+        setChatDeleted(true);
+        return;
+      }
+
+      const data = await res.json();
+      setMessages(data);
+    } catch (err) {
+      console.error("Polling error:", err);
+    }
+  }, 1500);
+
+  return () => clearInterval(interval);
+}, [sessionId]);
+
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior:"smooth" });
