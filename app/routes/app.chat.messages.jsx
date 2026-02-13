@@ -20,20 +20,7 @@ export const loader = async ({ request }) => {
   }
 
   try {
-    // ✅ FIRST: Check if session exists
-    const session = await prisma.chatSession.findUnique({
-      where: { sessionId },
-    });
-
-    if (!session) {
-      // 🔥 Important: Return 404 if deleted
-      return new Response("Session not found", {
-        status: 404,
-        headers: corsHeaders,
-      });
-    }
-
-    // ✅ THEN: Fetch messages
+    // ✅ Fetch messages with proper ordering
     const messages = await prisma.chatMessage.findMany({
       where: { chatSessionId: sessionId },
       orderBy: { createdAt: "asc" },
@@ -44,7 +31,7 @@ export const loader = async ({ request }) => {
         fileUrl: true,
         createdAt: true,
         chatSessionId: true,
-      },
+      }
     });
 
     return json(messages, { headers: corsHeaders });

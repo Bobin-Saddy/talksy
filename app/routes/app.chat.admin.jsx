@@ -59,11 +59,15 @@ export const loader = async ({ request }) => {
   const chatLimit   = await canCreateChat(shop);
   const historyInfo = await getChatHistoryDays(shop);
 
+  // ✅ Track deleted sessions
+  const deletedSessionIds = cleanupResult.deletedSessionIds || [];
+  
   const sessionsWithLimitInfo = sessions
     .map((s, index) => ({
       ...s,
       chatIndex:   index + 1,
       isOverLimit: chatLimit.max > 0 && index >= chatLimit.max,
+      isDeleted: deletedSessionIds.includes(s.sessionId),
     }))
     .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
@@ -81,7 +85,7 @@ export const loader = async ({ request }) => {
     },
     cleanupResult: {
       deleted:           cleanupResult.deleted,
-      deletedSessionIds: cleanupResult.deletedSessionIds || [],
+      deletedSessionIds: deletedSessionIds,
       plan:              cleanupResult.plan,
     },
     historyInfo: {
@@ -129,7 +133,7 @@ function DeletedChatBanner({ plan, onDismiss, onUpgrade }) {
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)", zIndex:99999, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ background:"white", borderRadius:"20px", padding:"36px", maxWidth:"460px", width:"90%", boxShadow:"0 25px 60px rgba(0,0,0,0.25)", textAlign:"center", border:`2px solid ${info.border}` }}>
         <div style={{ fontSize:"56px", marginBottom:"16px" }}>🗑️</div>
-        <h2 style={{ fontSize:"20px", fontWeight:"800", color:"#111827", marginBottom:"12px" }}>⚠️ Aapki Chat History Delete Ho Gayi</h2>
+        <h2 style={{ fontSize:"20px", fontWeight:"800", color:"#111827", marginBottom:"12px" }}>⚠️ Kuch Chats Delete Ho Gayi Hain</h2>
         <div style={{ background:info.bg, border:`1px solid ${info.border}`, borderRadius:"12px", padding:"14px", marginBottom:"20px" }}>
           <p style={{ fontSize:"14px", color:"#374151", lineHeight:"1.6", margin:0 }}>{info.detail}</p>
         </div>
@@ -178,7 +182,7 @@ export default function NeuralChatAdmin() {
   const [toasts, setToasts]                             = useState([]);
   const [showDeletedBanner, setShowDeletedBanner]       = useState(false);
   const [deletedPlan, setDeletedPlan]                   = useState(null);
-  const [activeSessionDeleted, setActiveSessionDeleted] = useState(false);
+  const [deletedSessions, setDeletedSessions]           = useState([]);
 
   const fetcher             = useFetcher();
   const scrollRef           = useRef(null);
@@ -196,8 +200,14 @@ export default function NeuralChatAdmin() {
       processedCleanupRef.current = true;
       setDeletedPlan(initCleanup.plan);
       setShowDeletedBanner(true);
+      
+      // Track deleted sessions
+      const deleted = initSessions.filter(s => 
+        initCleanup.deletedSessionIds?.includes(s.sessionId)
+      );
+      setDeletedSessions(deleted);
     }
-  }, [initCleanup]);
+  }, [initCleanup, initSessions]);
 
   useEffect(() => {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
@@ -221,12 +231,20 @@ export default function NeuralChatAdmin() {
         setSessions(data.sessions);
         setPlanLimit(data.planLimit);
 
-        if (activeSession) {
-          const stillExists = data.sessions.find(s => s.sessionId === activeSession.sessionId);
-          if (!stillExists && !activeSessionDeleted) {
-            setActiveSessionDeleted(true);
-            setMessages([]);
-            addToast(`🗑️ Yeh chat auto-delete ho gayi (${historyInfo.plan} plan limit).`, "warning");
+        // Track newly deleted sessions
+        if (data.cleanupResult?.deleted > 0 && data.cleanupResult.deletedSessionIds) {
+          const newlyDeleted = data.sessions.filter(s => 
+            data.cleanupResult.deletedSessionIds.includes(s.sessionId) &&
+            !deletedSessions.some(ds => ds.sessionId === s.sessionId)
+          );
+          
+          if (newlyDeleted.length > 0) {
+            setDeletedSessions(prev => [...prev, ...newlyDeleted]);
+            
+            // If active session was deleted, show notification
+            if (activeSession && newlyDeleted.some(ds => ds.sessionId === activeSession.sessionId)) {
+              addToast(`🗑️ Active chat "${activeSession.email}" delete ho gayi (${historyInfo.plan} plan limit).`, "warning");
+            }
           }
         }
 
@@ -244,39 +262,42 @@ export default function NeuralChatAdmin() {
       } catch {}
     }, 1500);
     return () => clearInterval(iv);
-  }, [sessions, activeSession, activeSessionDeleted, historyInfo]);
+  }, [sessions, activeSession, deletedSessions, historyInfo]);
 
   // ✅ MESSAGE POLLING
-useEffect(() => {
-  if (!sessionId) return;
-
-  const interval = setInterval(async () => {
-    try {
-      const res = await fetch(
-        `/app/chat/messages?sessionId=${sessionId}`
-      );
-
-      // 🔥 If session deleted
-      if (res.status === 404) {
-        console.log("Session deleted from server");
-
-        localStorage.removeItem("chatSessionId");
-        setMessages([]);
-        setSessionId(null);
-        setChatDeleted(true);
-        return;
-      }
-
-      const data = await res.json();
-      setMessages(data);
-    } catch (err) {
-      console.error("Polling error:", err);
+  useEffect(() => {
+    if (!activeSession) return;
+    
+    // Check if this session is deleted
+    const isDeleted = deletedSessions.some(ds => ds.sessionId === activeSession.sessionId);
+    if (isDeleted) {
+      setMessages([]); // Clear messages for deleted sessions
+      return;
     }
-  }, 1500);
-
-  return () => clearInterval(interval);
-}, [sessionId]);
-
+    
+    const iv = setInterval(async () => {
+      try {
+        const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
+        if (res.status === 404) { 
+          // Session deleted from server
+          if (!deletedSessions.some(ds => ds.sessionId === activeSession.sessionId)) {
+            setDeletedSessions(prev => [...prev, activeSession]);
+            addToast("🗑️ Chat server se delete ho gayi.", "warning");
+          }
+          setMessages([]);
+          return; 
+        }
+        const data = await res.json();
+        if (data.length !== messages.length || (data.length > 0 && data[data.length-1].id !== lastMessageIdRef.current)) {
+          const latest = data[data.length-1];
+          if (latest?.sender === "user" && latest.id !== lastMessageIdRef.current && !isFirstLoadRef.current) audioRef.current?.play().catch(()=>{});
+          setMessages(data);
+          if (data.length > 0) lastMessageIdRef.current = data[data.length-1].id;
+        }
+      } catch {}
+    }, 1500);
+    return () => clearInterval(iv);
+  }, [activeSession, messages.length, deletedSessions]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior:"smooth" });
@@ -284,25 +305,51 @@ useEffect(() => {
 
   const filteredSessions = useMemo(() => {
     let f = sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // ✅ NEW: Deleted filter
+    if (filterStatus === "deleted") {
+      return deletedSessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+    
     if (filterStatus === "requests") return f.filter(s => s.isOverLimit);
+    
+    // Don't show deleted sessions in other tabs
+    f = f.filter(s => !deletedSessions.some(ds => ds.sessionId === s.sessionId));
     f = f.filter(s => !s.isOverLimit);
+    
     if (filterStatus === "pending")  return f.filter(s => !s.isResolved);
     if (filterStatus === "resolved") return f.filter(s => s.isResolved);
     return f;
-  }, [sessions, searchTerm, filterStatus]);
+  }, [sessions, searchTerm, filterStatus, deletedSessions]);
 
-  const withinLimit             = sessions.filter(s => !s.isOverLimit);
+  const withinLimit             = sessions.filter(s => !s.isOverLimit && !deletedSessions.some(ds => ds.sessionId === s.sessionId));
   const overLimit               = sessions.filter(s => s.isOverLimit);
   const isActiveOverLimit       = activeSession?.isOverLimit === true;
+  const isActiveDeleted         = deletedSessions.some(ds => ds.sessionId === activeSession?.sessionId);
 
   const loadChat = async (sess) => {
+    const isDeleted = deletedSessions.some(ds => ds.sessionId === sess.sessionId);
+    
     setActiveSession(sess);
-    setActiveSessionDeleted(false);
     setUnreadCounts(prev => ({ ...prev, [sess.sessionId]: 0 }));
     isFirstLoadRef.current = true;
+    
+    if (isDeleted) {
+      // Don't load messages for deleted chats
+      setMessages([]);
+      setTimeout(() => { isFirstLoadRef.current = false; }, 500);
+      return;
+    }
+    
     try {
       const res = await fetch("/app/chat/messages?sessionId=" + sess.sessionId);
-      if (res.status === 404) { setActiveSessionDeleted(true); setMessages([]); return; }
+      if (res.status === 404) { 
+        if (!deletedSessions.some(ds => ds.sessionId === sess.sessionId)) {
+          setDeletedSessions(prev => [...prev, sess]);
+        }
+        setMessages([]);
+        return;
+      }
       const data = await res.json();
       if (data.length > 0) lastMessageIdRef.current = data[data.length-1].id;
       setMessages(data);
@@ -319,8 +366,8 @@ useEffect(() => {
   };
 
   const handleReply = async (text = null) => {
-    if (isActiveOverLimit || activeSessionDeleted) {
-      addToast(activeSessionDeleted ? "Chat delete ho chuki hai." : "Plan limit exceed. Upgrade karo.", "error");
+    if (isActiveOverLimit || isActiveDeleted) {
+      addToast(isActiveDeleted ? "Chat delete ho chuki hai." : "Plan limit exceed. Upgrade karo.", "error");
       return;
     }
     const finalMsg  = text || reply;
@@ -388,6 +435,7 @@ useEffect(() => {
             { key:"pending",  label:"Pending",  count:withinLimit.filter(s=>!s.isResolved).length,  color:"#f59e0b" },
             { key:"resolved", label:"Resolved", count:withinLimit.filter(s=>s.isResolved).length,   color:"#10b981" },
             { key:"requests", label:"Requests", count:overLimit.length,                             color:"#7c3aed", icon:<Icons.Inbox /> },
+            { key:"deleted",  label:"Deleted",  count:deletedSessions.length,                       color:"#ef4444", icon:<Icons.Trash /> },
           ].map(({ key, label, count, color, icon }) => (
             <button key={key} onClick={()=>setFilterStatus(key)} style={{ padding:"8px 12px", borderRadius:"8px", border: filterStatus===key?"none":"1px solid #e5e7eb", background: filterStatus===key?color:"#fff", color: filterStatus===key?"#fff":"#6b7280", fontWeight:"600", fontSize:"12px", cursor:"pointer", transition:"all 0.2s", display:"flex", alignItems:"center", justifyContent:"center", gap:"4px" }}>
               {icon} {label} {count>0&&`(${count})`}
@@ -403,24 +451,31 @@ useEffect(() => {
         </div>
 
         <div style={{ flex:1, overflowY:"auto", padding:"0 12px" }}>
-          {filteredSessions.map(sess => (
-            <div key={sess.sessionId} onClick={()=>loadChat(sess)} style={{ padding:"12px", borderRadius:"12px", cursor:"pointer", marginBottom:"6px", background: activeSession?.sessionId===sess.sessionId?"#f0f9ff":"transparent", border: activeSession?.sessionId===sess.sessionId?"1px solid #bae6fd":"1px solid transparent", transition:"all 0.2s" }}>
-              <div style={{ display:"flex", gap:"12px", alignItems:"center" }}>
-                <div style={{ width:"44px", height:"44px", borderRadius:"12px", background: activeSession?.sessionId===sess.sessionId?"linear-gradient(135deg,#6366f1,#8b5cf6)":sess.isOverLimit?"#fef3c7":"#f3f4f6", display:"flex", alignItems:"center", justifyContent:"center", color: activeSession?.sessionId===sess.sessionId?"white":sess.isOverLimit?"#92400e":"#9ca3af", flexShrink:0 }}>
-                  {sess.isOverLimit?<Icons.Lock />:<Icons.User size={20}/>}
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:2 }}>
-                    <div style={{ fontWeight:"600", fontSize:"14px", color:"#111827" }}>{sess.email?.split("@")[0]||"User"}</div>
-                    {sess.isResolved&&<div style={{ background:"#10b981", borderRadius:"50%", width:"20px", height:"20px", display:"flex", alignItems:"center", justifyContent:"center" }}><Icons.Check /></div>}
-                    {sess.isOverLimit&&<div style={{ background:"#f59e0b", color:"white", fontSize:"9px", fontWeight:"700", padding:"2px 6px", borderRadius:"4px" }}>REQUEST</div>}
+          {filteredSessions.map(sess => {
+            const isDeleted = deletedSessions.some(ds => ds.sessionId === sess.sessionId);
+            
+            return (
+              <div key={sess.sessionId} onClick={()=>loadChat(sess)} style={{ padding:"12px", borderRadius:"12px", cursor: isDeleted ? "not-allowed" : "pointer", marginBottom:"6px", background: activeSession?.sessionId===sess.sessionId?"#f0f9ff": isDeleted?"#fef2f2":"transparent", border: activeSession?.sessionId===sess.sessionId?"1px solid #bae6fd": isDeleted?"1px solid #fca5a5":"1px solid transparent", transition:"all 0.2s", opacity: isDeleted ? 0.7 : 1 }}>
+                <div style={{ display:"flex", gap:"12px", alignItems:"center" }}>
+                  <div style={{ width:"44px", height:"44px", borderRadius:"12px", background: isDeleted?"#fee2e2": activeSession?.sessionId===sess.sessionId?"linear-gradient(135deg,#6366f1,#8b5cf6)":sess.isOverLimit?"#fef3c7":"#f3f4f6", display:"flex", alignItems:"center", justifyContent:"center", color: isDeleted?"#991b1b": activeSession?.sessionId===sess.sessionId?"white":sess.isOverLimit?"#92400e":"#9ca3af", flexShrink:0 }}>
+                    {isDeleted?<Icons.Trash />:sess.isOverLimit?<Icons.Lock />:<Icons.User size={20}/>}
                   </div>
-                  <div style={{ fontSize:"12px", color:"#6b7280", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{sess.messages[0]?.message||"New Chat"}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:2 }}>
+                      <div style={{ fontWeight:"600", fontSize:"14px", color: isDeleted?"#991b1b":"#111827" }}>{sess.email?.split("@")[0]||"User"}</div>
+                      {sess.isResolved&&!isDeleted&&<div style={{ background:"#10b981", borderRadius:"50%", width:"20px", height:"20px", display:"flex", alignItems:"center", justifyContent:"center" }}><Icons.Check /></div>}
+                      {sess.isOverLimit&&!isDeleted&&<div style={{ background:"#f59e0b", color:"white", fontSize:"9px", fontWeight:"700", padding:"2px 6px", borderRadius:"4px" }}>REQUEST</div>}
+                      {isDeleted&&<div style={{ background:"#ef4444", color:"white", fontSize:"9px", fontWeight:"700", padding:"2px 6px", borderRadius:"4px" }}>DELETED</div>}
+                    </div>
+                    <div style={{ fontSize:"12px", color: isDeleted?"#991b1b":"#6b7280", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {isDeleted ? "Chat history deleted" : (sess.messages[0]?.message||"New Chat")}
+                    </div>
+                  </div>
+                  {unreadCounts[sess.sessionId]>0&&!isDeleted&&<div style={{ background:"#ef4444", color:"white", fontSize:"10px", fontWeight:"700", padding:"4px 8px", borderRadius:"10px", minWidth:"20px", textAlign:"center" }}>{unreadCounts[sess.sessionId]}</div>}
                 </div>
-                {unreadCounts[sess.sessionId]>0&&<div style={{ background:"#ef4444", color:"white", fontSize:"10px", fontWeight:"700", padding:"4px 8px", borderRadius:"10px", minWidth:"20px", textAlign:"center" }}>{unreadCounts[sess.sessionId]}</div>}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -430,7 +485,7 @@ useEffect(() => {
           <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", color:"#d1d5db", gap:"16px", background:"#f9fafb" }}>
             <Icons.User size={80}/><p style={{ fontWeight:"600", fontSize:"16px", color:"#9ca3af" }}>Select a conversation to start chatting</p>
           </div>
-        ) : activeSessionDeleted ? (
+        ) : isActiveDeleted ? (
           /* ✅ DELETED SCREEN */
           <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px", background:"#fef2f2" }}>
             <div style={{ textAlign:"center", maxWidth:"460px" }}>
@@ -443,8 +498,11 @@ useEffect(() => {
                   🆓 FREE: 30 din (test: 2 min) &nbsp; ⭐ STANDARD: 6 mahine &nbsp; 👑 PREMIUM: Kabhi nahi
                 </p>
               </div>
+              <div style={{ background:"#fef3c7", border:"1px solid #fbbf24", borderRadius:"12px", padding:"14px", marginBottom:"24px", fontSize:"13px", color:"#92400e", lineHeight:"1.6" }}>
+                💡 <strong>Pro Tip:</strong> Premium plan mein upgrade karein to chat history kabhi delete nahi hogi aur unlimited customer support kar sakte hain.
+              </div>
               <div style={{ display:"flex", gap:"12px", justifyContent:"center" }}>
-                <button onClick={()=>{setActiveSession(null);setActiveSessionDeleted(false);}} style={{ padding:"12px 24px", borderRadius:"10px", border:"2px solid #e5e7eb", background:"white", color:"#374151", fontWeight:"600", cursor:"pointer" }}>Back to Chats</button>
+                <button onClick={()=>{setActiveSession(null);}} style={{ padding:"12px 24px", borderRadius:"10px", border:"2px solid #e5e7eb", background:"white", color:"#374151", fontWeight:"600", cursor:"pointer" }}>Back to Chats</button>
                 <button onClick={()=>window.location.href="/app/subscription"} style={{ padding:"12px 24px", borderRadius:"10px", border:"none", background:"linear-gradient(135deg,#7c3aed,#6366f1)", color:"white", fontWeight:"700", cursor:"pointer" }}>🚀 Upgrade Plan</button>
               </div>
             </div>
@@ -541,7 +599,15 @@ useEffect(() => {
           <div style={{ fontSize:"11px", color:"#16a34a" }}>{historyInfo.plan} plan: {historyInfo.unlimited?"Kabhi delete nahi":`${historyInfo.label} baad auto-delete`}</div>
         </div>
 
-        {activeSession&&!activeSessionDeleted&&(
+        {deletedSessions.length > 0 && (
+          <div style={{ marginBottom:"16px", padding:"14px", background:"#fef2f2", borderRadius:"12px", border:"1px solid #fca5a5" }}>
+            <div style={{ fontSize:"10px", color:"#991b1b", fontWeight:"700", marginBottom:"8px", letterSpacing:"0.5px" }}>DELETED CHATS</div>
+            <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"4px" }}><Icons.Trash/><span style={{ fontSize:"24px", fontWeight:"800", color:"#991b1b" }}>{deletedSessions.length}</span></div>
+            <div style={{ fontSize:"11px", color:"#dc2626" }}>Plan limit se auto-deleted</div>
+          </div>
+        )}
+
+        {activeSession&&!isActiveDeleted&&(
           <div style={{ display:"flex", flexDirection:"column", gap:"16px" }}>
             <div style={{ padding:"16px", background: activeSession.isResolved?"#d1fae5":isActiveOverLimit?"#fee2e2":"#fef3c7", borderRadius:"12px", border: activeSession.isResolved?"1px solid #86efac":isActiveOverLimit?"1px solid #fca5a5":"1px solid #fcd34d" }}>
               <div style={{ fontSize:"10px", fontWeight:"700", marginBottom:"8px", letterSpacing:"0.5px", color: activeSession.isResolved?"#065f46":isActiveOverLimit?"#991b1b":"#92400e" }}>STATUS</div>
@@ -558,6 +624,19 @@ useEffect(() => {
               <div style={{ fontSize:"10px", color:"#1e40af", fontWeight:"700", marginBottom:"8px", letterSpacing:"0.5px" }}>MESSAGES</div>
               <div style={{ fontSize:"28px", fontWeight:"800", color:"#1e40af" }}>{messages.length}</div>
               <div style={{ fontSize:"11px", color:"#60a5fa", marginTop:4 }}>Total exchanges</div>
+            </div>
+          </div>
+        )}
+
+        {activeSession&&isActiveDeleted&&(
+          <div style={{ padding:"16px", background:"#fef2f2", borderRadius:"12px", border:"1px solid #fca5a5" }}>
+            <div style={{ fontSize:"10px", color:"#991b1b", fontWeight:"700", marginBottom:"8px", letterSpacing:"0.5px" }}>CHAT STATUS</div>
+            <div style={{ display:"flex", alignItems:"center", gap:"8px", fontWeight:"700", fontSize:"15px", color:"#991b1b", marginBottom:"8px" }}>
+              <Icons.Trash/>
+              Deleted
+            </div>
+            <div style={{ fontSize:"11px", color:"#dc2626", lineHeight:"1.6" }}>
+              Yeh chat {historyInfo.plan} plan ki retention policy ke according delete ho gayi hai.
             </div>
           </div>
         )}
