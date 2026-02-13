@@ -63,7 +63,7 @@ export const loader = async ({ request }) => {
       ...session,
       chatIndex: index + 1,
       isOverLimit: isOverLimit,
-      isBlurred: session.isBlurred || blurCheck.shouldBlur,
+      sBlurred: blurCheck.shouldBlur,  // ✅ Use real-time calculation only
       blurReason: blurCheck.reason,
       daysUntilBlur: blurCheck.daysUntilBlur,
       retentionDays: blurCheck.retentionDays,
@@ -192,11 +192,26 @@ export default function NeuralChatAdmin() {
           lastSessionCountRef.current = data.sessions.length;
           
           // ✅ CHECK IF ACTIVE SESSION BECAME BLURRED
-          if (activeSession) {
+              if (activeSession) {
             const updatedActiveSession = data.sessions.find(s => s.sessionId === activeSession.sessionId);
-            if (updatedActiveSession && updatedActiveSession.isBlurred && !activeSession.isBlurred) {
-              setActiveSession(updatedActiveSession);
-              setShowBlurModal(true);
+            if (updatedActiveSession) {
+              // ✅ Chat became blurred
+              if (updatedActiveSession.isBlurred && !activeSession.isBlurred) {
+                console.log("⚠️ Active chat became blurred!");
+                setActiveSession(updatedActiveSession);
+                setShowBlurModal(true);
+              }
+              // ✅ Chat became unblurred (plan upgraded!)
+              else if (!updatedActiveSession.isBlurred && activeSession.isBlurred) {
+                console.log("✅ Active chat became unblurred (plan upgraded)!");
+                setActiveSession(updatedActiveSession);
+                setShowBlurModal(false);
+                loadChat(updatedActiveSession);
+              }
+              // ✅ Update state
+              else if (updatedActiveSession.isBlurred !== activeSession.isBlurred) {
+                setActiveSession(updatedActiveSession);
+              }
             }
           }
         }
@@ -251,7 +266,8 @@ export default function NeuralChatAdmin() {
 
   // ✅ POLL ACTIVE CHAT MESSAGES
   useEffect(() => {
-    if (!activeSession) return;
+    
+    if (isActiveSessionBlurred) return;
     const interval = setInterval(async () => {
       try {
         const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
@@ -279,7 +295,7 @@ export default function NeuralChatAdmin() {
       }
     }, 1500);
     return () => clearInterval(interval);
-  }, [activeSession, messages.length]);
+  }, [activeSession, messages.length, isActiveSessionBlurred]);
 
   const loadChat = async (session) => {
     // ✅ CHECK IF CHAT IS BLURRED
@@ -442,7 +458,7 @@ export default function NeuralChatAdmin() {
             
             <p style={{ fontSize: '15px', color: '#6b7280', lineHeight: '1.6', marginBottom: '24px' }}>
               {currentPlan === "FREE" 
-                ? "Your chat has been automatically deleted because your FREE plan only retains chats for 2 minutes (testing). Upgrade to keep your chat history longer."
+                ? "Your FREE plan only retains chats for 2 minutes (testing mode). Upgrade to keep your chat history longer."
                 : currentPlan === "STANDARD"
                 ? "Your chat has been automatically deleted after 6 months on the STANDARD plan. Upgrade to PREMIUM for unlimited chat history."
                 : "This chat has expired based on your plan's retention policy."}
