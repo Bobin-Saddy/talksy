@@ -291,13 +291,14 @@ export default function Subscription() {
   const [searchParams] = useSearchParams();
 
   // ✅ Handle App Bridge redirect for billing confirmation
-  useEffect(() => {
-    if (actionData?.confirmationUrl && actionData?.redirect) {
-      console.log("🔵 Client-side redirect to:", actionData.confirmationUrl);
-      // Redirect the parent window (breaks out of the iframe)
-      window.top.location.href = actionData.confirmationUrl;
-    }
-  }, [actionData]);
+// 🔥 Force full reload after successful billing approval
+useEffect(() => {
+  if (success === "true") {
+    // Remove query params and reload cleanly
+    window.top.location.href = "/app/subscription";
+  }
+}, [success]);
+
 
   // Get success/error messages from URL
   const success = searchParams.get('success');
