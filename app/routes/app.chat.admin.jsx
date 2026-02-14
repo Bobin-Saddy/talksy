@@ -159,12 +159,14 @@ export default function NeuralChatAdmin() {
         // ✅ Construct clean URL - always use /app/chat/admin
         const apiUrl = '/app/chat/admin';
         
+        console.log("🔄 Polling sessions from:", apiUrl);
+        
         const res = await fetch(apiUrl, {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json'
           },
-          credentials: 'same-origin' // ✅ Include cookies for authentication
+          credentials: 'include' // ✅ Changed to 'include' for Shopify embedded apps
         });
         
         if (!res.ok) {
@@ -333,7 +335,7 @@ export default function NeuralChatAdmin() {
             'Accept': 'application/json',
             'Content-Type': 'application/json'
           },
-          credentials: 'same-origin'
+          credentials: 'include' // ✅ Changed to 'include' for Shopify embedded apps
         });
         
         if (!res.ok) {
