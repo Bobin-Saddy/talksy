@@ -58,14 +58,12 @@ export const loader = async ({ request }) => {
 function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval }) {
   return (
     <div style={{
-      position: "fixed",
+      position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: "rgba(255, 255, 255, 0.95)",
-      backdropFilter: "blur(8px)",
-      WebkitBackdropFilter: "blur(8px)",
+      backgroundColor: "rgba(255, 255, 255, 0.85)",
       zIndex: 9999,
       display: "flex",
       alignItems: "center",
@@ -74,26 +72,27 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval }) {
     }}>
       <div style={{
         background: "white",
-        borderRadius: "12px",
-        padding: "40px",
-        maxWidth: "500px",
+        borderRadius: "16px",
+        padding: "48px 40px",
+        maxWidth: "520px",
         textAlign: "center",
-        boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
-        border: "1px solid #e1e3e5",
+        boxShadow: "0 10px 40px rgba(0, 0, 0, 0.2)",
+        border: "2px solid #e1e3e5",
       }}>
-        <div style={{ fontSize: "64px", marginBottom: "20px" }}>🔒</div>
+        <div style={{ fontSize: "72px", marginBottom: "20px", lineHeight: 1 }}>🔒</div>
         <h2 style={{ 
-          fontSize: "24px", 
-          fontWeight: "600", 
+          fontSize: "26px", 
+          fontWeight: "700", 
           marginBottom: "12px",
-          color: "#202223"
+          color: "#202223",
+          lineHeight: "1.3"
         }}>
           {isPendingApproval ? "Billing Approval Required" : `Activate Your ${requiredPlan} Plan`}
         </h2>
         <p style={{ 
           fontSize: "16px", 
           color: "#6d7175", 
-          marginBottom: "24px",
+          marginBottom: "28px",
           lineHeight: "1.6"
         }}>
           {isPendingApproval ? (
@@ -112,17 +111,26 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval }) {
           href="/app/subscription"
           style={{
             display: "inline-block",
-            padding: "12px 24px",
+            padding: "14px 32px",
             backgroundColor: "#005BD3",
             color: "white",
             textDecoration: "none",
             borderRadius: "8px",
             fontWeight: "600",
             fontSize: "16px",
-            transition: "background-color 0.2s",
+            transition: "all 0.2s ease",
+            boxShadow: "0 2px 8px rgba(0, 91, 211, 0.3)"
           }}
-          onMouseEnter={(e) => e.target.style.backgroundColor = "#004FC4"}
-          onMouseLeave={(e) => e.target.style.backgroundColor = "#005BD3"}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = "#004FC4";
+            e.target.style.transform = "translateY(-1px)";
+            e.target.style.boxShadow = "0 4px 12px rgba(0, 91, 211, 0.4)";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = "#005BD3";
+            e.target.style.transform = "translateY(0)";
+            e.target.style.boxShadow = "0 2px 8px rgba(0, 91, 211, 0.3)";
+          }}
         >
           {isPendingApproval ? "Complete Billing Approval" : "View Plans"}
         </a>
@@ -268,7 +276,19 @@ export default function App() {
         )}
         
         {/* ✅ Main Content Area - with blur overlay if page is locked */}
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", minHeight: "100vh" }}>
+          {/* Render the actual page content - it will be visible but blurred */}
+          <div style={{ 
+            filter: isPageLocked ? "blur(8px)" : "none",
+            pointerEvents: isPageLocked ? "none" : "auto",
+            userSelect: isPageLocked ? "none" : "auto",
+            opacity: isPageLocked ? "0.6" : "1",
+            transition: "filter 0.3s ease, opacity 0.3s ease"
+          }}>
+            <Outlet />
+          </div>
+          
+          {/* Overlay appears on top of the blurred content */}
           {isPageLocked && (
             <LockedPageOverlay 
               requiredPlan={requiredPlan} 
@@ -276,13 +296,6 @@ export default function App() {
               isPendingApproval={isPendingApproval}
             />
           )}
-          <div style={{ 
-            filter: isPageLocked ? "blur(4px)" : "none",
-            pointerEvents: isPageLocked ? "none" : "auto",
-            userSelect: isPageLocked ? "none" : "auto"
-          }}>
-            <Outlet />
-          </div>
         </div>
       </PolarisAppProvider>
     </ShopifyAppProvider>
