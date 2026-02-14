@@ -160,6 +160,16 @@ export default function App() {
   const canManageFAQs = usage && usage.faqs.canManage && isBillingApproved;
   const canCustomizeWidget = usage && usage.features.canCustomizeWidget && isBillingApproved;
   
+  // ✅ Log current state for debugging
+  console.log("🔍 Current App State:", {
+    plan: usage?.plan,
+    status: subscriptionStatus,
+    isBillingApproved,
+    isPaidPlan,
+    canManageFAQs,
+    canCustomizeWidget
+  });
+  
   // ✅ Determine if current page should be locked
   const currentPath = location.pathname;
   let isPageLocked = false;
@@ -194,18 +204,28 @@ export default function App() {
     const hasBillingComplete = params.get('billing') === 'complete';
     
     if (hasSuccess || hasBillingComplete) {
-      console.log("✅ Billing approved - revalidating data...");
+      console.log("========================================");
+      console.log("✅ BILLING APPROVED DETECTED!");
+      console.log("Current Plan:", usage?.plan);
+      console.log("Subscription Status:", subscriptionStatus);
+      console.log("Is Paid Plan:", isPaidPlan);
+      console.log("Can Manage FAQs:", canManageFAQs);
+      console.log("Can Customize Widget:", canCustomizeWidget);
+      console.log("========================================");
+      
       // Immediately revalidate
+      console.log("🔄 Step 1: Calling revalidator.revalidate()...");
       revalidator.revalidate();
       
       // Force full page reload after short delay to ensure fresh data
       setTimeout(() => {
-        console.log("🔄 Force reload for immediate unlock");
+        console.log("🔄 Step 2: Force reload for immediate unlock");
+        console.log("Clearing URL parameters and reloading...");
         const cleanUrl = window.location.pathname;
         window.location.href = cleanUrl;
-      }, 1500);
+      }, 2000); // Increased to 2 seconds for better revalidation
     }
-  }, [location.search, revalidator]);
+  }, [location.search, revalidator, usage, subscriptionStatus, isPaidPlan, canManageFAQs, canCustomizeWidget]);
 
   // ✅ Periodic revalidation when pending approval
   useEffect(() => {
@@ -240,7 +260,8 @@ export default function App() {
   return (
     <ShopifyAppProvider embedded apiKey={apiKey}>
       <PolarisAppProvider i18n={enTranslations}>
-        <s-app-nav>
+        {/* ✅ Add key to force re-render when plan changes */}
+        <s-app-nav key={`${usage?.plan}-${subscriptionStatus}-${isBillingApproved}`}>
           <s-link href="/app/chat/admin">Chats</s-link>
           
           {/* ✅ Show navigation but with lock icon if not accessible */}
