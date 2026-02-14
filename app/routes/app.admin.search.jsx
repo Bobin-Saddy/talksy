@@ -1,10 +1,10 @@
-// app/routes/app.search-analytics.jsx — WITH SEARCH BLUR + REAL-TIME UPDATES
+// app/routes/app.search-analytics.jsx — WITH SEARCH BLUR ON FREE PLAN
 
 import { json } from "@remix-run/node";
 import { useLoaderData, useSearchParams, Form } from "react-router";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
-import { useState, useEffect } from "react"; // ✅ Added useEffect
+import { useState } from "react";
 import {
   getShopLimits,
   getSearchVisibilityLimit,
@@ -180,6 +180,7 @@ export async function loader({ request }) {
   }
 
   // ── Apply blur to logs beyond free limit ───────────────────
+  // visibleCount = 2 for FREE, -1 for paid
   const processedLogs = applySearchBlur(searchLogs, visibility.visibleCount);
 
   const stats = {
@@ -267,6 +268,7 @@ function BlurredLogCard({ index }) {
   return (
     <div style={styles.blurredCard}>
       <div style={styles.blurredInner}>
+        {/* Blurred fake content */}
         <div style={styles.blurredIconCircle}>
           <span style={{ fontSize: 20 }}>🔍</span>
         </div>
@@ -324,93 +326,11 @@ export default function SearchAnalytics() {
     data.searchLogs.find((log) => log.id === data.selectedLogId) || null
   );
   const [searchInput, setSearchInput] = useState(data.searchQuery || "");
-  
-  // ✅ Real-time state
-  const [searchLogs, setSearchLogs] = useState(data.searchLogs);
-  const [stats, setStats] = useState(data.stats);
 
   const handleLogClick = (log) => {
-    if (log.isBlurred) return; // Don't allow clicking blurred logs
     setSelectedLog(log);
     setSearchParams({ logId: log.id });
   };
-
-  // ✅ Real-time polling for search logs
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        // Build current URL with params (but fetch without logId to get all logs)
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.delete('logId'); // Remove logId for polling
-        
-        console.log("🔄 Polling search analytics...");
-        
-        const response = await fetch(currentUrl.toString(), {
-          headers: {
-            'Accept': 'application/json'
-          },
-          credentials: 'include'
-        });
-
-        if (!response.ok) {
-          console.error("❌ Failed to fetch search analytics:", response.status);
-          return;
-        }
-
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.log("⏭️ Not JSON response, skipping");
-          return;
-        }
-
-        const newData = await response.json();
-        
-        if (newData.searchLogs && newData.stats) {
-          const oldCount = searchLogs.length;
-          const newCount = newData.searchLogs.length;
-          
-          if (newCount !== oldCount) {
-            console.log("🆕 New search logs detected!", {
-              oldCount,
-              newCount,
-              newLogs: newCount - oldCount
-            });
-            
-            // Show notification for new searches
-            if (newCount > oldCount && "Notification" in window && Notification.permission === "granted") {
-              new Notification("New Search Activity", {
-                body: `${newCount - oldCount} new search${newCount - oldCount > 1 ? 'es' : ''} recorded`,
-                icon: '/favicon.ico'
-              });
-            }
-          }
-          
-          // ✅ Update state with new array references
-          setSearchLogs([...newData.searchLogs]);
-          setStats({...newData.stats});
-          
-          // ✅ Update selected log if it exists
-          if (selectedLog) {
-            const updatedSelectedLog = newData.searchLogs.find(log => log.id === selectedLog.id);
-            if (updatedSelectedLog) {
-              setSelectedLog({...updatedSelectedLog});
-            }
-          }
-          
-          console.log("✅ Search analytics updated successfully");
-        }
-      } catch (error) {
-        console.error("❌ Search analytics polling error:", error);
-      }
-    }, 3000); // Poll every 3 seconds
-
-    // Request notification permission on mount
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-
-    return () => clearInterval(interval);
-  }, [searchLogs, selectedLog]);
 
   return (
     <div style={styles.container}>
@@ -431,13 +351,13 @@ export default function SearchAnalytics() {
           )}
         </div>
 
-        {/* UPGRADE BANNER - Use local stats */}
+        {/* UPGRADE BANNER */}
         <UpgradeBanner
-          blurredCount={stats.blurredCount}
+          blurredCount={data.stats.blurredCount}
           plan={data.plan}
         />
 
-        {/* STATS - Use local stats */}
+        {/* STATS */}
         <div style={styles.statsGrid}>
           <div style={styles.statCard}>
             <div style={{ ...styles.statIcon, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}>
@@ -447,7 +367,7 @@ export default function SearchAnalytics() {
             </div>
             <div>
               <div style={styles.statLabel}>Total Searches</div>
-              <div style={styles.statValue}>{stats.totalSearches}</div>
+              <div style={styles.statValue}>{data.stats.totalSearches}</div>
             </div>
           </div>
 
@@ -459,7 +379,7 @@ export default function SearchAnalytics() {
             </div>
             <div>
               <div style={styles.statLabel}>Unique Users</div>
-              <div style={styles.statValue}>{stats.uniqueUsers}</div>
+              <div style={styles.statValue}>{data.stats.uniqueUsers}</div>
             </div>
           </div>
 
@@ -472,14 +392,14 @@ export default function SearchAnalytics() {
             <div>
               <div style={styles.statLabel}>Avg. Searches/User</div>
               <div style={styles.statValue}>
-                {stats.uniqueUsers > 0
-                  ? Math.round(stats.totalSearches / stats.uniqueUsers)
+                {data.stats.uniqueUsers > 0
+                  ? Math.round(data.stats.totalSearches / data.stats.uniqueUsers)
                   : 0}
               </div>
             </div>
           </div>
 
-          {data.plan === "FREE" && stats.blurredCount > 0 && (
+          {data.plan === "FREE" && data.stats.blurredCount > 0 && (
             <div style={{ ...styles.statCard, border: "2px solid #fbbf24" }}>
               <div style={{ ...styles.statIcon, background: "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)" }}>
                 <span style={{ fontSize: 26 }}>🔒</span>
@@ -487,19 +407,19 @@ export default function SearchAnalytics() {
               <div>
                 <div style={styles.statLabel}>Locked Searches</div>
                 <div style={{ ...styles.statValue, color: "#ef4444" }}>
-                  {stats.blurredCount}
+                  {data.stats.blurredCount}
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* TOP SEARCHES - Use local stats */}
-        {stats.topSearches.length > 0 && (
+        {/* TOP SEARCHES */}
+        {data.stats.topSearches.length > 0 && (
           <div style={styles.topSearchesCard}>
             <h3 style={styles.topSearchesTitle}>📊 Top Search Queries</h3>
             <div style={styles.topSearchesList}>
-              {stats.topSearches.map((item, idx) => (
+              {data.stats.topSearches.map((item, idx) => (
                 <div key={idx} style={styles.topSearchItem}>
                   <div style={{ ...styles.topSearchRank, background: idx === 0 ? "#fbbf24" : idx === 1 ? "#c0c0c0" : idx === 2 ? "#cd7f32" : "#3b82f6" }}>
                     {idx + 1}
@@ -514,8 +434,6 @@ export default function SearchAnalytics() {
             </div>
           </div>
         )}
-
-        {/* ... REST OF THE JSX (filters, main grid, etc.) stays exactly the same but use searchLogs instead of data.searchLogs ... */}
 
         {/* FILTER */}
         <div style={styles.searchSection}>
@@ -566,22 +484,22 @@ export default function SearchAnalytics() {
 
         {/* MAIN GRID */}
         <div style={styles.contentGrid}>
-          {/* LEFT: Search Logs List - Use local searchLogs */}
+          {/* LEFT: Search Logs List */}
           <div style={styles.searchLogsList}>
             <div style={styles.sessionListHeader}>
               <h2 style={styles.sectionTitle}>
-                Search Logs ({searchLogs.length})
+                Search Logs ({data.searchLogs.length})
               </h2>
-              {data.plan === "FREE" && stats.blurredCount > 0 && (
+              {data.plan === "FREE" && data.stats.blurredCount > 0 && (
                 <div style={styles.lockedBadge}>
-                  🔒 {stats.blurredCount} locked
+                  🔒 {data.stats.blurredCount} locked
                 </div>
               )}
             </div>
 
-            {searchLogs.length > 0 ? (
+            {data.searchLogs.length > 0 ? (
               <div style={styles.sessions}>
-                {searchLogs.map((log, idx) =>
+                {data.searchLogs.map((log, idx) =>
                   log.isBlurred ? (
                     <BlurredLogCard key={log.id} index={idx} />
                   ) : (
@@ -640,14 +558,13 @@ export default function SearchAnalytics() {
             )}
           </div>
 
-          {/* RIGHT: Detail Panel - remains exactly the same */}
+          {/* RIGHT: Detail Panel */}
           <div style={styles.messagePanel}>
             {selectedLog ? (
               selectedLog.isBlurred ? (
                 <BlurredDetailPanel />
               ) : (
                 <>
-                  {/* ... Detail panel content stays the same ... */}
                   <div style={styles.messagePanelHeader}>
                     <div style={styles.panelHeaderLeft}>
                       <div style={styles.panelAvatar}>
@@ -665,7 +582,165 @@ export default function SearchAnalytics() {
                       </div>
                     </div>
                   </div>
-                  {/* ... Rest of detail content ... */}
+
+                  <div style={styles.detailsContainer}>
+                    <div style={styles.detailSection}>
+                      <div style={styles.detailLabel}>👤 User Information</div>
+                      <div style={styles.userInfoGrid}>
+                        {(selectedLog.firstName || selectedLog.lastName) && (
+                          <div style={styles.infoItem}>
+                            <span style={styles.infoLabel}>Name:</span>
+                            <span style={styles.infoValue}>
+                              {selectedLog.firstName || ""}{" "}
+                              {selectedLog.lastName || ""}
+                            </span>
+                          </div>
+                        )}
+                        {selectedLog.userEmail && (
+                          <div style={styles.infoItem}>
+                            <span style={styles.infoLabel}>Email:</span>
+                            <span style={styles.infoValue}>
+                              {selectedLog.userEmail === "anonymous" ? (
+                                <span style={{ color: "#9ca3af", fontStyle: "italic" }}>
+                                  Anonymous User
+                                </span>
+                              ) : (
+                                selectedLog.userEmail
+                              )}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {data.searchResults && (
+                      <>
+                        {data.searchResults.products.length > 0 && (
+                          <div style={styles.resultsSection}>
+                            <div style={styles.resultsSectionHeader}>
+                              <span style={styles.resultsIcon}>🛍️</span>
+                              <span style={styles.resultsTitle}>
+                                Products Found ({data.searchResults.products.length})
+                              </span>
+                            </div>
+                            <div style={styles.resultsGrid}>
+                              {data.searchResults.products.map((product) => (
+                                <a key={product.id} href={product.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                                  <div style={styles.resultCard}>
+                                    {product.image ? (
+                                      <img src={product.image} alt={product.title} style={styles.resultImage} />
+                                    ) : (
+                                      <div style={styles.resultImagePlaceholder}>
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="#d1d5db">
+                                          <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                    <div style={styles.resultContent}>
+                                      <div style={styles.resultTitle}>{product.title}</div>
+                                      <div style={styles.resultPrice}>
+                                        {product.currency}{" "}
+                                        {parseFloat(product.price).toFixed(2)}
+                                      </div>
+                                      {product.inventory !== undefined && (
+                                        <div style={styles.resultMeta}>
+                                          📦 Stock: {product.inventory} units
+                                        </div>
+                                      )}
+                                      <div style={styles.resultLink}>View Product →</div>
+                                    </div>
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {data.searchResults.collections.length > 0 && (
+                          <div style={styles.resultsSection}>
+                            <div style={styles.resultsSectionHeader}>
+                              <span style={styles.resultsIcon}>📁</span>
+                              <span style={styles.resultsTitle}>
+                                Collections Found ({data.searchResults.collections.length})
+                              </span>
+                            </div>
+                            <div style={styles.resultsGrid}>
+                              {data.searchResults.collections.map((collection) => (
+                                <a key={collection.id} href={collection.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                                  <div style={styles.resultCard}>
+                                    {collection.image ? (
+                                      <img src={collection.image} alt={collection.title} style={styles.resultImage} />
+                                    ) : (
+                                      <div style={styles.resultImagePlaceholder}>
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="#d1d5db">
+                                          <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                    <div style={styles.resultContent}>
+                                      <div style={styles.resultTitle}>{collection.title}</div>
+                                      <div style={styles.resultMeta}>
+                                        📦 {collection.productCount} products
+                                      </div>
+                                      {collection.description && (
+                                        <div style={styles.resultDescription}>
+                                          {collection.description}
+                                        </div>
+                                      )}
+                                      <div style={styles.resultLink}>
+                                        View Collection →
+                                      </div>
+                                    </div>
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {data.searchResults.pages.length > 0 && (
+                          <div style={styles.resultsSection}>
+                            <div style={styles.resultsSectionHeader}>
+                              <span style={styles.resultsIcon}>📄</span>
+                              <span style={styles.resultsTitle}>
+                                Pages Found ({data.searchResults.pages.length})
+                              </span>
+                            </div>
+                            <div style={styles.pagesListWrapper}>
+                              {data.searchResults.pages.map((page) => (
+                                <a key={page.id} href={page.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                                  <div style={styles.pageItem}>
+                                    <div style={styles.pageIcon}>📄</div>
+                                    <div style={styles.pageContent}>
+                                      <div style={styles.pageTitle}>{page.title}</div>
+                                      {page.description && (
+                                        <div style={styles.pageDescription}>
+                                          {page.description}
+                                        </div>
+                                      )}
+                                      <div style={styles.pageLink}>View Page →</div>
+                                    </div>
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {data.searchResults.products.length === 0 &&
+                          data.searchResults.collections.length === 0 &&
+                          data.searchResults.pages.length === 0 && (
+                            <div style={styles.noResults}>
+                              <div style={styles.noResultsIcon}>😕</div>
+                              <div style={styles.noResultsText}>
+                                No matching products, collections, or pages found for
+                                "{selectedLog.query}"
+                              </div>
+                            </div>
+                          )}
+                      </>
+                    )}
+                  </div>
                 </>
               )
             ) : (
@@ -688,8 +763,149 @@ export default function SearchAnalytics() {
   );
 }
 
-/* ... All styles remain exactly the same ... */
+/* ============================================================
+   STYLES
+   ============================================================ */
 const styles = {
+  /* ── Layout ── */
   container: { minHeight: "100vh", background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)", padding: "24px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
-  // ... (rest of styles - copy exactly from your document)
+  wrapper: { maxWidth: "1800px", margin: "0 auto" },
+  header: { marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 },
+  title: { fontSize: 36, fontWeight: 800, color: "#111827", margin: 0, marginBottom: 8, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" },
+  subtitle: { fontSize: 16, color: "#6b7280", margin: 0, fontWeight: 500 },
+  planPill: { display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#fff7ed", border: "2px solid #fed7aa", borderRadius: 20, fontSize: 13, fontWeight: 700, color: "#c2410c" },
+  planPillDot: { width: 8, height: 8, borderRadius: "50%", background: "#f97316", display: "inline-block" },
+
+  /* ── Upgrade Banner ── */
+  upgradeBanner: { marginBottom: 24, borderRadius: 16, background: "linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)", border: "2px solid #fcd34d", padding: 20, boxShadow: "0 4px 12px rgba(251, 191, 36, 0.2)" },
+  upgradeBannerInner: { display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" },
+  upgradeLockIcon: { fontSize: 36, flexShrink: 0 },
+  upgradeText: { flex: 1, minWidth: 200 },
+  upgradeTitle: { fontSize: 16, fontWeight: 800, color: "#92400e", marginBottom: 4 },
+  upgradeSubtext: { fontSize: 13, color: "#b45309", fontWeight: 500 },
+  upgradeBtn: { padding: "12px 28px", background: "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)", color: "#fff", borderRadius: 12, fontWeight: 800, fontSize: 14, textDecoration: "none", flexShrink: 0, boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)", transition: "transform 0.2s", display: "inline-block" },
+
+  /* ── Stats ── */
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, marginBottom: 24 },
+  statCard: { background: "#ffffff", border: "2px solid transparent", borderRadius: 16, padding: 24, display: "flex", alignItems: "center", gap: 20, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", transition: "transform 0.2s, box-shadow 0.2s" },
+  statIcon: { width: 56, height: 56, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" },
+  statIconSvg: { width: 28, height: 28, strokeWidth: 2.5 },
+  statLabel: { fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" },
+  statValue: { fontSize: 32, fontWeight: 800, color: "#111827" },
+
+  /* ── Top Searches ── */
+  topSearchesCard: { background: "#ffffff", borderRadius: 16, padding: 28, marginBottom: 24, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" },
+  topSearchesTitle: { fontSize: 20, fontWeight: 700, color: "#111827", marginBottom: 20, margin: 0 },
+  topSearchesList: { display: "flex", flexDirection: "column", gap: 12 },
+  topSearchItem: { display: "flex", alignItems: "center", gap: 16, padding: 16, background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)", borderRadius: 12, border: "1px solid #e5e7eb" },
+  topSearchRank: { width: 40, height: 40, borderRadius: 10, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, flexShrink: 0 },
+  topSearchQuery: { flex: 1, fontSize: 15, fontWeight: 600, color: "#111827" },
+  topSearchCount: { fontSize: 14, color: "#6b7280", fontWeight: 500 },
+
+  /* ── Filters ── */
+  searchSection: { background: "#ffffff", borderRadius: 16, padding: 24, marginBottom: 24, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" },
+  searchForm: { display: "flex", flexDirection: "column", gap: 16 },
+  searchInputWrapper: { position: "relative", flex: 1 },
+  searchIcon: { position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", width: 20, height: 20, color: "#9ca3af", strokeWidth: 2 },
+  searchInput: { width: "100%", padding: "14px 50px 14px 50px", borderRadius: 12, border: "2px solid #e5e7eb", fontSize: 15, fontFamily: "inherit", outline: "none", background: "#f9fafb" },
+  clearBtn: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "#f3f4f6", border: "none", cursor: "pointer", padding: 8, display: "flex", alignItems: "center", borderRadius: 8 },
+  clearIcon: { width: 18, height: 18, color: "#6b7280", strokeWidth: 2 },
+  filters: { display: "flex", gap: 12, alignItems: "center" },
+  filterSelect: { padding: "12px 18px", borderRadius: 10, border: "2px solid #e5e7eb", fontSize: 14, fontFamily: "inherit", outline: "none", background: "#f9fafb", cursor: "pointer", minWidth: 160, fontWeight: 600 },
+  searchBtn: { display: "flex", alignItems: "center", gap: 8, padding: "12px 28px", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, color: "#ffffff", cursor: "pointer", marginLeft: "auto", boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)" },
+  btnIcon: { width: 18, height: 18, strokeWidth: 2.5 },
+
+  /* ── Content Grid ── */
+  contentGrid: { display: "grid", gridTemplateColumns: "480px 1fr", gap: 24, alignItems: "start" },
+
+  /* ── Search Logs List ── */
+  searchLogsList: { background: "#ffffff", borderRadius: 16, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", overflow: "hidden", height: "calc(100vh - 480px)", minHeight: "600px", display: "flex", flexDirection: "column", position: "sticky", top: 24 },
+  sessionListHeader: { padding: "20px 24px", borderBottom: "2px solid #e5e7eb", background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  sectionTitle: { fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 },
+  lockedBadge: { padding: "4px 12px", background: "#fff7ed", border: "2px solid #fed7aa", borderRadius: 20, fontSize: 12, fontWeight: 700, color: "#c2410c" },
+  sessions: { overflowY: "auto", flex: 1, padding: "8px 0" },
+
+  /* ── Normal Log Card ── */
+  searchLogCard: { padding: 18, margin: "0 12px 8px 12px", borderRadius: 12, cursor: "pointer", transition: "all 0.2s", border: "2px solid transparent" },
+  sessionCardActive: { background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)", border: "2px solid #3b82f6", boxShadow: "0 2px 8px rgba(59, 130, 246, 0.2)" },
+  logHeader: { display: "flex", alignItems: "center", gap: 14, marginBottom: 10 },
+  logIconWrapper: { flexShrink: 0 },
+  logIcon: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(102, 126, 234, 0.3)" },
+  logIconSvg: { width: 22, height: 22, strokeWidth: 2.5 },
+  logInfo: { flex: 1, minWidth: 0 },
+  logQuery: { fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  logMeta: { fontSize: 13, display: "flex", alignItems: "center", gap: 6 },
+  logDate: { fontSize: 12, color: "#9ca3af", marginLeft: 58, fontWeight: 500 },
+
+  /* ── Blurred Log Card ── */
+  blurredCard: { margin: "0 12px 8px 12px", borderRadius: 12, border: "2px dashed #fcd34d", background: "linear-gradient(135deg, #fffbeb 0%, #fef9c3 100%)", overflow: "hidden" },
+  blurredInner: { padding: 18, display: "flex", alignItems: "center", gap: 14, filter: "blur(4px)", userSelect: "none", pointerEvents: "none" },
+  blurredIconCircle: { width: 44, height: 44, borderRadius: 12, background: "#e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  blurredTextBlock: { flex: 1 },
+  blurredLine: { height: 14, borderRadius: 6, background: "#d1d5db", width: "75%" },
+  blurredBadge: { padding: "6px 18px", background: "linear-gradient(90deg, #f59e0b, #ef4444)", color: "#fff", fontSize: 12, fontWeight: 800, textAlign: "center", letterSpacing: "0.3px" },
+
+  /* ── Detail Panel ── */
+  messagePanel: { background: "#ffffff", borderRadius: 16, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", minHeight: "calc(100vh - 480px)", display: "flex", flexDirection: "column" },
+  messagePanelHeader: { padding: 24, borderBottom: "2px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)" },
+  panelHeaderLeft: { display: "flex", alignItems: "center", gap: 16 },
+  panelAvatar: { width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", display: "flex", alignItems: "center", justifyContent: "center" },
+  panelAvatarIcon: { width: 26, height: 26, strokeWidth: 2.5 },
+  panelTitle: { fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 4 },
+  panelSubtitle: { fontSize: 13, color: "#6b7280", fontWeight: 500 },
+  detailsContainer: { padding: 28, overflowY: "auto", flex: 1 },
+  detailSection: { marginBottom: 28, paddingBottom: 28, borderBottom: "2px solid #f3f4f6" },
+  detailLabel: { fontSize: 13, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 14 },
+  userInfoGrid: { display: "flex", flexDirection: "column", gap: 12 },
+  infoItem: { display: "flex", alignItems: "center", gap: 12, padding: 12, background: "#f9fafb", borderRadius: 10, border: "1px solid #e5e7eb" },
+  infoLabel: { fontSize: 14, color: "#6b7280", fontWeight: 600, minWidth: 70 },
+  infoValue: { fontSize: 14, color: "#111827", fontWeight: 700 },
+
+  /* ── Blurred Panel ── */
+  blurredPanelWrap: { display: "flex", alignItems: "center", justifyContent: "center", flex: 1, padding: 40 },
+  blurredPanelBox: { textAlign: "center", maxWidth: 400 },
+  blurredPanelIcon: { fontSize: 64, marginBottom: 20 },
+  blurredPanelTitle: { fontSize: 24, fontWeight: 800, color: "#111827", margin: "0 0 12px" },
+  blurredPanelText: { fontSize: 15, color: "#6b7280", fontWeight: 500, lineHeight: 1.7, margin: "0 0 28px" },
+  blurredUpgradeBtn: { display: "inline-block", padding: "14px 36px", background: "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)", color: "#fff", borderRadius: 14, fontWeight: 800, fontSize: 16, textDecoration: "none", boxShadow: "0 6px 20px rgba(239, 68, 68, 0.35)", marginBottom: 32 },
+  planCompare: { background: "#f9fafb", borderRadius: 14, padding: 20, border: "2px solid #e5e7eb", display: "flex", flexDirection: "column", gap: 10 },
+  planRow: { display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600, color: "#374151", padding: "6px 4px", borderBottom: "1px solid #e5e7eb" },
+
+  /* ── Results ── */
+  resultsSection: { marginBottom: 32 },
+  resultsSectionHeader: { display: "flex", alignItems: "center", gap: 12, marginBottom: 20, paddingBottom: 14, borderBottom: "3px solid #e5e7eb" },
+  resultsIcon: { fontSize: 28 },
+  resultsTitle: { fontSize: 18, fontWeight: 700, color: "#111827" },
+  resultsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18 },
+  resultCard: { border: "2px solid #e5e7eb", borderRadius: 14, overflow: "hidden", cursor: "pointer", background: "#fff" },
+  resultImage: { width: "100%", height: 180, objectFit: "cover" },
+  resultImagePlaceholder: { width: "100%", height: 180, background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)", display: "flex", alignItems: "center", justifyContent: "center" },
+  resultContent: { padding: 16 },
+  resultTitle: { fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 10, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.4 },
+  resultPrice: { fontSize: 18, fontWeight: 800, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 },
+  resultMeta: { fontSize: 13, color: "#6b7280", marginBottom: 12, fontWeight: 600 },
+  resultDescription: { fontSize: 13, color: "#6b7280", marginBottom: 12, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.5 },
+  resultLink: { fontSize: 13, color: "#3b82f6", fontWeight: 700, display: "inline-block", marginTop: 4 },
+  pagesListWrapper: { display: "flex", flexDirection: "column", gap: 14 },
+  pageItem: { display: "flex", gap: 14, padding: 18, border: "2px solid #e5e7eb", borderRadius: 14, background: "#fff" },
+  pageIcon: { fontSize: 36, flexShrink: 0 },
+  pageContent: { flex: 1 },
+  pageTitle: { fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 8 },
+  pageDescription: { fontSize: 14, color: "#6b7280", marginBottom: 10, lineHeight: 1.5 },
+  pageLink: { fontSize: 14, color: "#3b82f6", fontWeight: 700 },
+  noResults: { textAlign: "center", padding: 50, background: "#f9fafb", borderRadius: 14 },
+  noResultsIcon: { fontSize: 56, marginBottom: 20 },
+  noResultsText: { fontSize: 16, color: "#6b7280", fontWeight: 600, lineHeight: 1.6 },
+
+  /* ── Empty States ── */
+  emptyState: { padding: 70, textAlign: "center" },
+  emptyIcon: { width: 72, height: 72, margin: "0 auto 24px", background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)", borderRadius: 20, display: "flex", alignItems: "center", justifyContent: "center" },
+  emptyIconSvg: { width: 36, height: 36, color: "#d1d5db", strokeWidth: 2 },
+  emptyTitle: { fontSize: 20, fontWeight: 700, color: "#6b7280", margin: "0 0 10px" },
+  emptyText: { fontSize: 15, color: "#9ca3af", margin: 0, fontWeight: 500 },
+  emptyPanel: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 70 },
+  emptyPanelIcon: { width: 96, height: 96, background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 28 },
+  emptyPanelIconSvg: { width: 48, height: 48, color: "#d1d5db", strokeWidth: 2 },
+  emptyPanelTitle: { fontSize: 22, fontWeight: 700, color: "#6b7280", margin: "0 0 10px" },
+  emptyPanelText: { fontSize: 16, color: "#9ca3af", margin: 0, fontWeight: 500 },
 };
