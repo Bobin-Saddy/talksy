@@ -1,4 +1,4 @@
-// app/routes/app.subscription.confirm.jsx - FIXED WITH BILLING CANCELLATION DETECTION
+// app/routes/app.subscription.confirm.jsx - WITH IMMEDIATE UNLOCK SIGNAL
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "react-router";
 import { useEffect } from "react";
@@ -79,12 +79,10 @@ export const loader = async ({ request }) => {
       console.log("⚠️ Billing not approved yet - user may have cancelled");
       
       // Reset subscription back to previous plan
-      // Find what the previous plan was (before pending_approval)
       const chatCount = await prisma.chatSession.count({
         where: { shop },
       }).catch(() => 0);
       
-      // Determine appropriate free plan based on usage
       const fallbackPlan = chatCount > 2 ? "FREE" : "FREE";
       
       await prisma.subscription.update({
@@ -92,7 +90,7 @@ export const loader = async ({ request }) => {
         data: {
           plan: fallbackPlan,
           status: "active",
-          billingId: null, // Clear the pending billing ID
+          billingId: null,
         },
       });
 
@@ -129,10 +127,10 @@ export const loader = async ({ request }) => {
 
       console.log("✅ Subscription confirmed for " + shop + ": " + planKey + " (" + status + ")");
 
-      // Return success for client-side redirect
+      // ✅ Return with billing=complete parameter for immediate unlock
       return json({ 
         success: true,
-        redirect: "/app/subscription?success=true&plan=" + planKey
+        redirect: "/app/subscription?success=true&billing=complete&plan=" + planKey
       });
     } else {
       // Status is not active - something went wrong

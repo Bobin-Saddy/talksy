@@ -182,6 +182,22 @@ export default function App() {
     requiredPlan = "Standard";
   }
 
+  // ✅ Auto-refresh data when coming back from subscription page
+  useEffect(() => {
+    // Check if we just came back from subscription page (success or billing completed)
+    const params = new URLSearchParams(location.search);
+    const hasSuccess = params.get('success') === 'true';
+    const hasBillingComplete = params.get('billing') === 'complete';
+    
+    if (hasSuccess || hasBillingComplete) {
+      // Force a page reload to get fresh subscription data
+      console.log("✅ Billing approved - refreshing data...");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
+  }, [location.search]);
+
   // Heartbeat Logic
   useEffect(() => {
     const updateHeartbeat = async () => {
