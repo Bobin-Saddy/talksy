@@ -167,9 +167,12 @@ export default function SubscriptionConfirm() {
 
   useEffect(() => {
     if (data?.redirect) {
-      // ✅ INSTANT redirect - no delay!
-      console.log("🚀 Instant redirect to:", data.redirect);
-      navigate(data.redirect);
+      // ✅ Small delay to show loader animation
+      console.log("🔄 Showing confirmation loader...");
+      setTimeout(() => {
+        console.log("🚀 Redirecting to:", data.redirect);
+        navigate(data.redirect);
+      }, 800); // 800ms to show the loader
     }
   }, [data, navigate]);
 
