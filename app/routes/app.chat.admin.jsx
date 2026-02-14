@@ -115,7 +115,7 @@ export const action = async ({ request }) => {
 
 export default function NeuralChatAdmin() {
   const { sessions: initialSessions, currentShop, planLimit: initialPlanLimit } = useLoaderData();
-  const navigate = useNavigate(); // ✅ ADD navigate hook
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState(initialSessions);
   const [planLimit, setPlanLimit] = useState(initialPlanLimit);
   const [activeSession, setActiveSession] = useState(null);
@@ -152,6 +152,7 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
+  // ✅ FIXED: Real-time session polling with proper state updates
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -163,9 +164,7 @@ export default function NeuralChatAdmin() {
         const data = await res.json();
         
         if (data.sessions && data.planLimit) {
-          const newSessionCount = data.sessions.length;
-          const previousCount = lastSessionCountRef.current;
-          
+          // ✅ Detect new sessions BEFORE updating state
           const currentSessionIds = sessions.map(s => s.sessionId);
           const newSessions = data.sessions.filter(s => 
             !currentSessionIds.includes(s.sessionId)
@@ -176,21 +175,14 @@ export default function NeuralChatAdmin() {
             return oldS && new Date(newS.updatedAt) > new Date(oldS.updatedAt);
           });
           
-        // ✅ NEW (forces re-render when data changes)
-setSessions(prevSessions => {
-  // Deep comparison to detect actual changes
-  const hasChanges = 
-    prevSessions.length !== data.sessions.length ||
-    JSON.stringify(prevSessions.map(s => ({ id: s.sessionId, updated: s.updatedAt }))) !== 
-    JSON.stringify(data.sessions.map(s => ({ id: s.sessionId, updated: s.updatedAt })));
-  
-  return hasChanges ? data.sessions : prevSessions;
-});
-
-setPlanLimit(data.planLimit);
+          // ✅ CRITICAL FIX: Always create new array reference to force re-render
+          setSessions([...data.sessions]);
+          setPlanLimit({...data.planLimit});
           
+          // ✅ Handle new sessions notification
           if (newSessions.length > 0) {
             console.log("🆕 New chat(s) detected!", newSessions.length, "new sessions");
+            console.log("📧 New sessions from:", newSessions.map(s => s.email).join(", "));
             
             if (audioRef.current) {
               audioRef.current.play().catch(() => {});
@@ -216,7 +208,7 @@ setPlanLimit(data.planLimit);
             console.log("📨 Message updates detected in", updatedSessions.length, "sessions");
           }
           
-          lastSessionCountRef.current = newSessionCount;
+          lastSessionCountRef.current = data.sessions.length;
         }
       } catch (e) {
         console.error("Session refresh failed:", e);
@@ -224,7 +216,7 @@ setPlanLimit(data.planLimit);
     }, 1500);
     
     return () => clearInterval(interval);
-  }, [sessions]);
+  }, [sessions]); // Keep dependency to detect changes
 
   const filteredSessions = useMemo(() => {
     let filtered = sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -582,7 +574,7 @@ setPlanLimit(data.planLimit);
                 Maybe Later
               </button>
               <button 
-                onClick={goToSubscription} // ✅ FIXED
+                onClick={goToSubscription}
                 style={{ 
                   flex: 1,
                   padding: '14px 20px', 
@@ -644,7 +636,7 @@ setPlanLimit(data.planLimit);
               {planLimit.overLimitBy} customer{planLimit.overLimitBy !== 1 ? 's' : ''} waiting. Check the "Requests" tab.
             </div>
             <button 
-              onClick={goToSubscription} // ✅ FIXED
+              onClick={goToSubscription}
               style={{ 
                 marginTop: '10px', 
                 padding: '8px 14px', 
@@ -870,7 +862,7 @@ setPlanLimit(data.planLimit);
 
               {isActiveSessionOverLimit && (
                 <button 
-                  onClick={goToSubscription} // ✅ FIXED
+                  onClick={goToSubscription}
                   style={{ 
                     padding: '10px 18px', 
                     borderRadius: '10px', 
@@ -961,7 +953,7 @@ setPlanLimit(data.planLimit);
                     </div>
                   </div>
                   <button 
-                    onClick={goToSubscription} // ✅ FIXED
+                    onClick={goToSubscription}
                     style={{ 
                       padding: '8px 16px', 
                       background: '#f59e0b', 
@@ -1011,7 +1003,7 @@ setPlanLimit(data.planLimit);
           </div>
           {(planLimit.isAtLimit || planLimit.isOverLimit) && (
             <button 
-              onClick={goToSubscription} // ✅ FIXED
+              onClick={goToSubscription}
               style={{ 
                 marginTop: '12px', 
                 padding: '8px 12px', 
