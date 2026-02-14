@@ -223,7 +223,7 @@ export default function App() {
         console.log("Clearing URL parameters and reloading...");
         const cleanUrl = window.location.pathname;
         window.location.href = cleanUrl;
-      }, 2000); // Increased to 2 seconds for better revalidation
+      }, 1000); // Increased to 2 seconds for better revalidation
     }
   }, [location.search, revalidator, usage, subscriptionStatus, isPaidPlan, canManageFAQs, canCustomizeWidget]);
 
