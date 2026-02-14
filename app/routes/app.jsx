@@ -63,8 +63,8 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNav
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: "rgba(255, 255, 255, 0.4)", // ✅ More transparent (0.4 instead of 0.85)
-      backdropFilter: "blur(12px)", // ✅ Glass effect
+      // backgroundColor: "rgba(255, 255, 255, 0.4)", // ✅ More transparent (0.4 instead of 0.85)
+      // backdropFilter: "blur(12px)", // ✅ Glass effect
       WebkitBackdropFilter: "blur(12px)",
       zIndex: 9999,
       display: "flex",
