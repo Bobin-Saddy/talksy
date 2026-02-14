@@ -78,8 +78,8 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNav
         padding: "48px 40px",
         maxWidth: "520px",
         textAlign: "center",
-        boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)", // ✅ Stronger shadow for depth
-        border: "1px solid rgba(255, 255, 255, 0.3)",
+        // boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)", // ✅ Stronger shadow for depth
+        // border: "1px solid rgba(255, 255, 255, 0.3)",
       }}>
         <div style={{ fontSize: "72px", marginBottom: "20px", lineHeight: 1 }}>🔒</div>
         <h2 style={{ 
