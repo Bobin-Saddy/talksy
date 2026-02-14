@@ -54,7 +54,7 @@ export const loader = async ({ request }) => {
   };
 };
 
-// ✅ Blur Overlay Component for Locked Pages
+// ✅ FIXED: More transparent blur overlay with glass effect
 function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNavigate }) {
   return (
     <div style={{
@@ -63,7 +63,9 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNav
       left: 0,
       right: 0,
       bottom: 0,
-      // backgroundColor: "rgba(255, 255, 255, 0.85)",
+      backgroundColor: "rgba(255, 255, 255, 0.4)", // ✅ More transparent (0.4 instead of 0.85)
+      backdropFilter: "blur(12px)", // ✅ Glass effect
+      WebkitBackdropFilter: "blur(12px)",
       zIndex: 9999,
       display: "flex",
       alignItems: "center",
@@ -71,13 +73,13 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNav
       padding: "20px",
     }}>
       <div style={{
-        background: "white",
+        background: "rgba(255, 255, 255, 0.95)", // ✅ Semi-transparent card
         borderRadius: "16px",
         padding: "48px 40px",
         maxWidth: "520px",
         textAlign: "center",
-        boxShadow: "0 10px 40px rgba(0, 0, 0, 0.2)",
-        border: "2px solid #e1e3e5",
+        boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)", // ✅ Stronger shadow for depth
+        border: "1px solid rgba(255, 255, 255, 0.3)",
       }}>
         <div style={{ fontSize: "72px", marginBottom: "20px", lineHeight: 1 }}>🔒</div>
         <h2 style={{ 
@@ -155,16 +157,22 @@ export default function App() {
   const isBillingApproved = subscriptionStatus === "active" || subscriptionStatus === "trialing";
   const isPendingApproval = subscriptionStatus === "pending_approval";
   
-  // Check plan permissions
-  const isPaidPlan = usage && (usage.plan === "STANDARD" || usage.plan === "PREMIUM") && isBillingApproved;
-  const canManageFAQs = usage && usage.faqs.canManage && isBillingApproved;
-  const canCustomizeWidget = usage && usage.features.canCustomizeWidget && isBillingApproved;
+  // ✅ Premium plan gets all access
+  const isPremiumPlan = usage && usage.plan === "PREMIUM" && isBillingApproved;
+  const isStandardPlan = usage && usage.plan === "STANDARD" && isBillingApproved;
+  const isPaidPlan = isPremiumPlan || isStandardPlan;
+  
+  // Premium = all features, Standard = limited features, Free = no features
+  const canManageFAQs = isPremiumPlan || isStandardPlan;
+  const canCustomizeWidget = isPremiumPlan || isStandardPlan;
   
   // ✅ Log current state for debugging
   console.log("🔍 Current App State:", {
     plan: usage?.plan,
     status: subscriptionStatus,
     isBillingApproved,
+    isPremiumPlan,
+    isStandardPlan,
     isPaidPlan,
     canManageFAQs,
     canCustomizeWidget
@@ -210,17 +218,22 @@ export default function App() {
       console.log("✅ BILLING APPROVED DETECTED!");
       console.log("Current Plan:", usage?.plan);
       console.log("Subscription Status:", subscriptionStatus);
+      console.log("Is Premium Plan:", isPremiumPlan);
+      console.log("Is Standard Plan:", isStandardPlan);
       console.log("Is Paid Plan:", isPaidPlan);
       console.log("Can Manage FAQs:", canManageFAQs);
       console.log("Can Customize Widget:", canCustomizeWidget);
       console.log("========================================");
       
-      // ✅ IMMEDIATE reload - no delay!
-      console.log("🚀 IMMEDIATE RELOAD - No waiting!");
-      const cleanUrl = window.location.pathname;
-      window.location.href = cleanUrl;
+      // ✅ Show loader for 1.5 seconds then reload
+      console.log("🔄 Showing loader, will reload in 1.5 seconds...");
+      setTimeout(() => {
+        console.log("🚀 Reloading page to unlock features...");
+        const cleanUrl = window.location.pathname;
+        window.location.href = cleanUrl;
+      }, 1500); // 1.5 second delay to show loader
     }
-  }, [location.search, revalidator, usage, subscriptionStatus, isPaidPlan, canManageFAQs, canCustomizeWidget]);
+  }, [location.search, revalidator, usage, subscriptionStatus, isPremiumPlan, isStandardPlan, isPaidPlan, canManageFAQs, canCustomizeWidget]);
 
   // ✅ Periodic revalidation when pending approval
   useEffect(() => {
@@ -259,7 +272,7 @@ export default function App() {
         <s-app-nav key={`${usage?.plan}-${subscriptionStatus}-${isBillingApproved}`}>
           <s-link href="/app/chat/admin">Chats</s-link>
           
-          {/* ✅ Show navigation but with lock icon if not accessible */}
+          {/* ✅ Show navigation with lock icon ONLY if not paid plan */}
           <s-link href="/app/admin/search">
             Search {!isPaidPlan && "🔒"}
           </s-link>
@@ -342,7 +355,7 @@ export default function App() {
           </div>
         )}
         
-        {/* Show banner if billing is pending approval */}
+        {/* ✅ FIXED: Banner with clickable button that navigates properly */}
         {isPendingApproval && !showUnlockLoader && (
           <div style={{ 
             padding: "12px 20px", 
@@ -354,9 +367,20 @@ export default function App() {
               ⏳ Your subscription upgrade is pending billing approval.
             </span>
             {" "}
-            <a href="/app/subscription" style={{ color: "#005BD3", textDecoration: "underline" }}>
+            <button
+              onClick={() => navigate("/app/subscription")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#005BD3",
+                textDecoration: "underline",
+                cursor: "pointer",
+                padding: 0,
+                font: "inherit"
+              }}
+            >
               Complete billing approval
-            </a>
+            </button>
           </div>
         )}
         
@@ -374,9 +398,20 @@ export default function App() {
                 : `⚡ You're using ${Math.round(usage.chats.percentage)}% of your ${usage.plan} plan.`}
             </span>
             {" "}
-            <a href="/app/subscription" style={{ color: "#005BD3", textDecoration: "underline" }}>
+            <button
+              onClick={() => navigate("/app/subscription")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#005BD3",
+                textDecoration: "underline",
+                cursor: "pointer",
+                padding: 0,
+                font: "inherit"
+              }}
+            >
               {isAtLimit ? "Upgrade now to continue" : "Upgrade your plan"}
-            </a>
+            </button>
           </div>
         )}
         

@@ -76,21 +76,14 @@ export const loader = async ({ request }) => {
     // ✅ CRITICAL: Check if user actually approved the billing
     // If status is still PENDING, it means user didn't approve or cancelled
     if (appSubscription.status === "PENDING") {
-      console.log("⚠️ Billing not approved yet - user may have cancelled");
+      console.log("⚠️ Billing not approved yet - user cancelled or didn't complete");
       
-      // Reset subscription back to previous plan
-      const chatCount = await prisma.chatSession.count({
-        where: { shop },
-      }).catch(() => 0);
-      
-      const fallbackPlan = chatCount > 2 ? "FREE" : "FREE";
-      
+      // ✅ DON'T activate plan - keep as pending_approval
+      // User needs to actually approve billing first
       await prisma.subscription.update({
         where: { shop },
         data: {
-          plan: fallbackPlan,
-          status: "active",
-          billingId: null,
+          status: "pending_approval", // ✅ Keep as pending
         },
       });
 
