@@ -209,11 +209,32 @@ export default function NeuralChatAdmin() {
         setSessions([...data.sessions]);
         setPlanLimit({...data.planLimit});
         
-        // ✅ Update active session if it was updated on server
+        // ✅ AUTO-CLOSE: If active session just expired, close it
         if (activeSession) {
           const updatedActiveSession = data.sessions.find(s => s.sessionId === activeSession.sessionId);
+          
+          // Check if session just became expired/blurred
           if (updatedActiveSession && 
-              new Date(updatedActiveSession.updatedAt) > new Date(activeSession.updatedAt)) {
+              updatedActiveSession.shouldBlur && 
+              !activeSession.shouldBlur) {
+            console.log("⏰ Active chat expired! Auto-closing...");
+            setActiveSession(null);
+            setMessages([]);
+            setShowBlurPopup(false);
+            
+            // Show notification
+            if (audioRef.current) {
+              audioRef.current.play().catch(() => {});
+            }
+            
+            if (Notification.permission === "granted") {
+              new Notification("Chat Expired", {
+                body: `Chat with ${activeSession.email} has expired and been closed.`,
+                icon: '/favicon.ico'
+              });
+            }
+          } else if (updatedActiveSession && 
+                     new Date(updatedActiveSession.updatedAt) > new Date(activeSession.updatedAt)) {
             console.log("🔄 Active session updated:", updatedActiveSession.email);
             setActiveSession({...updatedActiveSession});
           }
