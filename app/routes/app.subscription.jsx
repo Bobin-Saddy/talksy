@@ -1,4 +1,4 @@
-// app/routes/app.subscription.jsx - WITH TEST MODE FOR TESTING
+// app/routes/app.subscription.jsx - FIXED VERSION
 import { json, redirect } from "@remix-run/node";
 import { useLoaderData, useNavigate, Form, useSearchParams, useActionData } from "react-router";
 import { useEffect } from "react";
@@ -108,13 +108,22 @@ export const loader = async ({ request }) => {
     where: { shop },
   }).catch(() => 0);
 
+  // ✅ Get the ACTUAL current plan based on status
+  // If status is pending_approval, show the OLD plan (not the pending one)
+  let displayPlan = subscription.plan;
+  if (subscription.status === "pending_approval") {
+    // Show FREE as current plan if billing is pending
+    displayPlan = "FREE";
+  }
+
   return json({
     shop,
-    currentPlan: subscription.plan,
+    currentPlan: displayPlan, // ✅ Show correct current plan
+    actualPlan: subscription.plan, // ✅ Keep track of pending plan
     subscription,
     chatCount,
     plans: PLANS,
-    testMode: TEST_MODE, // ✅ Pass test mode to frontend
+    testMode: TEST_MODE,
   });
 };
 
@@ -285,7 +294,7 @@ export const action = async ({ request }) => {
 };
 
 export default function Subscription() {
-  const { currentPlan, subscription, chatCount, plans, testMode } = useLoaderData();
+  const { currentPlan, actualPlan, subscription, chatCount, plans, testMode } = useLoaderData();
   const actionData = useActionData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -365,6 +374,18 @@ export default function Subscription() {
           </Layout.Section>
         )}
 
+        {/* ✅ PENDING APPROVAL BANNER */}
+        {subscription.status === "pending_approval" && !billingStatus && (
+          <Layout.Section>
+            <Banner
+              title="Billing Approval Pending"
+              tone="warning"
+            >
+              You have a {PLANS[actualPlan]?.name} plan upgrade pending billing approval. Please complete the billing process to activate your new features.
+            </Banner>
+          </Layout.Section>
+        )}
+
         {error && (
           <Layout.Section>
             <Banner
@@ -403,9 +424,11 @@ export default function Subscription() {
                 {subscription.status === "active" && currentPlan !== "FREE" && (
                   <Badge tone="success">Active</Badge>
                 )}
-                {/* ✅ Show "Pending Approval" badge */}
+                {/* ✅ Show "Pending Approval" badge with the pending plan */}
                 {subscription.status === "pending_approval" && (
-                  <Badge tone="warning">Pending Approval</Badge>
+                  <Badge tone="warning">
+                    {PLANS[actualPlan]?.name} Pending
+                  </Badge>
                 )}
               </InlineStack>
 
@@ -464,6 +487,7 @@ export default function Subscription() {
           }}>
             {Object.entries(plans).map(([planKey, plan]) => {
               const isCurrentPlan = currentPlan === planKey;
+              const isPendingPlan = subscription.status === "pending_approval" && actualPlan === planKey;
               const isUpgrade = 
                 (currentPlan === "FREE" && planKey !== "FREE") ||
                 (currentPlan === "STANDARD" && planKey === "PREMIUM");
@@ -477,11 +501,15 @@ export default function Subscription() {
                         <Text variant="headingLg" as="h3">
                           {plan.name}
                         </Text>
-                        {plan.badge && !isCurrentPlan && (
+                        {plan.badge && !isCurrentPlan && !isPendingPlan && (
                           <Badge tone="info">{plan.badge}</Badge>
                         )}
-                        {isCurrentPlan && (
+                        {isCurrentPlan && !isPendingPlan && (
                           <Badge tone="success">Current Plan</Badge>
+                        )}
+                        {/* ✅ Show Pending badge on the pending plan card */}
+                        {isPendingPlan && (
+                          <Badge tone="warning">Pending</Badge>
                         )}
                       </InlineStack>
 
@@ -496,7 +524,7 @@ export default function Subscription() {
                         )}
                       </InlineStack>
 
-                      {plan.trialDays && !isCurrentPlan && (
+                      {plan.trialDays && !isCurrentPlan && !isPendingPlan && (
                         <Text variant="bodySm" tone="subdued">
                           {plan.trialDays}-day free trial
                         </Text>
@@ -523,11 +551,13 @@ export default function Subscription() {
                       <Button
                         submit
                         variant={isUpgrade ? "primary" : "secondary"}
-                        disabled={isCurrentPlan}
+                        disabled={isCurrentPlan || isPendingPlan}
                         fullWidth
                       >
                         {isCurrentPlan 
-                          ? "Current Plan" 
+                          ? "Current Plan"
+                          : isPendingPlan
+                          ? "Pending Approval"
                           : isUpgrade 
                           ? "Upgrade Now" 
                           : planKey === "FREE"
