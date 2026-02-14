@@ -152,7 +152,7 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
-  // ✅ FIXED: Real-time session polling with proper state updates
+  // ✅ FIXED: Real-time session polling with proper error handling
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -161,8 +161,10 @@ export default function NeuralChatAdmin() {
         
         const res = await fetch(apiUrl, {
           headers: {
-            'Accept': 'application/json'
-          }
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          credentials: 'same-origin' // ✅ Include cookies for authentication
         });
         
         if (!res.ok) {
@@ -170,72 +172,89 @@ export default function NeuralChatAdmin() {
           return;
         }
         
+        // ✅ Check if response is actually JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error("❌ Response is not JSON, got:", contentType);
+          console.log("💡 This usually means authentication failed or route redirected");
+          return;
+        }
+        
         const data = await res.json();
         
-        if (data.sessions && data.planLimit) {
-          // ✅ Detect new sessions BEFORE updating state
-          const currentSessionIds = sessions.map(s => s.sessionId);
-          const newSessions = data.sessions.filter(s => 
-            !currentSessionIds.includes(s.sessionId)
-          );
-          
-          const updatedSessions = data.sessions.filter(newS => {
-            const oldS = sessions.find(s => s.sessionId === newS.sessionId);
-            return oldS && new Date(newS.updatedAt) > new Date(oldS.updatedAt);
-          });
-          
-          // ✅ CRITICAL FIX: Always create new array reference to force re-render
-          setSessions([...data.sessions]);
-          setPlanLimit({...data.planLimit});
-          
-          // ✅ Update active session if it was updated on server
-          if (activeSession) {
-            const updatedActiveSession = data.sessions.find(s => s.sessionId === activeSession.sessionId);
-            if (updatedActiveSession && 
-                new Date(updatedActiveSession.updatedAt) > new Date(activeSession.updatedAt)) {
-              console.log("🔄 Active session updated:", updatedActiveSession.email);
-              setActiveSession({...updatedActiveSession});
-            }
-          }
-          
-          // ✅ Handle new sessions notification
-          if (newSessions.length > 0) {
-            console.log("🆕 New chat(s) detected!", newSessions.length, "new sessions");
-            console.log("📧 New sessions from:", newSessions.map(s => s.email).join(", "));
-            
-            if (audioRef.current) {
-              audioRef.current.play().catch(() => {});
-            }
-            
-            if (Notification.permission === "granted") {
-              newSessions.forEach(newSession => {
-                new Notification("New Chat Request", {
-                  body: "From: " + (newSession.email || 'Customer'),
-                  icon: '/favicon.ico'
-                });
-              });
-            }
-            
-            const hasOverLimitNewChat = newSessions.some(s => s.isOverLimit);
-            if (hasOverLimitNewChat) {
-              console.log("📬 New over-limit chat - switching to Requests tab");
-              setFilterStatus("requests");
-            }
-          }
-          
-          if (updatedSessions.length > 0 && newSessions.length === 0) {
-            console.log("📨 Message updates detected in", updatedSessions.length, "sessions");
-          }
-          
-          lastSessionCountRef.current = data.sessions.length;
+        if (!data.sessions || !data.planLimit) {
+          console.warn("⚠️ Invalid response structure:", data);
+          return;
         }
+        
+        // ✅ Detect new sessions BEFORE updating state
+        const currentSessionIds = sessions.map(s => s.sessionId);
+        const newSessions = data.sessions.filter(s => 
+          !currentSessionIds.includes(s.sessionId)
+        );
+        
+        const updatedSessions = data.sessions.filter(newS => {
+          const oldS = sessions.find(s => s.sessionId === newS.sessionId);
+          return oldS && new Date(newS.updatedAt) > new Date(oldS.updatedAt);
+        });
+        
+        // ✅ CRITICAL FIX: Always create new array reference to force re-render
+        setSessions([...data.sessions]);
+        setPlanLimit({...data.planLimit});
+        
+        // ✅ Update active session if it was updated on server
+        if (activeSession) {
+          const updatedActiveSession = data.sessions.find(s => s.sessionId === activeSession.sessionId);
+          if (updatedActiveSession && 
+              new Date(updatedActiveSession.updatedAt) > new Date(activeSession.updatedAt)) {
+            console.log("🔄 Active session updated:", updatedActiveSession.email);
+            setActiveSession({...updatedActiveSession});
+          }
+        }
+        
+        // ✅ Handle new sessions notification
+        if (newSessions.length > 0) {
+          console.log("🆕 New chat(s) detected!", newSessions.length, "new sessions");
+          console.log("📧 New sessions from:", newSessions.map(s => s.email).join(", "));
+          
+          if (audioRef.current) {
+            audioRef.current.play().catch(() => {});
+          }
+          
+          if (Notification.permission === "granted") {
+            newSessions.forEach(newSession => {
+              new Notification("New Chat Request", {
+                body: "From: " + (newSession.email || 'Customer'),
+                icon: '/favicon.ico'
+              });
+            });
+          }
+          
+          const hasOverLimitNewChat = newSessions.some(s => s.isOverLimit);
+          if (hasOverLimitNewChat) {
+            console.log("📬 New over-limit chat - switching to Requests tab");
+            setFilterStatus("requests");
+          }
+        }
+        
+        if (updatedSessions.length > 0 && newSessions.length === 0) {
+          console.log("📨 Message updates detected in", updatedSessions.length, "sessions");
+        }
+        
+        lastSessionCountRef.current = data.sessions.length;
       } catch (e) {
-        console.error("❌ Session refresh failed:", e);
+        // ✅ Better error logging
+        if (e instanceof SyntaxError && e.message.includes('JSON')) {
+          console.error("❌ Session refresh failed: Server returned HTML instead of JSON");
+          console.log("💡 Check authentication or route configuration");
+        } else {
+          console.error("❌ Session refresh failed:", e.message);
+        }
       }
     }, 1500);
     
     return () => clearInterval(interval);
-  }, [sessions, activeSession]); // ✅ Added activeSession dependency
+  }, [sessions, activeSession]);
 
   const filteredSessions = useMemo(() => {
     let filtered = sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -277,20 +296,38 @@ export default function NeuralChatAdmin() {
     }
   };
 
-  // ✅ FIXED: Real-time message polling - shows new messages instantly
+  // ✅ FIXED: Real-time message polling with proper error handling
   useEffect(() => {
     if (!activeSession) return;
     
     const interval = setInterval(async () => {
       try {
-        const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
+        const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          credentials: 'same-origin'
+        });
         
         if (!res.ok) {
           console.error("❌ Failed to fetch messages:", res.status);
           return;
         }
         
+        // ✅ Check if response is actually JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error("❌ Messages response is not JSON, got:", contentType);
+          return;
+        }
+        
         const data = await res.json();
+        
+        if (!Array.isArray(data)) {
+          console.warn("⚠️ Invalid messages response:", data);
+          return;
+        }
         
         // ✅ Check if there are new messages or updates
         const hasNewMessages = data.length !== messages.length;
@@ -324,7 +361,12 @@ export default function NeuralChatAdmin() {
           }
         }
       } catch (err) {
-        console.error("❌ Message polling error:", err);
+        // ✅ Better error logging
+        if (err instanceof SyntaxError && err.message.includes('JSON')) {
+          console.error("❌ Message polling failed: Server returned HTML instead of JSON");
+        } else {
+          console.error("❌ Message polling error:", err.message);
+        }
       }
     }, 1500); // Poll every 1.5 seconds
     
