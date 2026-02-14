@@ -1,5 +1,5 @@
 // app/routes/app.jsx - WITH BLUR OVERLAY FOR LOCKED FEATURES
-import { Outlet, useLoaderData, useRouteError, useLocation, useNavigate } from "react-router";
+import { Outlet, useLoaderData, useRouteError, useLocation, useNavigate, useRevalidator } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
 import { AppProvider as PolarisAppProvider, Badge } from "@shopify/polaris";
@@ -63,7 +63,7 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNav
       left: 0,
       right: 0,
       bottom: 0,
-      // backgroundColor: "rgba(255, 255, 255, 0.85)",
+      backgroundColor: "rgba(255, 255, 255, 0.85)",
       zIndex: 9999,
       display: "flex",
       alignItems: "center",
@@ -145,6 +145,7 @@ export default function App() {
   const { apiKey, usage, subscriptionStatus } = useLoaderData();
   const location = useLocation();
   const navigate = useNavigate();
+  const revalidator = useRevalidator();
   
   // Calculate if user is approaching limit
   const isApproachingLimit = usage && typeof usage.chats.percentage === 'number' && usage.chats.percentage > 80;
@@ -182,21 +183,42 @@ export default function App() {
     requiredPlan = "Standard";
   }
 
+  // ✅ Check if we're loading after billing approval
+  const params = new URLSearchParams(location.search);
+  const isBillingComplete = params.get('billing') === 'complete';
+  const isRefreshing = revalidator.state === 'loading' && isBillingComplete;
+
   // ✅ Auto-refresh data when coming back from subscription page
   useEffect(() => {
-    // Check if we just came back from subscription page (success or billing completed)
-    const params = new URLSearchParams(location.search);
     const hasSuccess = params.get('success') === 'true';
     const hasBillingComplete = params.get('billing') === 'complete';
     
     if (hasSuccess || hasBillingComplete) {
-      // Force a page reload to get fresh subscription data
-      console.log("✅ Billing approved - refreshing data...");
+      console.log("✅ Billing approved - revalidating data...");
+      // Immediately revalidate
+      revalidator.revalidate();
+      
+      // Force full page reload after short delay to ensure fresh data
       setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+        console.log("🔄 Force reload for immediate unlock");
+        const cleanUrl = window.location.pathname;
+        window.location.href = cleanUrl;
+      }, 1500);
     }
-  }, [location.search]);
+  }, [location.search, revalidator]);
+
+  // ✅ Periodic revalidation when pending approval
+  useEffect(() => {
+    if (isPendingApproval) {
+      console.log("⏳ Pending approval - will check every 5 seconds");
+      const interval = setInterval(() => {
+        console.log("🔄 Checking for billing approval...");
+        revalidator.revalidate();
+      }, 5000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isPendingApproval, revalidator]);
 
   // Heartbeat Logic
   useEffect(() => {
@@ -256,8 +278,22 @@ export default function App() {
           </s-link>
         </s-app-nav>
         
+        {/* ✅ Show loading banner when refreshing after billing approval */}
+        {isRefreshing && (
+          <div style={{ 
+            padding: "12px 20px", 
+            backgroundColor: "#D4EDDA",
+            borderBottom: "1px solid #28A745",
+            textAlign: "center"
+          }}>
+            <span style={{ fontWeight: 600 }}>
+              🔄 Activating your plan... Please wait.
+            </span>
+          </div>
+        )}
+        
         {/* Show banner if billing is pending approval */}
-        {isPendingApproval && (
+        {isPendingApproval && !isRefreshing && (
           <div style={{ 
             padding: "12px 20px", 
             backgroundColor: "#E3F2FD",
