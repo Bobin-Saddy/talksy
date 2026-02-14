@@ -287,22 +287,48 @@ export default function NeuralChatAdmin() {
   }, [messages]);
 
   const notifyNewMessage = (session, message) => {
-    if (audioRef.current) audioRef.current.play().catch(() => {});
-    if (activeSession?.sessionId !== session.sessionId) {
-      setUnreadCounts(prev => ({ ...prev, [session.sessionId]: (prev[session.sessionId] || 0) + 1 }));
+    console.log("🔔 Notifying new message:", {
+      from: session.email,
+      message: message.message,
+      sender: message.sender
+    });
+    
+    if (audioRef.current) {
+      audioRef.current.play().catch((e) => {
+        console.log("Audio play failed:", e);
+      });
     }
+    
+    if (activeSession?.sessionId !== session.sessionId) {
+      setUnreadCounts(prev => ({ 
+        ...prev, 
+        [session.sessionId]: (prev[session.sessionId] || 0) + 1 
+      }));
+    }
+    
     if (document.visibilityState !== 'visible' && Notification.permission === "granted") {
-      new Notification("New message from " + (session.email || 'Customer'), { body: message.message, icon: '/favicon.ico' });
+      new Notification("New message from " + (session.email || 'Customer'), { 
+        body: message.message, 
+        icon: '/favicon.ico' 
+      });
     }
   };
 
   // ✅ FIXED: Real-time message polling with proper error handling
   useEffect(() => {
-    if (!activeSession) return;
+    if (!activeSession) {
+      console.log("⏸️ No active session, skipping message polling");
+      return;
+    }
+    
+    console.log("▶️ Starting message polling for session:", activeSession.email);
     
     const interval = setInterval(async () => {
       try {
-        const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId, {
+        const url = "/app/chat/messages?sessionId=" + activeSession.sessionId;
+        console.log("🔄 Polling messages from:", url);
+        
+        const res = await fetch(url, {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json'
@@ -329,6 +355,13 @@ export default function NeuralChatAdmin() {
           return;
         }
         
+        console.log("✅ Fetched messages:", {
+          count: data.length,
+          currentCount: messages.length,
+          lastId: data.length > 0 ? data[data.length - 1].id : null,
+          currentLastId: lastMessageIdRef.current
+        });
+        
         // ✅ Check if there are new messages or updates
         const hasNewMessages = data.length !== messages.length;
         const hasUpdatedMessages = data.length > 0 && 
@@ -339,7 +372,9 @@ export default function NeuralChatAdmin() {
           console.log("📨 Messages updated:", {
             oldCount: messages.length,
             newCount: data.length,
-            newMessages: data.length - messages.length
+            newMessages: data.length - messages.length,
+            hasNewMessages,
+            hasUpdatedMessages
           });
           
           const latestServerMsg = data[data.length - 1];
@@ -358,7 +393,10 @@ export default function NeuralChatAdmin() {
           
           if (data.length > 0) {
             lastMessageIdRef.current = data[data.length - 1].id;
+            console.log("💾 Updated lastMessageId to:", lastMessageIdRef.current);
           }
+        } else {
+          console.log("⏭️ No new messages, skipping update");
         }
       } catch (err) {
         // ✅ Better error logging
@@ -370,8 +408,11 @@ export default function NeuralChatAdmin() {
       }
     }, 1500); // Poll every 1.5 seconds
     
-    return () => clearInterval(interval);
-  }, [activeSession, messages]);
+    return () => {
+      console.log("🛑 Stopping message polling for session:", activeSession.email);
+      clearInterval(interval);
+    };
+  }, [activeSession?.sessionId, messages.length]); // ✅ Only depend on sessionId and message count
 
   const loadChat = async (session) => {
     if (session.shouldBlur) {
