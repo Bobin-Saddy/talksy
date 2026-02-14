@@ -176,8 +176,18 @@ export default function NeuralChatAdmin() {
             return oldS && new Date(newS.updatedAt) > new Date(oldS.updatedAt);
           });
           
-          setSessions(data.sessions);
-          setPlanLimit(data.planLimit);
+        // ✅ NEW (forces re-render when data changes)
+setSessions(prevSessions => {
+  // Deep comparison to detect actual changes
+  const hasChanges = 
+    prevSessions.length !== data.sessions.length ||
+    JSON.stringify(prevSessions.map(s => ({ id: s.sessionId, updated: s.updatedAt }))) !== 
+    JSON.stringify(data.sessions.map(s => ({ id: s.sessionId, updated: s.updatedAt })));
+  
+  return hasChanges ? data.sessions : prevSessions;
+});
+
+setPlanLimit(data.planLimit);
           
           if (newSessions.length > 0) {
             console.log("🆕 New chat(s) detected!", newSessions.length, "new sessions");
