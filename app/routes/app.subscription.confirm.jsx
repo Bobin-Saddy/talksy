@@ -180,7 +180,8 @@ export default function SubscriptionConfirm() {
       alignItems: 'center', 
       justifyContent: 'center', 
       height: '100vh',
-      fontFamily: 'system-ui, sans-serif'
+      fontFamily: 'system-ui, sans-serif',
+      backgroundColor: '#f6f6f7'
     }}>
       <div style={{ textAlign: 'center', maxWidth: '400px', padding: '24px' }}>
         {data?.error || data?.cancelled ? (
@@ -202,9 +203,33 @@ export default function SubscriptionConfirm() {
           </>
         ) : (
           <>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>✅</div>
-            <h2 style={{ color: '#10b981', marginBottom: '8px' }}>Activating Plan...</h2>
-            <p style={{ color: '#6b7280' }}>Please wait...</p>
+            {/* Spinning loader */}
+            <div style={{
+              width: "60px",
+              height: "60px",
+              border: "4px solid #E1E3E5",
+              borderTop: "4px solid #005BD3",
+              borderRadius: "50%",
+              margin: "0 auto 20px",
+              animation: "spin 1s linear infinite"
+            }} />
+            <h2 style={{ 
+              color: '#10b981', 
+              marginBottom: '8px',
+              fontSize: '24px',
+              fontWeight: '600'
+            }}>
+              Activating Plan...
+            </h2>
+            <p style={{ color: '#6b7280', fontSize: '16px' }}>
+              Please wait while we unlock your features
+            </p>
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}</style>
           </>
         )}
       </div>

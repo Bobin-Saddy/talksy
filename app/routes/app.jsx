@@ -63,7 +63,7 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNav
       left: 0,
       right: 0,
       bottom: 0,
-      // backgroundColor: "rgba(255, 255, 255, 0.85)",
+      backgroundColor: "rgba(255, 255, 255, 0.85)",
       zIndex: 9999,
       display: "flex",
       alignItems: "center",
@@ -196,8 +196,9 @@ export default function App() {
   // ✅ Check if we're loading after billing approval
   const params = new URLSearchParams(location.search);
   const isBillingComplete = params.get('billing') === 'complete';
-  // No need for loading state since we do instant reload
-  const isRefreshing = false; // Disabled since we're doing instant redirect
+  const isSuccess = params.get('success') === 'true';
+  // ✅ Show loader when billing complete parameter is present (until page reloads)
+  const showUnlockLoader = isBillingComplete || isSuccess;
 
   // ✅ Auto-refresh data when coming back from subscription page
   useEffect(() => {
@@ -293,22 +294,56 @@ export default function App() {
           </s-link>
         </s-app-nav>
         
-        {/* ✅ Show loading banner when refreshing after billing approval */}
-        {isRefreshing && (
-          <div style={{ 
-            padding: "12px 20px", 
-            backgroundColor: "#D4EDDA",
-            borderBottom: "1px solid #28A745",
-            textAlign: "center"
+        {/* ✅ Full-screen loader when unlocking features after billing approval */}
+        {showUnlockLoader && (
+          <div style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            zIndex: 99999,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "20px"
           }}>
-            <span style={{ fontWeight: 600 }}>
-              🔄 Activating your plan... Please wait.
-            </span>
+            <div style={{
+              width: "60px",
+              height: "60px",
+              border: "4px solid #E1E3E5",
+              borderTop: "4px solid #005BD3",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite"
+            }} />
+            <h2 style={{ 
+              fontSize: "24px", 
+              fontWeight: "600", 
+              color: "#202223",
+              margin: 0
+            }}>
+              Activating Your Plan
+            </h2>
+            <p style={{ 
+              fontSize: "16px", 
+              color: "#6d7175",
+              margin: 0
+            }}>
+              Unlocking features... Please wait
+            </p>
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}</style>
           </div>
         )}
         
         {/* Show banner if billing is pending approval */}
-        {isPendingApproval && !isRefreshing && (
+        {isPendingApproval && !showUnlockLoader && (
           <div style={{ 
             padding: "12px 20px", 
             backgroundColor: "#E3F2FD",
@@ -326,7 +361,7 @@ export default function App() {
         )}
         
         {/* Show banner if approaching or at limit */}
-        {usage && (isApproachingLimit || isAtLimit) && isBillingApproved && (
+        {usage && (isApproachingLimit || isAtLimit) && isBillingApproved && !showUnlockLoader && (
           <div style={{ 
             padding: "12px 20px", 
             backgroundColor: isAtLimit ? "#FED3D1" : "#FFF4E5",
