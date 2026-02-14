@@ -1,5 +1,5 @@
 // app/routes/app.jsx - WITH BLUR OVERLAY FOR LOCKED FEATURES
-import { Outlet, useLoaderData, useRouteError, useLocation } from "react-router";
+import { Outlet, useLoaderData, useRouteError, useLocation, useNavigate } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
 import { AppProvider as PolarisAppProvider, Badge } from "@shopify/polaris";
@@ -55,7 +55,7 @@ export const loader = async ({ request }) => {
 };
 
 // ✅ Blur Overlay Component for Locked Pages
-function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval }) {
+function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNavigate }) {
   return (
     <div style={{
       position: "absolute",
@@ -107,8 +107,8 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval }) {
             </>
           )}
         </p>
-        <a 
-          href="/app/subscription"
+        <button
+          onClick={() => onNavigate("/app/subscription")}
           style={{
             display: "inline-block",
             padding: "14px 32px",
@@ -119,7 +119,9 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval }) {
             fontWeight: "600",
             fontSize: "16px",
             transition: "all 0.2s ease",
-            boxShadow: "0 2px 8px rgba(0, 91, 211, 0.3)"
+            boxShadow: "0 2px 8px rgba(0, 91, 211, 0.3)",
+            border: "none",
+            cursor: "pointer"
           }}
           onMouseEnter={(e) => {
             e.target.style.backgroundColor = "#004FC4";
@@ -133,7 +135,7 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval }) {
           }}
         >
           {isPendingApproval ? "Complete Billing Approval" : "View Plans"}
-        </a>
+        </button>
       </div>
     </div>
   );
@@ -142,6 +144,7 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval }) {
 export default function App() {
   const { apiKey, usage, subscriptionStatus } = useLoaderData();
   const location = useLocation();
+  const navigate = useNavigate();
   
   // Calculate if user is approaching limit
   const isApproachingLimit = usage && typeof usage.chats.percentage === 'number' && usage.chats.percentage > 80;
@@ -279,10 +282,10 @@ export default function App() {
         <div style={{ position: "relative", minHeight: "100vh" }}>
           {/* Render the actual page content - it will be visible but blurred */}
           <div style={{ 
-            filter: isPageLocked ? "blur(8px)" : "none",
+            filter: isPageLocked ? "blur(4px)" : "none",
             pointerEvents: isPageLocked ? "none" : "auto",
             userSelect: isPageLocked ? "none" : "auto",
-            opacity: isPageLocked ? "0.6" : "1",
+            opacity: isPageLocked ? "0.5" : "1",
             transition: "filter 0.3s ease, opacity 0.3s ease"
           }}>
             <Outlet />
@@ -294,6 +297,7 @@ export default function App() {
               requiredPlan={requiredPlan} 
               currentPlan={usage?.plan || "FREE"}
               isPendingApproval={isPendingApproval}
+              onNavigate={navigate}
             />
           )}
         </div>
