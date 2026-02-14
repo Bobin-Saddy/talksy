@@ -63,7 +63,7 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNav
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: "rgba(255, 255, 255, 0.85)",
+      // backgroundColor: "rgba(255, 255, 255, 0.85)",
       zIndex: 9999,
       display: "flex",
       alignItems: "center",
@@ -196,7 +196,8 @@ export default function App() {
   // ✅ Check if we're loading after billing approval
   const params = new URLSearchParams(location.search);
   const isBillingComplete = params.get('billing') === 'complete';
-  const isRefreshing = revalidator.state === 'loading' && isBillingComplete;
+  // No need for loading state since we do instant reload
+  const isRefreshing = false; // Disabled since we're doing instant redirect
 
   // ✅ Auto-refresh data when coming back from subscription page
   useEffect(() => {
@@ -213,17 +214,10 @@ export default function App() {
       console.log("Can Customize Widget:", canCustomizeWidget);
       console.log("========================================");
       
-      // Immediately revalidate
-      console.log("🔄 Step 1: Calling revalidator.revalidate()...");
-      revalidator.revalidate();
-      
-      // Force full page reload after short delay to ensure fresh data
-      setTimeout(() => {
-        console.log("🔄 Step 2: Force reload for immediate unlock");
-        console.log("Clearing URL parameters and reloading...");
-        const cleanUrl = window.location.pathname;
-        window.location.href = cleanUrl;
-      }, 1000); // Increased to 2 seconds for better revalidation
+      // ✅ IMMEDIATE reload - no delay!
+      console.log("🚀 IMMEDIATE RELOAD - No waiting!");
+      const cleanUrl = window.location.pathname;
+      window.location.href = cleanUrl;
     }
   }, [location.search, revalidator, usage, subscriptionStatus, isPaidPlan, canManageFAQs, canCustomizeWidget]);
 

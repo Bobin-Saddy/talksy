@@ -167,10 +167,9 @@ export default function SubscriptionConfirm() {
 
   useEffect(() => {
     if (data?.redirect) {
-      // Small delay to ensure state is updated
-      setTimeout(() => {
-        navigate(data.redirect);
-      }, 500);
+      // ✅ INSTANT redirect - no delay!
+      console.log("🚀 Instant redirect to:", data.redirect);
+      navigate(data.redirect);
     }
   }, [data, navigate]);
 
@@ -204,8 +203,8 @@ export default function SubscriptionConfirm() {
         ) : (
           <>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>✅</div>
-            <h2 style={{ color: '#10b981', marginBottom: '8px' }}>Processing Subscription</h2>
-            <p style={{ color: '#6b7280' }}>Please wait while we confirm your subscription...</p>
+            <h2 style={{ color: '#10b981', marginBottom: '8px' }}>Activating Plan...</h2>
+            <p style={{ color: '#6b7280' }}>Please wait...</p>
           </>
         )}
       </div>
