@@ -156,8 +156,8 @@ export default function NeuralChatAdmin() {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        // ✅ Construct clean URL - always use /app/chat/admin
-        const apiUrl = '/app/chat/admin';
+        // ✅ Use dedicated polling endpoint instead of admin page
+        const apiUrl = '/app/chat/poll';
         
         console.log("🔄 Polling sessions from:", apiUrl);
         
@@ -183,6 +183,11 @@ export default function NeuralChatAdmin() {
         }
         
         const data = await res.json();
+        
+        console.log("✅ Received sessions update:", {
+          count: data.sessions?.length || 0,
+          timestamp: data.timestamp
+        });
         
         if (!data.sessions || !data.planLimit) {
           console.warn("⚠️ Invalid response structure:", data);
