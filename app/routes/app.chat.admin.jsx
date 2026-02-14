@@ -156,11 +156,20 @@ export default function NeuralChatAdmin() {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(window.location.pathname, {
+        // ✅ Construct clean URL - always use /app/chat/admin
+        const apiUrl = '/app/chat/admin';
+        
+        const res = await fetch(apiUrl, {
           headers: {
             'Accept': 'application/json'
           }
         });
+        
+        if (!res.ok) {
+          console.error("❌ Session refresh failed with status:", res.status);
+          return;
+        }
+        
         const data = await res.json();
         
         if (data.sessions && data.planLimit) {
@@ -178,6 +187,16 @@ export default function NeuralChatAdmin() {
           // ✅ CRITICAL FIX: Always create new array reference to force re-render
           setSessions([...data.sessions]);
           setPlanLimit({...data.planLimit});
+          
+          // ✅ Update active session if it was updated on server
+          if (activeSession) {
+            const updatedActiveSession = data.sessions.find(s => s.sessionId === activeSession.sessionId);
+            if (updatedActiveSession && 
+                new Date(updatedActiveSession.updatedAt) > new Date(activeSession.updatedAt)) {
+              console.log("🔄 Active session updated:", updatedActiveSession.email);
+              setActiveSession({...updatedActiveSession});
+            }
+          }
           
           // ✅ Handle new sessions notification
           if (newSessions.length > 0) {
@@ -211,12 +230,12 @@ export default function NeuralChatAdmin() {
           lastSessionCountRef.current = data.sessions.length;
         }
       } catch (e) {
-        console.error("Session refresh failed:", e);
+        console.error("❌ Session refresh failed:", e);
       }
     }, 1500);
     
     return () => clearInterval(interval);
-  }, [sessions]); // Keep dependency to detect changes
+  }, [sessions, activeSession]); // ✅ Added activeSession dependency
 
   const filteredSessions = useMemo(() => {
     let filtered = sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -258,36 +277,59 @@ export default function NeuralChatAdmin() {
     }
   };
 
+  // ✅ FIXED: Real-time message polling - shows new messages instantly
   useEffect(() => {
     if (!activeSession) return;
+    
     const interval = setInterval(async () => {
       try {
         const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId);
+        
+        if (!res.ok) {
+          console.error("❌ Failed to fetch messages:", res.status);
+          return;
+        }
+        
         const data = await res.json();
         
-        if (data.length !== messages.length || 
-            (data.length > 0 && data[data.length - 1].id !== lastMessageIdRef.current)) {
+        // ✅ Check if there are new messages or updates
+        const hasNewMessages = data.length !== messages.length;
+        const hasUpdatedMessages = data.length > 0 && 
+                                   messages.length > 0 &&
+                                   data[data.length - 1].id !== lastMessageIdRef.current;
+        
+        if (hasNewMessages || hasUpdatedMessages) {
+          console.log("📨 Messages updated:", {
+            oldCount: messages.length,
+            newCount: data.length,
+            newMessages: data.length - messages.length
+          });
           
           const latestServerMsg = data[data.length - 1];
           
+          // ✅ Notify if new message from user (not first load)
           if (latestServerMsg && 
               latestServerMsg.sender === "user" && 
               latestServerMsg.id !== lastMessageIdRef.current &&
               !isFirstLoadRef.current) {
+            console.log("🔔 New user message received!");
             notifyNewMessage(activeSession, latestServerMsg);
           }
           
-          setMessages(data);
+          // ✅ CRITICAL: Always create new array to force re-render
+          setMessages([...data]);
+          
           if (data.length > 0) {
             lastMessageIdRef.current = data[data.length - 1].id;
           }
         }
       } catch (err) {
-        console.error("Message polling error", err);
+        console.error("❌ Message polling error:", err);
       }
-    }, 1500);
+    }, 1500); // Poll every 1.5 seconds
+    
     return () => clearInterval(interval);
-  }, [activeSession, messages.length]);
+  }, [activeSession, messages]);
 
   const loadChat = async (session) => {
     if (session.shouldBlur) {
