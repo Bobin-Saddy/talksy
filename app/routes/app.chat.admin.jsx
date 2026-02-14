@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData, useFetcher } from "react-router";
+import { useLoaderData, useFetcher, useNavigate } from "react-router";
 import { useState, useEffect, useRef, useMemo } from "react";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
@@ -33,7 +33,6 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   if (!shop) throw new Response("Unauthorized", { status: 401 });
 
-  // ✅ FETCH ALL SESSIONS WITH INDEX - ORDERED BY CREATION TIME
   const sessions = await prisma.chatSession.findMany({
     where: { shop: shop },
     include: {
@@ -45,15 +44,11 @@ export const loader = async ({ request }) => {
     orderBy: { createdAt: "asc" }
   });
 
-  // ✅ GET PLAN LIMITS
   const chatLimit = await canCreateChat(shop);
 
-  // ✅ CHECK BLUR STATUS FOR EACH SESSION
   const sessionsWithLimitInfo = await Promise.all(
     sessions.map(async (session, index) => {
       const isOverLimit = chatLimit.max > 0 && index >= chatLimit.max;
-      
-      // ✅ Check if chat should be blurred based on retention policy
       const blurInfo = await shouldBlurChat(shop, session.createdAt);
       
       return {
@@ -68,7 +63,6 @@ export const loader = async ({ request }) => {
     })
   );
 
-  // ✅ Sort by updated time for display (but isOverLimit is already set)
   sessionsWithLimitInfo.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
   return json({ 
@@ -121,6 +115,7 @@ export const action = async ({ request }) => {
 
 export default function NeuralChatAdmin() {
   const { sessions: initialSessions, currentShop, planLimit: initialPlanLimit } = useLoaderData();
+  const navigate = useNavigate(); // ✅ ADD navigate hook
   const [sessions, setSessions] = useState(initialSessions);
   const [planLimit, setPlanLimit] = useState(initialPlanLimit);
   const [activeSession, setActiveSession] = useState(null);
@@ -133,7 +128,7 @@ export default function NeuralChatAdmin() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [filterStatus, setFilterStatus] = useState("all");
-  const [showBlurPopup, setShowBlurPopup] = useState(false); // ✅ NEW: Blur popup state
+  const [showBlurPopup, setShowBlurPopup] = useState(false);
 
   const fetcher = useFetcher();
   const scrollRef = useRef(null);
@@ -145,6 +140,11 @@ export default function NeuralChatAdmin() {
 
   const emojis = ["😊", "👍", "❤️", "🙌", "✨", "🔥", "✅", "🤔", "💡", "🚀", "👋", "🙏", "🎉"];
 
+  // ✅ NAVIGATE TO SUBSCRIPTION FUNCTION
+  const goToSubscription = () => {
+    navigate("/app/subscription");
+  };
+
   useEffect(() => {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
     if ("Notification" in window && Notification.permission === "default") {
@@ -152,7 +152,6 @@ export default function NeuralChatAdmin() {
     }
   }, []);
 
-  // ✅ REAL-TIME SESSION UPDATES
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -217,7 +216,6 @@ export default function NeuralChatAdmin() {
     return () => clearInterval(interval);
   }, [sessions]);
 
-  // ✅ FILTER SESSIONS
   const filteredSessions = useMemo(() => {
     let filtered = sessions.filter(s => s.email?.toLowerCase().includes(searchTerm.toLowerCase()));
     
@@ -236,11 +234,9 @@ export default function NeuralChatAdmin() {
     return filtered;
   }, [sessions, searchTerm, filterStatus]);
 
-  // ✅ CHECK IF ACTIVE SESSION IS OVER LIMIT OR BLURRED
   const isActiveSessionOverLimit = activeSession?.isOverLimit === true;
   const isActiveSessionBlurred = activeSession?.shouldBlur === true;
 
-  // ✅ COUNT SESSIONS FOR TABS
   const withinLimitSessions = sessions.filter(s => s.isOverLimit !== true);
   const overLimitSessions = sessions.filter(s => s.isOverLimit === true);
 
@@ -260,7 +256,6 @@ export default function NeuralChatAdmin() {
     }
   };
 
-  // ✅ POLL ACTIVE CHAT MESSAGES
   useEffect(() => {
     if (!activeSession) return;
     const interval = setInterval(async () => {
@@ -292,9 +287,7 @@ export default function NeuralChatAdmin() {
     return () => clearInterval(interval);
   }, [activeSession, messages.length]);
 
-  // ✅ LOAD CHAT - WITH BLUR CHECK
   const loadChat = async (session) => {
-    // ✅ If chat is blurred, show popup instead of loading
     if (session.shouldBlur) {
       setShowBlurPopup(true);
       return;
@@ -440,7 +433,6 @@ export default function NeuralChatAdmin() {
               position: 'relative'
             }}
           >
-            {/* Close button */}
             <button
               onClick={() => setShowBlurPopup(false)}
               style={{
@@ -460,7 +452,6 @@ export default function NeuralChatAdmin() {
               <Icons.X size={20} color="#9ca3af" />
             </button>
 
-            {/* Icon */}
             <div style={{ 
               width: '80px', 
               height: '80px', 
@@ -475,7 +466,6 @@ export default function NeuralChatAdmin() {
               <Icons.EyeOff />
             </div>
 
-            {/* Title */}
             <h2 style={{ 
               fontSize: '24px', 
               fontWeight: '700', 
@@ -486,7 +476,6 @@ export default function NeuralChatAdmin() {
               Chat History Expired
             </h2>
 
-            {/* Description */}
             <p style={{ 
               fontSize: '15px', 
               color: '#6b7280', 
@@ -498,7 +487,6 @@ export default function NeuralChatAdmin() {
               Upgrade to <strong>Standard</strong> or <strong>Premium</strong> to access full chat history.
             </p>
 
-            {/* Features */}
             <div style={{ 
               background: '#f9fafb', 
               borderRadius: '12px', 
@@ -563,7 +551,6 @@ export default function NeuralChatAdmin() {
               </div>
             </div>
 
-            {/* Buttons */}
             <div style={{ display: 'flex', gap: '12px' }}>
               <button 
                 onClick={() => setShowBlurPopup(false)}
@@ -585,7 +572,7 @@ export default function NeuralChatAdmin() {
                 Maybe Later
               </button>
               <button 
-                onClick={() => window.location.href = '/app/subscription'}
+                onClick={goToSubscription} // ✅ FIXED
                 style={{ 
                   flex: 1,
                   padding: '14px 20px', 
@@ -647,7 +634,7 @@ export default function NeuralChatAdmin() {
               {planLimit.overLimitBy} customer{planLimit.overLimitBy !== 1 ? 's' : ''} waiting. Check the "Requests" tab.
             </div>
             <button 
-              onClick={() => window.location.href = '/app/subscription'}
+              onClick={goToSubscription} // ✅ FIXED
               style={{ 
                 marginTop: '10px', 
                 padding: '8px 14px', 
@@ -787,7 +774,7 @@ export default function NeuralChatAdmin() {
         </div>
       </div>
 
-      {/* CHAT AREA - Rest of the component remains the same */}
+      {/* CHAT AREA */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
         {activeSession ? (
           <>
@@ -873,7 +860,7 @@ export default function NeuralChatAdmin() {
 
               {isActiveSessionOverLimit && (
                 <button 
-                  onClick={() => window.location.href = '/app/subscription'}
+                  onClick={goToSubscription} // ✅ FIXED
                   style={{ 
                     padding: '10px 18px', 
                     borderRadius: '10px', 
@@ -964,7 +951,7 @@ export default function NeuralChatAdmin() {
                     </div>
                   </div>
                   <button 
-                    onClick={() => window.location.href = '/app/subscription'}
+                    onClick={goToSubscription} // ✅ FIXED
                     style={{ 
                       padding: '8px 16px', 
                       background: '#f59e0b', 
@@ -1014,7 +1001,7 @@ export default function NeuralChatAdmin() {
           </div>
           {(planLimit.isAtLimit || planLimit.isOverLimit) && (
             <button 
-              onClick={() => window.location.href = '/app/subscription'}
+              onClick={goToSubscription} // ✅ FIXED
               style={{ 
                 marginTop: '12px', 
                 padding: '8px 12px', 
