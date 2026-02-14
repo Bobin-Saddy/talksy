@@ -73,7 +73,7 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNav
       padding: "20px",
     }}>
       <div style={{
-        background: "rgba(255, 255, 255, 0.95)", // ✅ Semi-transparent card
+        // background: "rgba(255, 255, 255, 0.95)", // ✅ Semi-transparent card
         borderRadius: "16px",
         padding: "48px 40px",
         maxWidth: "520px",
