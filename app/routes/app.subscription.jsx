@@ -20,7 +20,7 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
 // ✅ TEST MODE TOGGLE - Set to true for testing, false for production
-const TEST_MODE = true; // ⚠️ CHANGE TO false FOR PRODUCTION
+const TEST_MODE = false; // ⚠️ CHANGE TO false FOR PRODUCTION
 
 // Plan definitions
 const PLANS = {
@@ -31,7 +31,7 @@ const PLANS = {
     features: [
       "100 free user chats included",
       "Chat history available for 30 days",
-      "Search up to 100 chat users",
+    
     ],
     limits: {
       maxChats: 100,
@@ -93,10 +93,6 @@ const PLANS = {
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
-  
-  // ✅ Check if user cancelled billing
-  const url = new URL(request.url);
-  const billingStatus = url.searchParams.get('billing');
 
   // Use upsert to handle race conditions - creates if not exists, returns existing if it does
   const subscription = await prisma.subscription.upsert({
@@ -109,39 +105,6 @@ export const loader = async ({ request }) => {
       currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year for free
     },
   });
-
-  // ✅ CRITICAL FIX: If user cancelled billing AND subscription is pending, reset to FREE
-  if (billingStatus === 'cancelled' && subscription.status === 'pending_approval') {
-    console.log("🔵 User cancelled billing - resetting pending subscription to FREE");
-    await prisma.subscription.update({
-      where: { shop },
-      data: {
-        plan: "FREE",
-        status: "active",
-        billingId: null,
-      },
-    });
-    
-    // Re-fetch updated subscription
-    const updatedSubscription = await prisma.subscription.findUnique({
-      where: { shop },
-    });
-    
-    // Get usage stats
-    const chatCount = await prisma.chatSession.count({
-      where: { shop },
-    }).catch(() => 0);
-    
-    return json({
-      shop,
-      currentPlan: "FREE",
-      actualPlan: "FREE",
-      subscription: updatedSubscription,
-      chatCount,
-      plans: PLANS,
-      testMode: TEST_MODE,
-    });
-  }
 
   // Get usage stats
   const chatCount = await prisma.chatSession.count({
@@ -339,12 +302,6 @@ export default function Subscription() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // ✅ Get success/error messages from URL - DECLARE THESE FIRST
-  const success = searchParams.get('success');
-  const error = searchParams.get('error');
-  const upgradedPlan = searchParams.get('plan');
-  const billingStatus = searchParams.get('billing');
-
   // ✅ Handle App Bridge redirect for billing confirmation
   useEffect(() => {
     if (actionData?.confirmationUrl && actionData?.redirect) {
@@ -354,16 +311,13 @@ export default function Subscription() {
     }
   }, [actionData]);
 
-  // ✅ Auto-dismiss cancelled banner after 3 seconds and clean URL
-  useEffect(() => {
-    if (billingStatus === 'cancelled') {
-      const timer = setTimeout(() => {
-        navigate('/app/subscription', { replace: true });
-      }, 3000); // 3 seconds
-      
-      return () => clearTimeout(timer);
-    }
-  }, [billingStatus, navigate]);
+  // Get success/error messages from URL
+  const success = searchParams.get('success');
+  const error = searchParams.get('error');
+  const upgradedPlan = searchParams.get('plan');
+  
+  // ✅ Check if user came back without approving billing
+  const billingStatus = searchParams.get('billing');
 
   const currentPlanConfig = PLANS[currentPlan];
   const usagePercentage = currentPlanConfig.limits.maxChats > 0 

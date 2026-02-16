@@ -338,7 +338,7 @@ export default function SearchAnalytics() {
         {/* HEADER */}
         <div style={styles.header}>
           <div>
-            <h1 style={styles.title}>🔍 Widget Search Analytics</h1>
+            <h1 style={styles.title}></h1>
             <p style={styles.subtitle}>
               Track what users are searching for on your store
             </p>
