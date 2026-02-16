@@ -17,7 +17,7 @@ const Icons = {
   FileText: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>,
   CheckCircle: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
   AlertCircle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
-  RotateCcw: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 0 1 0 2.13-9.36L1 10"></path></svg>,
+  RotateCcw: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>,
   Check: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
   TrendingUp: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
   AlertTriangle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
@@ -557,7 +557,7 @@ export default function NeuralChatAdmin() {
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb', color: '#111827', fontFamily: '"Inter", system-ui, sans-serif' }}>
       
-      {/* ✅ BLUR UPGRADE POPUP - UPDATED WITH CORRECT PLAN DETAILS */}
+      {/* ✅ BLUR UPGRADE POPUP */}
       {showBlurPopup && (
         <div 
           onClick={() => setShowBlurPopup(false)} 
@@ -638,8 +638,8 @@ export default function NeuralChatAdmin() {
               lineHeight: '1.6',
               marginBottom: '24px'
             }}>
-              This chat is older than your <strong>FREE plan</strong> retention period (30 days). 
-              Upgrade to <strong>Standard</strong> (6 months) or <strong>Premium</strong> (unlimited) to access full chat history.
+              This chat is older than your <strong>FREE plan</strong> retention period (2 minutes). 
+              Upgrade to <strong>Standard</strong> or <strong>Premium</strong> to access full chat history.
             </p>
 
             <div style={{ 
@@ -666,7 +666,7 @@ export default function NeuralChatAdmin() {
                     <Icons.Check />
                   </div>
                   <span style={{ fontSize: '14px', color: '#111827' }}>
-                    <strong>Standard:</strong> 6 months (180 days) chat history
+                    <strong>Standard:</strong> 180 days chat history
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -683,7 +683,7 @@ export default function NeuralChatAdmin() {
                     <Icons.Check />
                   </div>
                   <span style={{ fontSize: '14px', color: '#111827' }}>
-                    <strong>Premium:</strong> Unlimited chat history (never expires)
+                    <strong>Premium:</strong> Unlimited chat history
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -700,7 +700,7 @@ export default function NeuralChatAdmin() {
                     <Icons.Check />
                   </div>
                   <span style={{ fontSize: '14px', color: '#111827' }}>
-                    Access to advanced features & more users
+                    Access to advanced features
                   </span>
                 </div>
               </div>
@@ -929,9 +929,340 @@ export default function NeuralChatAdmin() {
         </div>
       </div>
 
-      {/* CHAT AREA - Rest of the component remains the same... */}
-      {/* (Content continues with the same structure as the original file) */}
-      
+      {/* CHAT AREA */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
+        {activeSession ? (
+          <>
+            <div style={{ padding: '20px 32px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isActiveSessionBlurred ? '#fef3c7' : (isActiveSessionOverLimit ? '#fef3c7' : '#fff') }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <h3 style={{ margin: 0, fontWeight: '700', fontSize: '18px', color: '#111827' }}>{activeSession.email}</h3>
+                  {isActiveSessionBlurred && (
+                    <div style={{ background: '#ef4444', color: 'white', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Icons.EyeOff />
+                      Expired
+                    </div>
+                  )}
+                  {isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                    <div style={{ background: '#f59e0b', color: 'white', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Icons.Lock />
+                      Over Limit
+                    </div>
+                  )}
+                  {activeSession.isResolved && !isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                    <div style={{ background: '#d1fae5', color: '#065f46', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Icons.Check />
+                      Resolved
+                    </div>
+                  )}
+                </div>
+                {isActiveSessionBlurred && (
+                  <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px', fontWeight: '500' }}>
+                    Chat expired - {activeSession.blurReason || 'older than retention period'}
+                  </div>
+                )}
+                {isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                  <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px', fontWeight: '500' }}>
+                    This chat is over your plan limit. Upgrade to respond.
+                  </div>
+                )}
+                {activeSession.resolvedAt && !isActiveSessionOverLimit && !isActiveSessionBlurred && (
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                    Resolved on {new Date(activeSession.resolvedAt).toLocaleDateString()}
+                  </div>
+                )}
+              </div>
+              
+              {isActiveSessionBlurred ? (
+                <button 
+                  onClick={goToSubscription}
+                  style={{ 
+                    padding: '10px 18px', 
+                    borderRadius: '10px', 
+                    border: 'none', 
+                    background: '#ef4444',
+                    color: '#fff',
+                    fontWeight: '600',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Icons.Zap />
+                  Upgrade to View
+                </button>
+              ) : !isActiveSessionOverLimit && !activeSession.isResolved ? (
+                <button 
+                  onClick={handleMarkResolved}
+                  style={{ 
+                    padding: '10px 18px', 
+                    borderRadius: '10px', 
+                    border: 'none', 
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: '#fff',
+                    fontWeight: '600',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  <Icons.CheckCircle />
+                  Mark as Resolved
+                </button>
+              ) : !isActiveSessionOverLimit && activeSession.isResolved ? (
+                <button 
+                  onClick={handleReopenChat}
+                  style={{ 
+                    padding: '10px 18px', 
+                    borderRadius: '10px', 
+                    border: '2px solid #f59e0b', 
+                    background: '#fff',
+                    color: '#f59e0b',
+                    fontWeight: '600',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#fffbeb'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
+                >
+                  <Icons.RotateCcw />
+                  Reopen Chat
+                </button>
+              ) : isActiveSessionOverLimit ? (
+                <button 
+                  onClick={goToSubscription}
+                  style={{ 
+                    padding: '10px 18px', 
+                    borderRadius: '10px', 
+                    border: 'none', 
+                    background: '#f59e0b',
+                    color: '#fff',
+                    fontWeight: '600',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Icons.TrendingUp />
+                  Upgrade Plan
+                </button>
+              ) : null}
+            </div>
+
+            <div ref={scrollRef} style={{ flex: 1, padding: '32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', background: '#f9fafb', position: 'relative', filter: isActiveSessionBlurred ? 'blur(4px)' : 'none', pointerEvents: isActiveSessionBlurred ? 'none' : 'auto', userSelect: isActiveSessionBlurred ? 'none' : 'auto', opacity: isActiveSessionBlurred ? 0.5 : 1 }}>
+              {messages.map((msg, i) => (
+                <div key={msg.id || i} style={{ alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '65%' }}>
+                  <div style={{ padding: '12px 16px', borderRadius: '16px', background: msg.sender === 'admin' ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : (msg.sender === 'bot' ? '#fef3c7' : '#fff'), color: msg.sender === 'admin' ? '#fff' : '#111827', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: msg.sender === 'admin' ? 'none' : (msg.sender === 'bot' ? '1px solid #fbbf24' : '1px solid #e5e7eb') }}>
+                    {msg.fileUrl ? (
+                      msg.fileUrl.includes('image') || msg.fileUrl.startsWith('data:image') ? 
+                      <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth: '280px', borderRadius: '10px', cursor: 'zoom-in' }} alt="attachment" /> :
+                      <div style={{display:'flex', gap:'8px', alignItems: 'center'}}><Icons.FileText /><a href={msg.fileUrl} target="_blank" rel="noreferrer" style={{color: 'inherit', fontWeight: '600', textDecoration: 'none'}}>View Document</a></div>
+                    ) : (
+                      <div style={{ fontSize: '14px', lineHeight: '1.5' }}>{msg.message}</div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', textAlign: msg.sender === 'admin' ? 'right' : 'left' }}>
+                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filePreview && !isActiveSessionOverLimit && (
+              <div style={{ padding: '12px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ position: 'relative' }}>
+                  {filePreview.type.includes('image') ? (
+                     <img src={filePreview.url} style={{ height: '50px', width:'50px', objectFit:'cover', borderRadius: '8px', border: '1px solid #e5e7eb' }} alt="preview" />
+                  ) : (
+                    <div style={{height:'50px', width:'50px', background:'#f3f4f6', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'8px'}}><Icons.FileText /></div>
+                  )}
+                  <button onClick={() => setFilePreview(null)} style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', borderRadius: '50%', border: 'none', cursor: 'pointer', padding: '4px', display:'flex' }}><Icons.X size={12} color="white" /></button>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#111827' }}>{filePreview.name}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>Ready to send</div>
+                </div>
+              </div>
+            )}
+
+            {!isActiveSessionOverLimit && !isActiveSessionBlurred ? (
+              <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid #e5e7eb', position: 'relative' }}>
+                {showEmojiPicker && (
+                  <div style={{ position: 'absolute', bottom: '80px', left: '32px', background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', zIndex: 10 }}>
+                    {emojis.map(e => (
+                      <button key={e} onClick={() => addEmoji(e)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', padding: '6px', borderRadius: '8px', transition: 'all 0.2s' }} onMouseEnter={(e) => e.target.style.background = '#f3f4f6'} onMouseLeave={(e) => e.target.style.background = 'none'}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', background: '#f9fafb', borderRadius: '12px', padding: '6px 8px', border: '1px solid #e5e7eb' }}>
+                  <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} accept="image/*,.pdf" />
+                  <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: showEmojiPicker ? accentColor : '#9ca3af', padding: '8px' }}><Icons.Smile /></button>
+                  <button onClick={() => fileInputRef.current.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', margin: '0 8px', color: '#9ca3af', padding: '8px' }}><Icons.Paperclip /></button>
+                  <input placeholder="Type a message..." style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '14px', color: '#111827' }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyPress={(e) => { if(e.key === 'Enter') handleReply(); }} />
+                  <button onClick={() => handleReply()} style={{ width: '40px', height: '40px', borderRadius: '10px', background: (reply.trim() || filePreview) ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : '#e5e7eb', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}><Icons.Send /></button>
+                </div>
+              </div>
+            ) : isActiveSessionBlurred ? (
+              <div style={{ padding: '20px 32px', background: '#fee2e2', borderTop: '2px solid #ef4444' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', borderRadius: '12px', border: '2px dashed #ef4444' }}>
+                  <Icons.EyeOff />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#dc2626', marginBottom: '4px' }}>
+                      Chat Expired - History Not Available
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#dc2626' }}>
+                      This chat is older than your plan's retention period. Upgrade to access full history.
+                    </div>
+                  </div>
+                  <button 
+                    onClick={goToSubscription}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#ef4444', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '8px', 
+                      fontWeight: '600', 
+                      fontSize: '12px', 
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Upgrade Now
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '20px 32px', background: '#fef3c7', borderTop: '2px solid #fbbf24' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', borderRadius: '12px', border: '2px dashed #f59e0b' }}>
+                  <Icons.Lock />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#92400e', marginBottom: '4px' }}>
+                      Chat Locked - Over Plan Limit
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#92400e' }}>
+                      Upgrade your plan to respond to this customer request
+                    </div>
+                  </div>
+                  <button 
+                    onClick={goToSubscription}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#f59e0b', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '8px', 
+                      fontWeight: '600', 
+                      fontSize: '12px', 
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Upgrade Now
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#d1d5db', gap: '16px', background: '#f9fafb' }}>
+            <Icons.User size={80} />
+            <p style={{ fontWeight: '600', fontSize: '16px', color: '#9ca3af' }}>Select a conversation to start chatting</p>
+          </div>
+        )}
+      </div>
+
+      {/* INTELLIGENCE PANEL */}
+      <div style={{ width: '320px', padding: '24px', background: '#fff', borderLeft: '1px solid #e5e7eb' }}>
+        <h4 style={{ fontSize: '11px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 20 }}>Chat Details</h4>
+        
+        <div style={{ marginBottom: '16px', padding: '16px', background: planLimit.isOverLimit ? '#fef3c7' : (planLimit.isAtLimit ? '#fee2e2' : (planLimit.isNearLimit ? '#fef3c7' : '#eff6ff')), borderRadius: '12px', border: planLimit.isOverLimit ? '1px solid #fcd34d' : (planLimit.isAtLimit ? '1px solid #fca5a5' : (planLimit.isNearLimit ? '1px solid #fcd34d' : '1px solid #bfdbfe')) }}>
+          <div style={{ fontSize: '10px', color: planLimit.isOverLimit ? '#92400e' : (planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#1e40af')), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
+            PLAN USAGE
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <Icons.TrendingUp />
+            <span style={{ fontSize: '24px', fontWeight: '800', color: planLimit.isOverLimit ? '#92400e' : (planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#1e40af')) }}>
+              {planLimit.max > 0 ? withinLimitSessions.length + "/" + planLimit.max : sessions.length}
+            </span>
+          </div>
+          <div style={{ fontSize: '11px', color: planLimit.isOverLimit ? '#92400e' : (planLimit.isAtLimit ? '#991b1b' : (planLimit.isNearLimit ? '#92400e' : '#60a5fa')) }}>
+            {planLimit.isOverLimit 
+              ? planLimit.overLimitBy + " request" + (planLimit.overLimitBy !== 1 ? 's' : '') + " in queue"
+              : planLimit.isAtLimit 
+                ? 'At limit - upgrade to continue' 
+                : planLimit.remaining + " chat" + (planLimit.remaining !== 1 ? 's' : '') + " remaining"}
+          </div>
+          {(planLimit.isAtLimit || planLimit.isOverLimit) && (
+            <button 
+              onClick={goToSubscription}
+              style={{ 
+                marginTop: '12px', 
+                padding: '8px 12px', 
+                background: planLimit.isOverLimit ? '#f59e0b' : '#dc2626', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '8px', 
+                fontWeight: '600', 
+                fontSize: '12px', 
+                cursor: 'pointer',
+                width: '100%'
+              }}
+            >
+              Upgrade Now
+            </button>
+          )}
+        </div>
+
+        {activeSession && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ padding: '16px', background: activeSession.isResolved ? '#d1fae5' : (isActiveSessionOverLimit ? '#fee2e2' : '#fef3c7'), borderRadius: '12px', border: activeSession.isResolved ? '1px solid #86efac' : (isActiveSessionOverLimit ? '1px solid #fca5a5' : '1px solid #fcd34d') }}>
+              <div style={{ fontSize: '10px', color: activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e'), fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
+                STATUS
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '15px', color: activeSession.isResolved ? '#065f46' : (isActiveSessionOverLimit ? '#991b1b' : '#92400e') }}>
+                {activeSession.isResolved ? <Icons.CheckCircle /> : (isActiveSessionOverLimit ? <Icons.Lock /> : <Icons.AlertCircle />)}
+                {activeSession.isResolved ? 'Resolved' : (isActiveSessionOverLimit ? 'Over Limit' : 'Pending')}
+              </div>
+            </div>
+
+            <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '10px', color: '#9ca3af', fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>LOCAL TIME</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600', fontSize: '14px', color: '#111827' }}>
+                <Icons.Clock /> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+
+            <div style={{ padding: '16px', background: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe' }}>
+              <div style={{ fontSize: '10px', color: '#1e40af', fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>MESSAGES</div>
+              <div style={{ fontSize: '28px', fontWeight: '800', color: '#1e40af' }}>
+                {messages.length}
+              </div>
+              <div style={{ fontSize: '11px', color: '#60a5fa', marginTop: 4 }}>Total exchanges</div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         ::-webkit-scrollbar { width: 6px; }
