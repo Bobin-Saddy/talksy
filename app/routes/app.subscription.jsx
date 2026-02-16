@@ -20,7 +20,7 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
 // ✅ TEST MODE TOGGLE - Set to true for testing, false for production
-const TEST_MODE = true; // ⚠️ CHANGE TO false FOR PRODUCTION
+const TEST_MODE = false; // ⚠️ CHANGE TO false FOR PRODUCTION
 
 // Plan definitions
 const PLANS = {
@@ -31,7 +31,7 @@ const PLANS = {
     features: [
       "100 free user chats included",
       "Chat history available for 30 days",
-      "Search up to 100 chat users",
+    
     ],
     limits: {
       maxChats: 100,

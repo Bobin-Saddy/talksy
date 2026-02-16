@@ -17,7 +17,7 @@ const Icons = {
   FileText: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>,
   CheckCircle: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
   AlertCircle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
-  RotateCcw: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>,
+  RotateCcw: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 0 1 0 2.13-9.36L1 10"></path></svg>,
   Check: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
   TrendingUp: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
   AlertTriangle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
@@ -557,7 +557,7 @@ export default function NeuralChatAdmin() {
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb', color: '#111827', fontFamily: '"Inter", system-ui, sans-serif' }}>
       
-      {/* ✅ BLUR UPGRADE POPUP */}
+      {/* ✅ BLUR UPGRADE POPUP - UPDATED WITH CORRECT PLAN DETAILS */}
       {showBlurPopup && (
         <div 
           onClick={() => setShowBlurPopup(false)} 
@@ -638,8 +638,8 @@ export default function NeuralChatAdmin() {
               lineHeight: '1.6',
               marginBottom: '24px'
             }}>
-              This chat is older than your <strong>FREE plan</strong> retention period (2 minutes). 
-              Upgrade to <strong>Standard</strong> or <strong>Premium</strong> to access full chat history.
+              This chat is older than your <strong>FREE plan</strong> retention period (30 days). 
+              Upgrade to <strong>Standard</strong> (6 months) or <strong>Premium</strong> (unlimited) to access full chat history.
             </p>
 
             <div style={{ 
@@ -666,7 +666,7 @@ export default function NeuralChatAdmin() {
                     <Icons.Check />
                   </div>
                   <span style={{ fontSize: '14px', color: '#111827' }}>
-                    <strong>Standard:</strong> 180 days chat history
+                    <strong>Standard:</strong> 6 months (180 days) chat history
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -683,7 +683,7 @@ export default function NeuralChatAdmin() {
                     <Icons.Check />
                   </div>
                   <span style={{ fontSize: '14px', color: '#111827' }}>
-                    <strong>Premium:</strong> Unlimited chat history
+                    <strong>Premium:</strong> Unlimited chat history (never expires)
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -700,7 +700,7 @@ export default function NeuralChatAdmin() {
                     <Icons.Check />
                   </div>
                   <span style={{ fontSize: '14px', color: '#111827' }}>
-                    Access to advanced features
+                    Access to advanced features & more users
                   </span>
                 </div>
               </div>
@@ -1262,7 +1262,7 @@ export default function NeuralChatAdmin() {
           </div>
         )}
       </div>
-
+      
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         ::-webkit-scrollbar { width: 6px; }
