@@ -1,14 +1,12 @@
-// app/utils/planLimits.server.js - WITH TIME-BASED CHAT BLUR + SEARCH VISIBILITY
+// app/utils/planLimits.server.js - PRODUCTION VERSION
 import prisma from "./db.server";
 
-// Plan definitions with chat retention periods
+// Plan definitions with production chat retention periods
 export const PLAN_LIMITS = {
   FREE: {
     maxChats: 2,
     maxSearchUsers: 2,
-    chatHistoryDays: 0.00139, // ✅ 2 minutes for testing (2/1440 days)
-    // chatHistoryDays: 1, // ✅ Change to 1 for 1 day
-    // chatHistoryDays: 30, // ✅ Change to 30 for production
+    chatHistoryDays: 30, // ✅ 30 days for production
     canManageFAQs: false,
     canCustomizeWidget: false,
     canCreateCustomFAQPage: false,
@@ -16,17 +14,17 @@ export const PLAN_LIMITS = {
   },
   STANDARD: {
     maxChats: 500,
-    maxSearchUsers: 500,
-    chatHistoryDays: 180, // 6 months
+    maxSearchUsers: 500, // ✅ 500 users for Standard
+    chatHistoryDays: 180, // ✅ 6 months (180 days)
     canManageFAQs: true,
     canCustomizeWidget: true,
     canCreateCustomFAQPage: false,
-    maxVisibleSearchLogs: 2, // ✅ STANDARD: only 2 search users visible → upgrade to PREMIUM
+    maxVisibleSearchLogs: 500, // ✅ STANDARD: 500 search users visible
   },
   PREMIUM: {
     maxChats: -1, // Unlimited
-    maxSearchUsers: -1,
-    chatHistoryDays: -1, // Never blur/delete
+    maxSearchUsers: -1, // Unlimited
+    chatHistoryDays: -1, // Never blur/delete - Unlimited
     canManageFAQs: true,
     canCustomizeWidget: true,
     canCreateCustomFAQPage: true,
@@ -337,21 +335,20 @@ export async function getUsageStats(shop) {
 }
 
 /* ================================================================
-   ✅ SEARCH LOG VISIBILITY — STANDARD → PREMIUM UPGRADE
+   ✅ SEARCH LOG VISIBILITY — PRODUCTION VALUES
    ================================================================
    Logic:
-   - FREE plan     → -1, no restriction, all searches visible
-   - STANDARD plan →  2, only 2 search users visible,
-                       3rd user onwards blurred → upgrade to PREMIUM
+   - FREE plan     → -1, no restriction, all searches visible (2 users max)
+   - STANDARD plan → 500, can search up to 500 users
    - PREMIUM plan  → -1, unlimited, all visible
    ================================================================ */
 
 /**
  * ✅ Get search visibility limit for a shop based on plan
  *
- * FREE     → -1  (all visible, no blur)
- * STANDARD →  2  (only 2 visible, 3rd+ blurred → Premium upsell)
- * PREMIUM  → -1  (all visible, no blur)
+ * FREE     → -1  (all visible within 2 user limit)
+ * STANDARD → 500 (can search 500 users)
+ * PREMIUM  → -1  (unlimited)
  */
 export async function getSearchVisibilityLimit(shop) {
   const { limits, plan } = await getShopLimits(shop);
@@ -362,8 +359,8 @@ export async function getSearchVisibilityLimit(shop) {
     visibleCount,
     shouldBlurAfter: visibleCount,
     plan,
-    // Only Standard plan triggers upgrade prompt (to Premium)
-    requiresUpgrade: plan === "STANDARD" && visibleCount !== -1,
+    // Standard plan users can upgrade to Premium for unlimited
+    requiresUpgrade: plan === "STANDARD" && limits.maxSearchUsers !== -1,
     upgradeTo: plan === "STANDARD" ? "PREMIUM" : null,
   };
 }
@@ -372,7 +369,7 @@ export async function getSearchVisibilityLimit(shop) {
  * ✅ Apply blur status to a list of search logs
  *
  * - visibilityLimit = -1  → all logs visible (FREE & PREMIUM)
- * - visibilityLimit =  2  → first 2 visible, index 2+ get isBlurred: true (STANDARD)
+ * - visibilityLimit = 500 → first 500 visible (STANDARD)
  *
  * @param {Array}  searchLogs       - Array of log objects from DB
  * @param {number} visibilityLimit  - Max visible count; -1 = unlimited
@@ -384,7 +381,7 @@ export function applySearchBlur(searchLogs, visibilityLimit) {
     return searchLogs.map(log => ({ ...log, isBlurred: false }));
   }
 
-  // STANDARD plan — first 2 visible, rest blurred → Premium upgrade
+  // STANDARD plan — first 500 visible, rest blurred → Premium upgrade
   return searchLogs.map((log, index) => ({
     ...log,
     isBlurred: index >= visibilityLimit,

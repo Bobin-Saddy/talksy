@@ -1,4 +1,4 @@
-// app/routes/app.subscription.jsx - FIXED VERSION
+// app/routes/app.subscription.jsx - PRODUCTION VERSION
 import { json, redirect } from "@remix-run/node";
 import { useLoaderData, useNavigate, Form, useSearchParams, useActionData } from "react-router";
 import { useEffect } from "react";
@@ -31,6 +31,7 @@ const PLANS = {
     features: [
       "2 free user chats included",
       "Chat history available for 30 days",
+      "Search up to 2 chat users",
     ],
     limits: {
       maxChats: 2,
@@ -48,6 +49,7 @@ const PLANS = {
     features: [
       "500 free user chats included",
       "Search up to 500 chat users",
+      "Chat history available for 6 months",
       "Chat widget updates for 500 users",
       "Manage FAQs for up to 500 users",
       "14-day free trial",
@@ -55,7 +57,7 @@ const PLANS = {
     limits: {
       maxChats: 500,
       maxSearchUsers: 500,
-      chatHistoryDays: 90,
+      chatHistoryDays: 180,
       canManageFAQs: true,
       canCustomizeWidget: true,
     },
@@ -69,6 +71,7 @@ const PLANS = {
     features: [
       "Unlimited users with free chat access",
       "Unlimited chat user search",
+      "Unlimited chat history retention",
       "Unlimited chat widget updates",
       "Unlimited FAQ management",
       "Customizable FAQ page creation",
