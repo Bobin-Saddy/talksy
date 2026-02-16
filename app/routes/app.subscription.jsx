@@ -339,6 +339,12 @@ export default function Subscription() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  // ✅ Get success/error messages from URL - DECLARE THESE FIRST
+  const success = searchParams.get('success');
+  const error = searchParams.get('error');
+  const upgradedPlan = searchParams.get('plan');
+  const billingStatus = searchParams.get('billing');
+
   // ✅ Handle App Bridge redirect for billing confirmation
   useEffect(() => {
     if (actionData?.confirmationUrl && actionData?.redirect) {
@@ -358,14 +364,6 @@ export default function Subscription() {
       return () => clearTimeout(timer);
     }
   }, [billingStatus, navigate]);
-
-  // Get success/error messages from URL
-  const success = searchParams.get('success');
-  const error = searchParams.get('error');
-  const upgradedPlan = searchParams.get('plan');
-  
-  // ✅ Check if user came back without approving billing
-  const billingStatus = searchParams.get('billing');
 
   const currentPlanConfig = PLANS[currentPlan];
   const usagePercentage = currentPlanConfig.limits.maxChats > 0 
