@@ -1,7 +1,18 @@
-// app/routes/app.chat.message.jsx - IMPROVED WITH INSTANT SESSION UPDATE
+// ═══════════════════════════════════════════════════════════
+//  FILE: app/routes/app.chat.message.jsx   ← .JSX FILE
+//  PATH: Remix app → app/routes/app.chat.message.jsx
+//  CHANGES FROM ORIGINAL: 
+//    - sendPushToAdmin() call added after user message saved
+//    - BACKEND_URL constant added at top
+//    - Baaki sab original code same hai
+// ═══════════════════════════════════════════════════════════
+
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { canCreateChat } from "../planLimits.server";
+
+// ✅ NEW: Railway backend URL (push notification ke liye)
+const BACKEND_URL = "https://talksy-production-5d43.up.railway.app";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +22,26 @@ const corsHeaders = {
 
 export const loader = () => json({}, { headers: corsHeaders });
 
+// ✅ NEW: Helper — Admin ko push notification bhejo (Railway backend se)
+async function sendPushToAdmin(shop, { title, body, url }) {
+  try {
+    const response = await fetch(`${BACKEND_URL}/app/push/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shop, title, body, url }),
+    });
+
+    if (!response.ok) {
+      console.warn("⚠️ Push notification failed:", response.status);
+    } else {
+      console.log("🔔 Push sent to admin for shop:", shop);
+    }
+  } catch (err) {
+    // Push fail hone se message delivery block nahi hogi
+    console.error("❌ Push notification error (non-blocking):", err.message);
+  }
+}
+
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -19,35 +50,38 @@ export const action = async ({ request }) => {
   try {
     const body = await request.json();
     const { sessionId, message, fileUrl, shop, email } = body;
-    
-    // ✅ FIX: Always default sender to "user" if not provided or invalid
-    const sender = (body.sender === "admin" || body.sender === "bot") 
-      ? body.sender 
+
+    // ✅ Always default sender to "user" if not provided or invalid
+    const sender = (body.sender === "admin" || body.sender === "bot")
+      ? body.sender
       : "user";
 
-    console.log("📨 Message received:", { 
-      sessionId, 
+    // fname — push notification title ke liye
+    const fname = body.fname || body.firstName || null;
+
+    console.log("📨 Message received:", {
+      sessionId,
       sender,
-      shop, 
-      messageLength: message?.length 
+      shop,
+      messageLength: message?.length,
     });
 
-    // ✅ Validate required parameters
+    // Validate required parameters
     if (!shop) {
       return json(
-        { error: "Shop parameter is required" }, 
+        { error: "Shop parameter is required" },
         { status: 400, headers: corsHeaders }
       );
     }
 
     if (!sessionId) {
       return json(
-        { error: "Session ID is required" }, 
+        { error: "Session ID is required" },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    // ✅ Check if session already exists
+    // Check if session already exists
     const existingSession = await prisma.chatSession.findUnique({
       where: { sessionId },
       select: {
@@ -56,51 +90,47 @@ export const action = async ({ request }) => {
         shop: true,
         email: true,
         isResolved: true,
-        _count: {
-          select: { messages: true }
-        }
-      }
+        _count: { select: { messages: true } },
+      },
     });
 
     const isNewChat = !existingSession;
 
-    // ✅ CHECK PLAN LIMITS ONLY FOR NEW CHATS FROM USERS
+    // CHECK PLAN LIMITS ONLY FOR NEW CHATS FROM USERS
     let chatLimit = { allowed: true, current: 0, max: 0, remaining: 0 };
     let limitReached = false;
 
     if (isNewChat && sender === "user") {
       chatLimit = await canCreateChat(shop);
       limitReached = !chatLimit.allowed;
-      
+
       console.log(`📊 Plan check for ${shop}:`, {
         isNewChat,
         current: chatLimit.current,
         max: chatLimit.max,
         allowed: chatLimit.allowed,
-        limitReached
+        limitReached,
       });
     }
 
-    // ✅ CRITICAL FIX: Use transaction to ensure updatedAt is updated
+    // Use transaction to ensure updatedAt is updated
     const result = await prisma.$transaction(async (tx) => {
-      // ✅ ALWAYS CREATE/UPDATE THE SESSION with updatedAt = now()
       const chatSession = await tx.chatSession.upsert({
         where: { sessionId },
         update: {
-          updatedAt: new Date(), // ✅ Force update timestamp for instant admin detection
+          updatedAt: new Date(),
           ...(email ? { email } : {}),
         },
         create: {
           sessionId,
           shop,
           email: email || "customer@email.com",
-          firstName: email ? email.split('@')[0] : "Customer",
+          firstName: email ? email.split("@")[0] : "Customer",
           isResolved: false,
-          updatedAt: new Date(), // ✅ Set timestamp on creation too
+          updatedAt: new Date(),
         },
       });
 
-      // ✅ ALWAYS SAVE THE MESSAGE
       const newMessage = await tx.chatMessage.create({
         data: {
           message: message || "",
@@ -112,16 +142,35 @@ export const action = async ({ request }) => {
         },
       });
 
-      console.log(`✅ Message saved: ID=${newMessage.id}, Sender=${sender}, Session=${sessionId}`);
+      console.log(
+        `✅ Message saved: ID=${newMessage.id}, Sender=${sender}, Session=${sessionId}`
+      );
 
       return { chatSession, newMessage };
     });
 
-    // ✅ IF LIMIT REACHED ON NEW CHAT, SEND AUTO-REPLY FROM BOT
+    // ✅ NEW: PUSH NOTIFICATION — sirf user messages pe admin ko notify karo
+    if (sender === "user" && message && message.trim()) {
+      const shopDomain = shop.replace(".myshopify.com", "");
+      const displayName = fname || (email ? email.split("@")[0] : "Customer");
+      const msgPreview =
+        message.length > 100 ? message.substring(0, 100) + "…" : message;
+
+      // Non-blocking — await nahi karte taaki response fast rahe
+      sendPushToAdmin(shop, {
+        title: `💬 ${displayName} ne message kiya`,
+        body: msgPreview,
+        url: `https://admin.shopify.com/store/${shopDomain}/apps/talksy`,
+      });
+    }
+
+    // IF LIMIT REACHED ON NEW CHAT, SEND AUTO-REPLY FROM BOT
     if (limitReached) {
       const botReply = await prisma.chatMessage.create({
         data: {
-          message: `Thank you for contacting us! We've reached our chat capacity on our current plan. Our team will respond to you via email at ${email || 'your registered email'} as soon as possible.`,
+          message: `Thank you for contacting us! We've reached our chat capacity on our current plan. Our team will respond to you via email at ${
+            email || "your registered email"
+          } as soon as possible.`,
           sender: "bot",
           session: {
             connect: { sessionId: result.chatSession.sessionId },
@@ -129,16 +178,17 @@ export const action = async ({ request }) => {
         },
       });
 
-      // ✅ Update session timestamp again after bot reply
       await prisma.chatSession.update({
         where: { sessionId },
-        data: { updatedAt: new Date() }
+        data: { updatedAt: new Date() },
       });
 
-      console.log(`⚠️ LIMIT REACHED for ${shop}: ${chatLimit.current + 1}/${chatLimit.max} - Auto-reply sent`);
+      console.log(
+        `⚠️ LIMIT REACHED for ${shop}: ${chatLimit.current + 1}/${chatLimit.max} - Auto-reply sent`
+      );
 
       return json(
-        { 
+        {
           success: true,
           newMessage: result.newMessage,
           botReply,
@@ -148,33 +198,35 @@ export const action = async ({ request }) => {
             max: chatLimit.max,
             remaining: 0,
           },
-        }, 
+        },
         { headers: corsHeaders }
       );
     }
 
-    // ✅ NORMAL RESPONSE
+    // NORMAL RESPONSE
     return json(
-      { 
-        success: true, 
+      {
+        success: true,
         newMessage: result.newMessage,
         limitReached: false,
         usage: {
           current: chatLimit.current + (isNewChat ? 1 : 0),
           max: chatLimit.max || 0,
-          remaining: isNewChat ? (chatLimit.remaining - 1) : chatLimit.remaining,
+          remaining: isNewChat
+            ? chatLimit.remaining - 1
+            : chatLimit.remaining,
         },
-      }, 
+      },
       { headers: corsHeaders }
     );
-
   } catch (error) {
     console.error("❌ Message Error:", error);
     return json(
-      { 
+      {
         error: error.message,
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      }, 
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      },
       { status: 500, headers: corsHeaders }
     );
   }

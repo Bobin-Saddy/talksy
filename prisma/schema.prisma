@@ -304,3 +304,15 @@ model Subscription {
   updatedAt         DateTime  @updatedAt
     @@index([shop])
 }
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  shop      String
+  endpoint  String   @unique        // Browser push endpoint URL
+  p256dh    String                  // Browser public encryption key
+  auth      String                  // Browser auth secret
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop])
+}
