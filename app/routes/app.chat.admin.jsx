@@ -1,7 +1,12 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.chat.admin.jsx
-//  CHANGES: Firebase FCM push notifications added
-//  SEARCH: "🔥 FCM" to find all new additions
+//  CHANGES: Firebase FCM push notifications added + fixed
+//  FIXES:
+//    1. Removed duplicate Notification.requestPermission() call
+//    2. Added fcmInitRef guard to prevent multiple FCM setups
+//    3. Added notifBlocked state + UI banner for denied permission
+//    4. Fixed SW scope conflict between /sw.js and firebase-messaging-sw.js
+//  SEARCH: "🔥 FCM" to find all FCM additions
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -28,7 +33,7 @@ const FIREBASE_CONFIG = {
 };
 const FIREBASE_VAPID_KEY = "BJzrkyA1gwJTL7auMx6y0RHjv34mSPzm6FpY5twRsMuuE54l0nL4cl4UUltGcgqO5cNGcJjWEugjyZFkkfTI1AE";
 
-// ─── Existing push helpers (rakho as-is) ──────────────────
+// ─── Existing push helpers (VAPID) ────────────────────────
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -41,15 +46,11 @@ async function subscribeToPush(shop) {
     alert('❌ Yeh browser push notifications support nahi karta.\nChrome ya Edge use karo.');
     return null;
   }
- // ✅ New — request only if not already decided
-let perm = Notification.permission;
-if (perm === "default") {
-  perm = await Notification.requestPermission();
-}
-if (perm !== "granted") {
-  console.log("🔕 Notification permission denied or not yet granted");
-  return;
-}
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    alert('❌ Notification permission deny ki gayi.\nBrowser settings mein jaake allow karo.');
+    return null;
+  }
   try {
     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     await navigator.serviceWorker.ready;
@@ -225,9 +226,10 @@ export default function NeuralChatAdmin() {
   const [pushEnabled, setPushEnabled]     = useState(false);
   const [pushLoading, setPushLoading]     = useState(false);
 
-  // 🔥 FCM — new state
-  const [fcmReady, setFcmReady]   = useState(false);
-  const [adminToast, setAdminToast] = useState(null);
+  // 🔥 FCM — state
+  const [fcmReady, setFcmReady]         = useState(false);
+  const [adminToast, setAdminToast]     = useState(null);
+  const [notifBlocked, setNotifBlocked] = useState(false); // 🔥 FIX: track denied state
 
   const fetcher            = useFetcher();
   const scrollRef          = useRef(null);
@@ -236,6 +238,7 @@ export default function NeuralChatAdmin() {
   const lastMessageIdRef   = useRef(null);
   const isFirstLoadRef     = useRef(true);
   const lastSessionCountRef = useRef(initialSessions.length);
+  const fcmInitRef         = useRef(false); // 🔥 FIX: prevent multiple FCM setups
 
   const emojis = ["😊","👍","❤️","🙌","✨","🔥","✅","🤔","💡","🚀","👋","🙏","🎉"];
   const goToSubscription = () => navigate("/app/subscription");
@@ -260,16 +263,21 @@ export default function NeuralChatAdmin() {
   };
 
   // ─── Init audio + check push status ───────────────────────
-useEffect(() => {
-  audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
-  // ✅ Don't request permission here — FCM setup will handle it
-  checkPushStatus().then(setPushEnabled);
-}, []);
+  // 🔥 FIX: Removed Notification.requestPermission() from here.
+  //         FCM setup useEffect handles it once, correctly.
+  useEffect(() => {
+    audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
+    checkPushStatus().then(setPushEnabled);
+  }, []);
 
   // 🔥 FCM — Setup Firebase push for admin
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator) || !("Notification" in window)) return;
+
+    // 🔥 FIX: Guard against multiple invocations (StrictMode / re-renders)
+    if (fcmInitRef.current) return;
+    fcmInitRef.current = true;
 
     async function setupFCM() {
       try {
@@ -277,21 +285,27 @@ useEffect(() => {
         const app = getApps().length > 0 ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
         const messaging = getMessaging(app);
 
-        // Service Worker register karo — public/firebase-messaging-sw.js
+        // 🔥 FIX: Register FCM SW without scope conflict with /sw.js
         let swReg;
         try {
           swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-
           console.log("✅ FCM SW registered");
         } catch (e) {
           console.warn("FCM SW registration failed:", e.message);
           return;
         }
 
-        // Notification permission
-        const perm = await Notification.requestPermission();
+        // 🔥 FIX: Check existing permission first — only prompt if "default"
+        let perm = Notification.permission;
+        if (perm === "default") {
+          perm = await Notification.requestPermission();
+        }
         if (perm !== "granted") {
-          console.log("🔕 Notification permission denied");
+          console.log("🔕 Notification permission denied or not yet granted");
+          // 🔥 FIX: Track denied state so we can show UI hint
+          if (perm === "denied") {
+            setNotifBlocked(true);
+          }
           return;
         }
 
@@ -321,6 +335,7 @@ useEffect(() => {
 
         console.log("✅ Admin FCM token backend mein save ho gaya");
         setFcmReady(true);
+        setNotifBlocked(false); // clear any previous blocked state
 
         // 🔥 Foreground messages — jab admin panel open ho
         onMessage(messaging, (payload) => {
@@ -600,7 +615,11 @@ useEffect(() => {
             <p style={{ fontSize:"13px", color:"#6b7280", marginTop:4, marginBottom:0 }}>
               Manage customer conversations
               {/* 🔥 FCM ready indicator */}
-              {fcmReady && <span style={{ marginLeft:"8px", background:"#d1fae5", color:"#065f46", fontSize:"10px", fontWeight:"700", padding:"2px 6px", borderRadius:"4px" }}>🔥 FCM ON</span>}
+              {fcmReady && (
+                <span style={{ marginLeft:"8px", background:"#d1fae5", color:"#065f46", fontSize:"10px", fontWeight:"700", padding:"2px 6px", borderRadius:"4px" }}>
+                  🔥 FCM ON
+                </span>
+              )}
             </p>
           </div>
           <button
@@ -614,10 +633,34 @@ useEffect(() => {
           </button>
         </div>
 
+        {/* 🔥 VAPID push enabled banner */}
         {pushEnabled && (
           <div style={{ margin:"0 16px 8px", padding:"8px 12px", background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:"8px", fontSize:"11px", color:"#166534", display:"flex", alignItems:"center", gap:"6px" }}>
             <span>🔔</span>
             <span><strong>Push ON</strong> — Customer message kare toh browser notification aayega</span>
+          </div>
+        )}
+
+        {/* 🔥 FIX: Notification blocked banner — shown when browser has denied permission */}
+        {notifBlocked && (
+          <div style={{
+            margin      : "0 16px 8px",
+            padding     : "10px 12px",
+            background  : "#fee2e2",
+            border      : "1px solid #fca5a5",
+            borderRadius: "8px",
+            fontSize    : "11px",
+            color       : "#991b1b",
+            display     : "flex",
+            alignItems  : "flex-start",
+            gap         : "8px",
+          }}>
+            <span style={{ flexShrink:0, fontSize:"14px" }}>🚫</span>
+            <div>
+              <strong>Notifications blocked in browser.</strong>
+              <br />
+              Click the 🔒 lock icon in your address bar → <strong>Notifications → Allow</strong>, then refresh the page.
+            </div>
           </div>
         )}
 
