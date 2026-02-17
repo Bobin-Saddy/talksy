@@ -1,0 +1,86 @@
+mutation CreateDemoData @transaction @auth(level: USER, insecureReason: "This is a seed mutation and is safe to expose to all logged in users.") {
+  user_insertMany(data: [
+    {
+      id: "b4e8d3c1-a2b3-4d5e-8f9a-0c1d2e3f4a5b",
+      createdAt: "2024-01-01T10:00:00Z",
+      displayName: "Alice Smith",
+      email: "alice.smith@example.com",
+      photoUrl: "https://example.com/alice.jpg",
+      timezone: "America/New_York"
+    },
+    {
+      id: "c5f9e4d2-b3c4-5e6f-9a0b-1d2e3f4a5b6c",
+      createdAt: "2024-01-02T11:00:00Z",
+      displayName: "Bob Johnson",
+      email: "bob.johnson@example.com",
+      photoUrl: "https://example.com/bob.jpg",
+      timezone: "America/Los_Angeles"
+    }
+  ])
+  subscriptionType_insertMany(data: [
+    {
+      id: "d6g0f5e3-c4d5-6f7a-0b1c-2e3f4a5b6c7d",
+      name: "Premium",
+      description: "Premium subscription with all features"
+    },
+    {
+      id: "e7h1g6f4-d5e6-7a8b-1c2d-3f4a5b6c7d8e",
+      name: "Basic",
+      description: "Basic subscription with limited features"
+    }
+  ])
+  notification_insertMany(data: [
+    {
+      id: "f8i2h7g5-e6f7-8b9c-2d3e-4f5a6b7c8d9f",
+      userId: "b4e8d3c1-a2b3-4d5e-8f9a-0c1d2e3f4a5b",
+      createdAt: "2024-01-03T12:00:00Z",
+      message: "Welcome to our service, Alice!",
+      priority: "HIGH",
+      scheduledAt: "2024-01-03T12:00:00Z",
+      soundPreference: "DEFAULT",
+      title: "Welcome",
+      vibrationPreference: "ENABLED"
+    },
+    {
+      id: "g9j3i8h6-f7g8-9c0d-3e4f-5a6b7c8d9f0a",
+      userId: "c5f9e4d2-b3c4-5e6f-9a0b-1d2e3f4a5b6c",
+      createdAt: "2024-01-04T13:00:00Z",
+      message: "Your subscription is about to expire, Bob.",
+      priority: "MEDIUM",
+      scheduledAt: "2024-01-10T10:00:00Z",
+      soundPreference: "QUIET",
+      title: "Subscription Reminder",
+      vibrationPreference: "DISABLED"
+    }
+  ])
+  notificationHistory_insertMany(data: [
+    {
+      notificationId: "f8i2h7g5-e6f7-8b9c-2d3e-4f5a6b7c8d9f",
+      userId: "b4e8d3c1-a2b3-4d5e-8f9a-0c1d2e3f4a5b",
+      notificationStatus: "SENT",
+      receivedAt: "2024-01-03T12:00:05Z"
+    },
+    {
+      notificationId: "g9j3i8h6-f7g8-9c0d-3e4f-5a6b7c8d9f0a",
+      userId: "c5f9e4d2-b3c4-5e6f-9a0b-1d2e3f4a5b6c",
+      notificationStatus: "DELIVERED",
+      receivedAt: "2024-01-04T13:00:10Z"
+    }
+  ])
+  notificationRecurrence_insertMany(data: [
+    {
+      notificationId: "f8i2h7g5-e6f7-8b9c-2d3e-4f5a6b7c8d9f",
+      subscriptionTypeId: "d6g0f5e3-c4d5-6f7a-0b1c-2e3f4a5b6c7d",
+      dayOfMonth: 1,
+      dayOfWeek: null,
+      type: "MONTHLY"
+    },
+    {
+      notificationId: "g9j3i8h6-f7g8-9c0d-3e4f-5a6b7c8d9f0a",
+      subscriptionTypeId: "e7h1g6f4-d5e6-7a8b-1c2d-3f4a5b6c7d8e",
+      dayOfMonth: null,
+      dayOfWeek: 5,
+      type: "WEEKLY"
+    }
+  ])
+}

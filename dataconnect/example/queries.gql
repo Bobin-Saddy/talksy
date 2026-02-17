@@ -1,0 +1,45 @@
+query ListAllNotifications @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  notifications {
+    id
+    title
+    message
+    scheduledAt
+    priority
+  }
+}
+
+query GetUserNotifications($userId: UUID!) @auth(level: USER, insecureReason: "This operation accesses user-specific data and requires authentication.") {
+  notifications(where: { userId: { eq: $userId } }, orderBy: [{ scheduledAt: DESC }]) {
+    id
+    title
+    message
+    scheduledAt
+    priority
+  }
+}
+
+mutation CreateNotification($title: String!, $message: String!, $scheduledAt: Timestamp!, $priority: String, $soundPreference: String, $vibrationPreference: String) @auth(level: USER, insecureReason: "This operation creates a new notification for the authenticated user.") {
+  notification_insert(
+    data: {
+      userId_expr: "auth.uid"
+      title: $title
+      message: $message
+      scheduledAt: $scheduledAt
+      priority: $priority
+      soundPreference: $soundPreference
+      vibrationPreference: $vibrationPreference
+      createdAt_expr: "request.time"
+    }
+  )
+}
+
+mutation UpdateNotificationStatus($id: UUID!, $notificationStatus: String!) @auth(level: USER, insecureReason: "This operation updates the status of a specific notification owned by the authenticated user.") {
+  notificationHistory_insert(
+    data: {
+      notificationId: $id
+      userId_expr: "auth.uid"
+      notificationStatus: $notificationStatus
+      receivedAt_expr: "request.time"
+    }
+  )
+}

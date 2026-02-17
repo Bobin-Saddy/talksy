@@ -316,3 +316,24 @@ model PushSubscription {
 
   @@index([shop])
 }
+
+
+
+// ════════════════════════════════════════════════════════════
+//  🔥 NEW: FcmToken — Firebase push notifications ke liye
+//  Admin aur customer dono ke FCM tokens store karta hai
+// ════════════════════════════════════════════════════════════
+model FcmToken {
+  id        String   @id @default(cuid())
+  shop      String
+  token     String   @unique
+  type      String   // "admin" ya "customer"
+  email     String?
+  sessionId String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, type])
+  @@index([shop])
+}

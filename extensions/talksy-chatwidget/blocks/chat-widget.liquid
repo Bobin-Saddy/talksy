@@ -1,71 +1,53 @@
 {% comment %}
-  Talksy Chat Widget v2.6 - AUTO-SCROLL FIXED
-  - Auto-scroll works when latest search results appear
-  - Previous search results cleared before new search
-  - Search state persists on tab change
-  - Search query and results saved in localStorage
-  - All previous fixes maintained (orange colors, responsive, etc.)
+  Talksy Chat Widget v2.7 - FIREBASE PUSH NOTIFICATIONS READY
 {% endcomment %}
 
-{%- assign primary_color    = section.settings.primary_color    | default: '#F39C12' -%}
-{%- assign grad_start       = section.settings.grad_start       | default: '#F39C12' -%}
-{%- assign grad_end         = section.settings.grad_end         | default: '#E67E22' -%}
+{%- assign primary_color = section.settings.primary_color | default: '#F39C12' -%}
 {{ 'talksy-chat.css' | asset_url | stylesheet_tag }}
 
-<!-- ── Google Fonts ── -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
 
-<!-- ── Launcher Button ── -->
-<div id="chat-launcher" aria-label="Open Chat"
-     style="background:#ffffff; color:{{ primary_color }};">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+
+<!-- Launcher Button -->
+<div id="chat-launcher" aria-label="Open Chat" style="background:#ffffff; color:{{ primary_color }};">
   <div id="launcher-icon" style="display: flex;">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
     </svg>
   </div>
   <div id="close-launcher-icon" style="display:none;">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2.5">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
       <line x1="18" y1="6" x2="6" y2="18"></line>
       <line x1="6" y1="6" x2="18" y2="18"></line>
     </svg>
   </div>
 </div>
 
-<!-- ── Widget Shell ── -->
+<!-- Widget Shell -->
 <div id="chat-widget" class="chat-hidden">
 
-  <!-- HEADER (gradient) - DEFAULT ORANGE -->
   <div id="chat-header">
     <div class="header-content">
       <h1 id="header-title-text" class="header-title">Hello 👋</h1>
-      <p  id="header-subtitle-text" class="header-subtitle">How can we help you?</p>
+      <p id="header-subtitle-text" class="header-subtitle">How can we help you?</p>
     </div>
     <button id="chat-close" title="Close">
-<img 
-  src="{{ 'material-symbols-light_cancel-outline-rounded.svg' | asset_url }}" 
-  alt="Cancel Icon"
-  width="20"
-  height="20"
->
-
+      <img src="{{ 'material-symbols-light_cancel-outline-rounded.svg' | asset_url }}" alt="Cancel Icon" width="20" height="20">
     </button>
   </div>
 
-  <!-- ── SCROLLABLE BODY ── -->
   <div id="widget-main-container" style="overflow-y: auto !important; height: 100%;">
 
-    <!-- ════════ HOME TAB ════════ -->
+    <!-- HOME TAB -->
     <div id="tab-home" class="tab-content">
       <div class="home-scroll-area">
-
-        <!-- Contact-us card -->
         <div class="contact-card">
           <div class="contact-header">
             <strong id="contact-title">Need Help?</strong>
@@ -75,68 +57,51 @@
             </div>
           </div>
           <button class="chat-now-btn" id="chat-now-btn">
-          <img src="{{ 'chat.svg' | asset_url }}" alt="Chat Icon">
+            <img src="{{ 'chat.svg' | asset_url }}" alt="Chat Icon">
             <span>Chat Now</span>
           </button>
         </div>
 
-        <!-- Search-here card -->
         <div class="search-here-card" id="search-here-trigger">
           <div class="search-here-content">
-           <strong id="search-card-title">Search Anything</strong>
-<span id="search-card-subtitle">Find products, orders, pages, and more</span>
+            <strong id="search-card-title">Search Anything</strong>
+            <span id="search-card-subtitle">Find products, orders, pages, and more</span>
           </div>
           <div class="search-here-arrow">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2.5">
-              <path d="m9 18 6-6-6-6"/>
-            </svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
           </div>
         </div>
 
-        <!-- Search input row -->
         <div class="search-box">
-          <input type="text" id="home-search-input"
-                 placeholder="Search for help" autocomplete="off" />
-      <button class="search-icon-round" id="home-search-btn">
-  <img src="{{ 'search.svg' | asset_url }}" alt="Search Icon">
-</button>
-
+          <input type="text" id="home-search-input" placeholder="Search for help" autocomplete="off" />
+          <button class="search-icon-round" id="home-search-btn">
+            <img src="{{ 'search.svg' | asset_url }}" alt="Search Icon">
+          </button>
         </div>
 
-        <!-- FAQ list (flat rows) -->
         <div class="faq-list" id="home-faq-list">
-          <div class="faq-loading">
-            <div class="loading-spinner"></div>
-            <p>Loading…</p>
-          </div>
+          <div class="faq-loading"><div class="loading-spinner"></div><p>Loading…</p></div>
         </div>
+      </div>
+    </div>
 
-      </div><!-- .home-scroll-area -->
-    </div><!-- #tab-home -->
-
-    <!-- ════════ CHAT TAB ════════ -->
+    <!-- CHAT TAB -->
     <div id="tab-chat" class="tab-content" style="display:none;">
-
-      <!-- onboarding form -->
       <div id="chat-onboarding-step" class="step-container">
         <div class="registration-form">
           <h3 id="onboarding-form-title">Identify Yourself</h3>
-          <p  id="onboarding-form-subtitle">How should we address you?</p>
+          <p id="onboarding-form-subtitle">How should we address you?</p>
           <div class="input-group">
-            <input id="chat-fname"  type="text"  placeholder="First Name"     autocomplete="off" />
-            <input id="chat-lname"  type="text"  placeholder="Last Name"      autocomplete="off" />
-            <input id="chat-email"  type="email" placeholder="Email Address"  autocomplete="off" />
+            <input id="chat-fname" type="text" placeholder="First Name" autocomplete="off" />
+            <input id="chat-lname" type="text" placeholder="Last Name" autocomplete="off" />
+            <input id="chat-email" type="email" placeholder="Email Address" autocomplete="off" />
             <button id="chat-submit-info" disabled>Start Chatting</button>
           </div>
         </div>
       </div>
 
-      <!-- live messages -->
       <div id="chat-chat-step" class="step-container" style="display:none;">
         <div id="chat-messages"></div>
-
-        <!-- image preview -->
         <div id="image-preview-container" style="display:none;">
           <div id="image-preview-wrapper">
             <img id="image-preview" src="" alt="Preview" />
@@ -144,22 +109,18 @@
           </div>
           <button id="send-image-btn">Upload and Send</button>
         </div>
-
-        <!-- input footer -->
         <div id="chat-footer">
           <div class="input-wrapper">
             <button id="emoji-btn" class="tool-btn">😊</button>
             <button id="file-btn" class="tool-btn">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
               </svg>
             </button>
             <input type="file" id="chat-file-input" style="display:none;" accept="image/*" />
             <input id="chat-input" placeholder="Compose message…" autocomplete="off" />
             <button id="chat-send">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2.5">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
               </svg>
             </button>
@@ -167,323 +128,305 @@
           <div id="emoji-picker" class="hidden-picker"></div>
         </div>
       </div>
-    </div><!-- #tab-chat -->
+    </div>
 
-    <!-- ════════ FAQ TAB ════════ -->
+    <!-- FAQ TAB -->
     <div id="tab-faq" class="tab-content" style="display:none;">
       <div class="faq-container">
         <div class="faq-search">
           <input type="text" id="faq-search-input" placeholder="🔍 Search FAQs…" />
         </div>
         <div id="faq-categories-list" class="faq-scroll-area">
-          <div class="faq-loading">
-            <div class="loading-spinner"></div>
-            <p>Loading…</p>
+          <div class="faq-loading"><div class="loading-spinner"></div><p>Loading…</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEARCH TAB -->
+    <div id="tab-search" class="tab-content" style="display:none;">
+      <div class="search-container-new">
+        <div id="previous-search-wrapper" style="display:none;">
+          <div class="previous-search-header">
+            <h3>🕐 Previous Search</h3>
+            <span class="previous-query-text" id="previous-query-text"></span>
+          </div>
+          <div id="prev-products-results-section" class="results-section" style="display:none;">
+            <div class="section-header"><span class="section-icon">🛍️</span><span class="section-title">Products</span><span class="section-count" id="prev-products-count">0</span></div>
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('prev-products','left')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="horizontal-scroll" id="prev-products-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('prev-products','right')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+          <div id="prev-collections-results-section" class="results-section" style="display:none;">
+            <div class="section-header"><span class="section-icon">📁</span><span class="section-title">Collections</span><span class="section-count" id="prev-collections-count">0</span></div>
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('prev-collections','left')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="horizontal-scroll" id="prev-collections-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('prev-collections','right')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+          <div id="prev-pages-results-section" class="results-section" style="display:none;">
+            <div class="section-header"><span class="section-icon">📄</span><span class="section-title">Pages</span><span class="section-count" id="prev-pages-count">0</span></div>
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('prev-pages','left')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="horizontal-scroll" id="prev-pages-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('prev-pages','right')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+          <div id="prev-orders-results-section" class="results-section" style="display:none;">
+            <div class="section-header"><span class="section-icon">📦</span><span class="section-title">Orders</span><span class="section-count" id="prev-orders-count">0</span></div>
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('prev-orders','left')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="horizontal-scroll" id="prev-orders-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('prev-orders','right')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <div id="search-results-wrapper" style="display:none;">
+          <div class="results-header"><h3>✨ Latest Search Results</h3></div>
+          <div id="products-results-section" class="results-section" style="display:none;">
+            <div class="section-header"><span class="section-icon">🛍️</span><span class="section-title">Products</span><span class="section-count" id="products-count">0</span></div>
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('products','left')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="horizontal-scroll" id="products-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('products','right')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+          <div id="collections-results-section" class="results-section" style="display:none;">
+            <div class="section-header"><span class="section-icon">📁</span><span class="section-title">Collections</span><span class="section-count" id="collections-count">0</span></div>
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('collections','left')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="horizontal-scroll" id="collections-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('collections','right')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+          <div id="pages-results-section" class="results-section" style="display:none;">
+            <div class="section-header"><span class="section-icon">📄</span><span class="section-title">Pages</span><span class="section-count" id="pages-count">0</span></div>
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('pages','left')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="horizontal-scroll" id="pages-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('pages','right')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+          <div id="orders-results-section" class="results-section" style="display:none;">
+            <div class="section-header"><span class="section-icon">📦</span><span class="section-title">Orders</span><span class="section-count" id="orders-count">0</span></div>
+            <div class="scroll-wrapper">
+              <button class="scroll-btn scroll-left" onclick="scrollSection('orders','left')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="horizontal-scroll" id="orders-scroll"></div>
+              <button class="scroll-btn scroll-right" onclick="scrollSection('orders','right')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <div id="search-empty-state" class="search-empty-new">
+          <div class="search-hero">
+            <div class="search-icon-large">🔍</div>
+            <h2>What are you looking for?</h2>
+            <p>Search products, collections, pages & orders</p>
+          </div>
+        </div>
+
+        <div id="no-results-state" class="search-empty-new" style="display:none;">
+          <div class="empty-icon">😕</div>
+          <p class="empty-text">No results found</p>
+          <p class="empty-subtext">Try different keywords or check spelling</p>
+        </div>
+
+        <div class="search-bottom-fixed">
+          <div class="search-textarea-wrapper">
+            <textarea id="store-search-input-new" placeholder="Search Anything" rows="2" autocomplete="off"></textarea>
+            <button id="search-icon-btn" class="search-icon-btn-inner" title="Search">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg>
+            </button>
+            <div id="search-loading-indicator" style="display:none;"><div class="mini-spinner"></div></div>
           </div>
         </div>
       </div>
-    </div><!-- #tab-faq -->
-
-    <!-- ════════ SEARCH TAB ════════ -->
-<div id="tab-search" class="tab-content" style="display:none;">
-  <div class="search-container-new">
-
-    <!-- ══════ PREVIOUS SEARCH RESULTS (TOP) ══════ -->
-    <div id="previous-search-wrapper" style="display:none;">
-      <div class="previous-search-header">
-        <h3>🕐 Previous Search</h3>
-        <span class="previous-query-text" id="previous-query-text"></span>
-      </div>
-
-      <div id="prev-products-results-section" class="results-section" style="display:none;">
-        <div class="section-header">
-          <span class="section-icon">🛍️</span>
-          <span class="section-title">Products</span>
-          <span class="section-count" id="prev-products-count">0</span>
-        </div>
-        <div class="scroll-wrapper">
-          <button class="scroll-btn scroll-left" onclick="scrollSection('prev-products','left')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <div class="horizontal-scroll" id="prev-products-scroll"></div>
-          <button class="scroll-btn scroll-right" onclick="scrollSection('prev-products','right')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <div id="prev-collections-results-section" class="results-section" style="display:none;">
-        <div class="section-header">
-          <span class="section-icon">📁</span>
-          <span class="section-title">Collections</span>
-          <span class="section-count" id="prev-collections-count">0</span>
-        </div>
-        <div class="scroll-wrapper">
-          <button class="scroll-btn scroll-left" onclick="scrollSection('prev-collections','left')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <div class="horizontal-scroll" id="prev-collections-scroll"></div>
-          <button class="scroll-btn scroll-right" onclick="scrollSection('prev-collections','right')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <div id="prev-pages-results-section" class="results-section" style="display:none;">
-        <div class="section-header">
-          <span class="section-icon">📄</span>
-          <span class="section-title">Pages</span>
-          <span class="section-count" id="prev-pages-count">0</span>
-        </div>
-        <div class="scroll-wrapper">
-          <button class="scroll-btn scroll-left" onclick="scrollSection('prev-pages','left')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <div class="horizontal-scroll" id="prev-pages-scroll"></div>
-          <button class="scroll-btn scroll-right" onclick="scrollSection('prev-pages','right')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <div id="prev-orders-results-section" class="results-section" style="display:none;">
-        <div class="section-header">
-          <span class="section-icon">📦</span>
-          <span class="section-title">Orders</span>
-          <span class="section-count" id="prev-orders-count">0</span>
-        </div>
-        <div class="scroll-wrapper">
-          <button class="scroll-btn scroll-left" onclick="scrollSection('prev-orders','left')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <div class="horizontal-scroll" id="prev-orders-scroll"></div>
-          <button class="scroll-btn scroll-right" onclick="scrollSection('prev-orders','right')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>
-      </div>
-    </div><!-- #previous-search-wrapper -->
-
-    <!-- ══════ LATEST SEARCH RESULTS (MIDDLE) ══════ -->
-    <div id="search-results-wrapper" style="display:none;">
-      <div class="results-header"><h3>✨ Latest Search Results</h3></div>
-
-      <div id="products-results-section" class="results-section" style="display:none;">
-        <div class="section-header">
-          <span class="section-icon">🛍️</span>
-          <span class="section-title">Products</span>
-          <span class="section-count" id="products-count">0</span>
-        </div>
-        <div class="scroll-wrapper">
-          <button class="scroll-btn scroll-left" onclick="scrollSection('products','left')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <div class="horizontal-scroll" id="products-scroll"></div>
-          <button class="scroll-btn scroll-right" onclick="scrollSection('products','right')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <div id="collections-results-section" class="results-section" style="display:none;">
-        <div class="section-header">
-          <span class="section-icon">📁</span>
-          <span class="section-title">Collections</span>
-          <span class="section-count" id="collections-count">0</span>
-        </div>
-        <div class="scroll-wrapper">
-          <button class="scroll-btn scroll-left" onclick="scrollSection('collections','left')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <div class="horizontal-scroll" id="collections-scroll"></div>
-          <button class="scroll-btn scroll-right" onclick="scrollSection('collections','right')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <div id="pages-results-section" class="results-section" style="display:none;">
-        <div class="section-header">
-          <span class="section-icon">📄</span>
-          <span class="section-title">Pages</span>
-          <span class="section-count" id="pages-count">0</span>
-        </div>
-        <div class="scroll-wrapper">
-          <button class="scroll-btn scroll-left" onclick="scrollSection('pages','left')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <div class="horizontal-scroll" id="pages-scroll"></div>
-          <button class="scroll-btn scroll-right" onclick="scrollSection('pages','right')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <div id="orders-results-section" class="results-section" style="display:none;">
-        <div class="section-header">
-          <span class="section-icon">📦</span>
-          <span class="section-title">Orders</span>
-          <span class="section-count" id="orders-count">0</span>
-        </div>
-        <div class="scroll-wrapper">
-          <button class="scroll-btn scroll-left" onclick="scrollSection('orders','left')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <div class="horizontal-scroll" id="orders-scroll"></div>
-          <button class="scroll-btn scroll-right" onclick="scrollSection('orders','right')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>
-      </div>
-    </div><!-- #search-results-wrapper -->
-
-    <!-- ══════ EMPTY STATE (WHEN NO SEARCHES) ══════ -->
-    <div id="search-empty-state" class="search-empty-new">
-      <div class="search-hero">
-        <div class="search-icon-large">🔍</div>
-        <h2>What are you looking for?</h2>
-        <p>Search products, collections, pages & orders</p>
-      </div>
     </div>
-
-    <!-- ══════ NO RESULTS STATE ══════ -->
-    <div id="no-results-state" class="search-empty-new" style="display:none;">
-      <div class="empty-icon">😕</div>
-      <p class="empty-text">No results found</p>
-      <p class="empty-subtext">Try different keywords or check spelling</p>
-    </div>
-
-    <!-- ══════ SEARCH FIELD (FIXED AT BOTTOM) ══════ -->
-    <div class="search-bottom-fixed">
-      <div class="search-textarea-wrapper">
-        <textarea id="store-search-input-new"
-                  placeholder="Search Anything"
-                  rows="2" autocomplete="off"></textarea>
-        <button id="search-icon-btn" class="search-icon-btn-inner" title="Search">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
-          </svg>
-        </button>
-        <div id="search-loading-indicator" style="display:none;">
-          <div class="mini-spinner"></div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
 
   </div><!-- #widget-main-container -->
 
-  <!-- ══════ BOTTOM NAV ══════ -->
+  <!-- BOTTOM NAV -->
   <div id="chat-nav">
     <div class="nav-item active" data-tab="home">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-        <polyline points="9 22 9 12 15 12 15 22"/>
-      </svg>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       <span>Home</span>
     </div>
     <div class="nav-item" data-tab="chat">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       <span>Message</span>
     </div>
     <div class="nav-item" data-tab="search">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-        <circle cx="11" cy="11" r="8"/>
-        <path d="m21 21-4.35-4.35"/>
-      </svg>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <span>Search</span>
     </div>
-<div class="nav-item" data-tab="faq">
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    
-    <path d="M9 9c0-1.7 1.3-3 3-3s3 1.3 3 3c0 2-3 2.5-3 5" />
-    
-    <circle cx="12" cy="17" r="0.5" fill="currentColor"/>
-  </svg>
-  <span>FAQ's</span>
-</div>
-
+    <div class="nav-item" data-tab="faq">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 9c0-1.7 1.3-3 3-3s3 1.3 3 3c0 2-3 2.5-3 5"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>
+      <span>FAQ's</span>
+    </div>
   </div>
-<a href="https://apps.shopify.com/talksy" target="_blank" class="powered-by-talksy" >Powered by talksy</a>
+  <a href="https://apps.shopify.com/talksy" target="_blank" class="powered-by-talksy">Powered by talksy</a>
 </div><!-- #chat-widget -->
 
 <script>
 (() => {
+  /* ══════════════════════════════════════════
+     🔥 FIREBASE CONFIG — READY TO USE
+  ══════════════════════════════════════════ */
+  const FIREBASE_CONFIG = {
+    apiKey           : "AIzaSyAkp3v6YWY4HexFQ7Z0BYPGMeG18IXXqWg",
+    authDomain       : "shopify-talksy.firebaseapp.com",
+    projectId        : "shopify-talksy",
+    storageBucket    : "shopify-talksy.firebasestorage.app",
+    messagingSenderId: "547076667229",
+    appId            : "1:547076667229:web:e65ed249fe33f7724e9ab4"
+  };
+  const FIREBASE_VAPID_KEY = "BJzrkyA1gwJTL7auMx6y0RHjv34mSPzm6FpY5twRsMuuE54l0nL4cl4UUltGcgqO5cNGcJjWEugjyZFkkfTI1AE";
+
   /* ── config ── */
   const shop     = "{{ shop.permanent_domain }}";
   const BASE_URL = "https://talksy-production-5d43.up.railway.app";
 
   /* ── DOM refs ── */
-  const widget      = document.getElementById("chat-widget");
-  const launcher    = document.getElementById("chat-launcher");
-  const chatInput   = document.getElementById("chat-input");
-  const msgBox      = document.getElementById("chat-messages");
-  const submitBtn   = document.getElementById("chat-submit-info");
-  const fnameInput  = document.getElementById("chat-fname");
-  const lnameInput  = document.getElementById("chat-lname");
-  const emailInput  = document.getElementById("chat-email");
+  const widget     = document.getElementById("chat-widget");
+  const launcher   = document.getElementById("chat-launcher");
+  const chatInput  = document.getElementById("chat-input");
+  const msgBox     = document.getElementById("chat-messages");
+  const submitBtn  = document.getElementById("chat-submit-info");
+  const fnameInput = document.getElementById("chat-fname");
+  const lnameInput = document.getElementById("chat-lname");
+  const emailInput = document.getElementById("chat-email");
 
   /* ── state ── */
-  let selectedImg    = null;
-  let pollInterval   = null;
-  let statusInterval = null;
-  let currentConfig  = {};
-  let seenMsgs       = new Set();
-  let faqData        = [];
-  let adminOnline    = true;
-  
-  // Store last search query and results
-  let lastSearchQuery = '';
-  let lastSearchResults = null;
-  let previousSearchQuery = '';
+  let selectedImg          = null;
+  let pollInterval         = null;
+  let statusInterval       = null;
+  let currentConfig        = {};
+  let seenMsgs             = new Set();
+  let faqData              = [];
+  let adminOnline          = true;
+  let fcmToken             = null;
+  let lastSearchQuery      = '';
+  let lastSearchResults    = null;
+  let previousSearchQuery  = '';
   let previousSearchResults = null;
 
   /* ── localStorage keys ── */
   const SK = {
-    SID   : `chat_session_${shop}`,
-    EMAIL : `chat_email_${shop}`,
-    FNAME : `chat_fname_${shop}`,
-    LNAME : `chat_lname_${shop}`,
-    SEARCH_QUERY: `chat_search_query_${shop}`,
-    SEARCH_RESULTS: `chat_search_results_${shop}`
+    SID            : `chat_session_${shop}`,
+    EMAIL          : `chat_email_${shop}`,
+    FNAME          : `chat_fname_${shop}`,
+    LNAME          : `chat_lname_${shop}`,
+    SEARCH_QUERY   : `chat_search_query_${shop}`,
+    SEARCH_RESULTS : `chat_search_results_${shop}`,
+    FCM_TOKEN      : `chat_fcm_token_${shop}`
   };
 
-  /* ─────────────────────────────────────────────
-     ADMIN ONLINE / OFFLINE STATUS
-     ───────────────────────────────────────────── */
+  /* ══════════════════════════════════════════
+     🔥 FIREBASE PUSH NOTIFICATION SETUP
+  ══════════════════════════════════════════ */
+  async function initFirebasePush() {
+    if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      const messaging = firebase.messaging();
+
+      // Register SW from Shopify Assets
+      let swReg;
+      try {
+        swReg = await navigator.serviceWorker.register(
+          '{{ "firebase-messaging-sw.js" | asset_url }}',
+          { scope: '/' }
+        );
+        console.log('✅ Firebase SW registered');
+      } catch (e) {
+        console.warn('SW reg failed:', e);
+        return;
+      }
+
+      // Ask permission
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { console.log('🔕 Permission denied'); return; }
+
+      // Get FCM token
+      const token = await messaging.getToken({
+        vapidKey: FIREBASE_VAPID_KEY,
+        serviceWorkerRegistration: swReg
+      });
+
+      if (token) {
+        fcmToken = token;
+        localStorage.setItem(SK.FCM_TOKEN, token);
+        await registerTokenWithBackend(token);
+        console.log('✅ FCM token ready');
+      }
+
+      // Foreground message handler
+      messaging.onMessage(payload => {
+        if (document.hidden) {
+          new Notification(payload.notification?.title || '💬 New Reply', {
+            body: payload.notification?.body || 'You have a new message',
+            icon: '/favicon.ico'
+          });
+        }
+      });
+
+      // Token refresh
+      messaging.onTokenRefresh(async () => {
+        const newToken = await messaging.getToken({ vapidKey: FIREBASE_VAPID_KEY });
+        if (newToken) {
+          fcmToken = newToken;
+          localStorage.setItem(SK.FCM_TOKEN, newToken);
+          await registerTokenWithBackend(newToken);
+        }
+      });
+
+    } catch (err) {
+      console.warn('Firebase push setup failed (non-blocking):', err);
+    }
+  }
+
+  async function registerTokenWithBackend(token) {
+    try {
+      await fetch(`${BASE_URL}/app/chat/register-fcm-token`, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({
+          shop,
+          fcmToken  : token,
+          sessionId : localStorage.getItem(SK.SID)  || null,
+          email     : localStorage.getItem(SK.EMAIL) || null,
+          userAgent : navigator.userAgent,
+          registeredAt: new Date().toISOString()
+        })
+      });
+    } catch (e) { console.warn('Token registration failed:', e); }
+  }
+
+  async function updateTokenAfterLogin() {
+    const token = fcmToken || localStorage.getItem(SK.FCM_TOKEN);
+    if (token) await registerTokenWithBackend(token);
+  }
+
+  /* ══════════════════════════════════════════
+     ADMIN STATUS
+  ══════════════════════════════════════════ */
   function applyStatus(online) {
     adminOnline = online;
-    const dot  = document.getElementById("status-dot");
-    const txt  = document.getElementById("status-text");
+    const dot = document.getElementById("status-dot");
+    const txt = document.getElementById("status-text");
     if (!dot || !txt) return;
-
-    if (online) {
-      dot.style.background = "#22c55e";
-      txt.textContent      = "We are online";
-    } else {
-      dot.style.background = "#ef4444";
-      txt.textContent      = "We are offline";
-    }
+    dot.style.background = online ? "#22c55e" : "#ef4444";
+    txt.textContent      = online ? "We are online" : "We are offline";
   }
-
   async function pollAdminStatus() {
     try {
-      const res  = await fetch(`${BASE_URL}/app/admin-status?shop=${shop}`);
-      const data = await res.json();
-      applyStatus(data.online);
-    } catch (_) {
-      applyStatus(false);
-    }
+      const r = await fetch(`${BASE_URL}/app/admin-status?shop=${shop}`);
+      applyStatus((await r.json()).online);
+    } catch (_) { applyStatus(false); }
   }
-
   function startStatusPolling() {
     pollAdminStatus();
     if (statusInterval) clearInterval(statusInterval);
@@ -492,95 +435,64 @@
 
   /* ── form validation ── */
   function validateForm() {
-    const f = fnameInput.value.trim();
-    const e = emailInput.value.trim();
+    const f = fnameInput.value.trim(), e = emailInput.value.trim();
     submitBtn.disabled = !(f && e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
   }
   fnameInput.addEventListener('input', validateForm);
   lnameInput.addEventListener('input', validateForm);
   emailInput.addEventListener('input', validateForm);
 
-  /* ── icon helpers ── */
   const ICON_SVGS = {
     bubble: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
-    send  : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
-    defaultCustom: '<img src="https://alert-lime-e4qtqvlkob.edgeone.app/icon-frame.png" style="width:30px;height:30px;object-fit:contain;"/>'
+    send  : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>'
   };
 
-  /* ── load remote settings ── */
+  /* ── settings ── */
   async function loadSettings() {
     try {
-      const r = await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`);
-      const s = await r.json();
+      const s = await (await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`)).json();
       currentConfig = s;
-
       const hdr = document.getElementById("chat-header");
-      if (s.headerGradientStart && s.headerGradientEnd) {
-        hdr.style.background = `linear-gradient(135deg, ${s.headerGradientStart}, ${s.headerGradientEnd})`;
-      } else {
-        hdr.style.background = "linear-gradient(135deg, #F39C12, #E67E22)";
-      }
-
+      hdr.style.background = (s.headerGradientStart && s.headerGradientEnd)
+        ? `linear-gradient(135deg, ${s.headerGradientStart}, ${s.headerGradientEnd})`
+        : "linear-gradient(135deg, #F39C12, #E67E22)";
       hdr.style.color = s.headerTextColor || "#fff";
-
-      const textColor = s.headerTextColor || "#fff";
-      document.getElementById("header-title-text").style.color    = textColor;
-      document.getElementById("header-subtitle-text").style.color = textColor;
+      const tc = s.headerTextColor || "#fff";
+      document.getElementById("header-title-text").style.color    = tc;
+      document.getElementById("header-subtitle-text").style.color = tc;
       document.getElementById("header-title-text").innerText    = s.welcomeText    || "Hello 👋";
       document.getElementById("header-subtitle-text").innerText = s.welcomeSubtext || "How can we help you?";
       document.getElementById("contact-title").innerText        = s.startConversationText || "Contact us";
-
       if (s.searchCardTitle)    document.getElementById("search-card-title").innerText    = s.searchCardTitle;
       if (s.searchCardSubtitle) document.getElementById("search-card-subtitle").innerText = s.searchCardSubtitle;
-
       document.getElementById("onboarding-form-title").innerText    = s.onboardingTitle    || "Identify Yourself";
       document.getElementById("onboarding-form-subtitle").innerText = s.onboardingSubtitle || "How should we address you?";
-
-      if (s.primaryColor) {
-        document.documentElement.style.setProperty('--tw-primary', s.primaryColor);
-      } else {
-        document.documentElement.style.setProperty('--tw-primary', '#F39C12');
-      }
-
+      document.documentElement.style.setProperty('--tw-primary', s.primaryColor || '#F39C12');
       if (s.launcherIcon === 'custom' && s.customLauncherImg)
         document.getElementById("launcher-icon").innerHTML = `<img src="${s.customLauncherImg}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>`;
       else
         document.getElementById("launcher-icon").innerHTML = ICON_SVGS[s.launcherIcon] || ICON_SVGS.bubble;
-
-    } catch (e) { 
-      console.error("loadSettings", e); 
+    } catch (e) {
       document.documentElement.style.setProperty('--tw-primary', '#F39C12');
     }
   }
 
-  /* ── session helpers ── */
+  /* ── session ── */
   function getOrCreateSessionId() {
     let id = localStorage.getItem(SK.SID);
-    if (!id || id === "null" || id === "undefined") {
-      id = "s_" + crypto.randomUUID();
-      localStorage.setItem(SK.SID, id);
-    }
+    if (!id || id === "null" || id === "undefined") { id = "s_" + crypto.randomUUID(); localStorage.setItem(SK.SID, id); }
     return id;
   }
-
   async function checkExistingSession() {
-    const sid   = localStorage.getItem(SK.SID);
-    const email = localStorage.getItem(SK.EMAIL);
-    const fname = localStorage.getItem(SK.FNAME);
+    const sid = localStorage.getItem(SK.SID), email = localStorage.getItem(SK.EMAIL), fname = localStorage.getItem(SK.FNAME);
     if (!sid || !email || !fname) return false;
-
     try {
-      const res  = await fetch(`${BASE_URL}/app/chat/validate-session`, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ shop, sessionId: sid, email })
-      });
-      const data = await res.json();
-      if (res.ok && data.valid) { showChatInterface(); startPolling(); return true; }
+      const r = await fetch(`${BASE_URL}/app/chat/validate-session`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ shop, sessionId: sid, email }) });
+      const d = await r.json();
+      if (r.ok && d.valid) { showChatInterface(); startPolling(); await updateTokenAfterLogin(); return true; }
       clearSession(); return false;
     } catch (_) { clearSession(); return false; }
   }
-
   function clearSession() {
     Object.values(SK).forEach(k => localStorage.removeItem(k));
     document.getElementById("chat-onboarding-step").style.display = "flex";
@@ -591,72 +503,43 @@
     document.getElementById("chat-chat-step").style.display        = "flex";
   }
 
-  /* ── messages - ORANGE COLOR FOR USER MESSAGES ── */
+  /* ── messages ── */
   async function fetchMessages() {
     const sid = localStorage.getItem(SK.SID);
     if (!sid) return;
     try {
-      const res  = await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sid}`);
-      const data = await res.json();
+      const data = await (await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sid}`)).json();
       data.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).forEach(renderMsg);
     } catch (_) {}
   }
 
-function renderMsg(m) {
-  if (seenMsgs.has(m.id)) return;
-  seenMsgs.add(m.id);
-  const div   = document.createElement("div");
-  const isBot = (m.sender === 'admin' || m.sender === 'bot');
-  div.className = `msg ${isBot ? 'bot' : 'user'}`;
-  
-  const bg    = isBot ? (currentConfig.messageBgColor || "#fff") : "#F39C12";
-  const color = isBot ? "#1e293b" : "#fff";
-  const bdr   = isBot ? `1px solid ${currentConfig.widgetBorderColor || '#eee'}` : 'none';
-  
-  div.innerHTML = `<div class="msg-content" style="background:${bg};color:${color};border:${bdr}">
-    ${m.message ? `<div>${m.message}</div>` : ''}
-    ${m.fileUrl ? `<img src="${m.fileUrl}" class="msg-image" style="max-width:100%;border-radius:10px;margin-top:6px;display:block;cursor:pointer;" onclick="window.openImagePopup('${m.fileUrl}')" />` : ''}
-  </div>`;
-  msgBox.appendChild(div);
-  msgBox.scrollTop = msgBox.scrollHeight;
-}
+  function renderMsg(m) {
+    if (seenMsgs.has(m.id)) return;
+    seenMsgs.add(m.id);
+    const div   = document.createElement("div");
+    const isBot = (m.sender === 'admin' || m.sender === 'bot');
+    div.className = `msg ${isBot ? 'bot' : 'user'}`;
+    const bg  = isBot ? (currentConfig.messageBgColor || "#fff") : "#F39C12";
+    const col = isBot ? "#1e293b" : "#fff";
+    const bdr = isBot ? `1px solid ${currentConfig.widgetBorderColor || '#eee'}` : 'none';
+    div.innerHTML = `<div class="msg-content" style="background:${bg};color:${col};border:${bdr}">
+      ${m.message ? `<div>${m.message}</div>` : ''}
+      ${m.fileUrl  ? `<img src="${m.fileUrl}" class="msg-image" style="max-width:100%;border-radius:10px;margin-top:6px;display:block;cursor:pointer;" onclick="window.openImagePopup('${m.fileUrl}')" />` : ''}
+    </div>`;
+    msgBox.appendChild(div);
+    msgBox.scrollTop = msgBox.scrollHeight;
+  }
 
-window.openImagePopup = function(imageUrl) {
-  const popup = document.createElement('div');
-  popup.id = 'image-popup-overlay';
-  popup.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.9);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 999999;
-    cursor: pointer;
-  `;
-  
-  popup.innerHTML = `
-    <div style="position:relative;max-width:90%;max-height:90%;padding:20px;">
-      <button onclick="document.getElementById('image-popup-overlay').remove()" 
-              style="position:absolute;top:10px;right:10px;background:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.2);">
-        ×
-      </button>
-      <img src="${imageUrl}" style="max-width:100%;max-height:90vh;border-radius:10px;display:block;" />
-    </div>
-  `;
-  
-  popup.addEventListener('click', (e) => {
-    if (e.target === popup) {
-      popup.remove();
-    }
-  });
-  
-  document.body.appendChild(popup);
-};
+  window.openImagePopup = function(url) {
+    const p = document.createElement('div');
+    p.id = 'image-popup-overlay';
+    p.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:999999;cursor:pointer;';
+    p.innerHTML = `<div style="position:relative;max-width:90%;max-height:90%;padding:20px;"><button onclick="document.getElementById('image-popup-overlay').remove()" style="position:absolute;top:10px;right:10px;background:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;">×</button><img src="${url}" style="max-width:100%;max-height:90vh;border-radius:10px;display:block;" /></div>`;
+    p.addEventListener('click', e => { if (e.target === p) p.remove(); });
+    document.body.appendChild(p);
+  };
 
+  /* ── 🔥 postMessage — triggers push notification ── */
   async function postMessage(txt = "", file = null) {
     const sid     = localStorage.getItem(SK.SID);
     const message = txt || chatInput.value.trim();
@@ -664,577 +547,188 @@ window.openImagePopup = function(imageUrl) {
     chatInput.value = "";
     try {
       await fetch(`${BASE_URL}/app/chat/message`, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-          sessionId: sid, shop, message,
-          fileUrl : file,
-          email   : localStorage.getItem(SK.EMAIL),
-          fname   : localStorage.getItem(SK.FNAME)
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({
+          sessionId  : sid,
+          shop,
+          message,
+          fileUrl    : file,
+          email      : localStorage.getItem(SK.EMAIL),
+          fname      : localStorage.getItem(SK.FNAME),
+          triggerPush: true   // 🔥 backend ko push bhejne ka signal
         })
       });
       await fetchMessages();
-    } catch (err) {
-      console.error("Post message error:", err);
-      throw err;
-    }
+    } catch (err) { console.error("postMessage error:", err); throw err; }
   }
 
-  /* ─────────────────────────────────────────────
-     SEARCH FUNCTIONALITY - WITH AUTO-SCROLL FIX
-     ───────────────────────────────────────────── */
-  
+  /* ── search ── */
   function clearSearchResults() {
-    document.getElementById("products-results-section").style.display = "none";
-    document.getElementById("collections-results-section").style.display = "none";
-    document.getElementById("pages-results-section").style.display = "none";
-    document.getElementById("orders-results-section").style.display = "none";
-    
-    document.getElementById("products-scroll").innerHTML = '';
-    document.getElementById("collections-scroll").innerHTML = '';
-    document.getElementById("pages-scroll").innerHTML = '';
-    document.getElementById("orders-scroll").innerHTML = '';
-    
-    document.getElementById("products-count").textContent = '0';
-    document.getElementById("collections-count").textContent = '0';
-    document.getElementById("pages-count").textContent = '0';
-    document.getElementById("orders-count").textContent = '0';
+    ['products','collections','pages','orders'].forEach(s => {
+      document.getElementById(`${s}-results-section`).style.display = 'none';
+      document.getElementById(`${s}-scroll`).innerHTML = '';
+      document.getElementById(`${s}-count`).textContent = '0';
+    });
   }
-  
   function clearPreviousSearchResults() {
     document.getElementById("previous-search-wrapper").style.display = "none";
-    document.getElementById("prev-products-results-section").style.display = "none";
-    document.getElementById("prev-collections-results-section").style.display = "none";
-    document.getElementById("prev-pages-results-section").style.display = "none";
-    document.getElementById("prev-orders-results-section").style.display = "none";
-    
-    document.getElementById("prev-products-scroll").innerHTML = '';
-    document.getElementById("prev-collections-scroll").innerHTML = '';
-    document.getElementById("prev-pages-scroll").innerHTML = '';
-    document.getElementById("prev-orders-scroll").innerHTML = '';
-    
-    document.getElementById("prev-products-count").textContent = '0';
-    document.getElementById("prev-collections-count").textContent = '0';
-    document.getElementById("prev-pages-count").textContent = '0';
-    document.getElementById("prev-orders-count").textContent = '0';
+    ['prev-products','prev-collections','prev-pages','prev-orders'].forEach(s => {
+      const sec = document.getElementById(`${s}-results-section`); if (sec) sec.style.display = 'none';
+      const scr = document.getElementById(`${s}-scroll`);          if (scr) scr.innerHTML = '';
+      const cnt = document.getElementById(`${s}-count`);           if (cnt) cnt.textContent = '0';
+    });
   }
-  
-  function saveSearch(query, results) {
-    try {
-      localStorage.setItem(SK.SEARCH_QUERY, query);
-      localStorage.setItem(SK.SEARCH_RESULTS, JSON.stringify(results));
-      lastSearchQuery = query;
-      lastSearchResults = results;
-    } catch (e) {
-      console.error('Failed to save search:', e);
-    }
+  function saveSearch(q, r) {
+    try { localStorage.setItem(SK.SEARCH_QUERY, q); localStorage.setItem(SK.SEARCH_RESULTS, JSON.stringify(r)); lastSearchQuery = q; lastSearchResults = r; } catch (_) {}
   }
-  
   function loadSavedSearch() {
     try {
-      const savedQuery = localStorage.getItem(SK.SEARCH_QUERY);
-      const savedResults = localStorage.getItem(SK.SEARCH_RESULTS);
-      
-      if (savedQuery && savedResults) {
-        lastSearchQuery = savedQuery;
-        lastSearchResults = JSON.parse(savedResults);
-        
-        const searchInput = document.getElementById("store-search-input-new");
-        if (searchInput) {
-          searchInput.value = savedQuery;
-        }
-        
-        if (lastSearchResults) {
-          renderSearchResultsNew(lastSearchResults);
-        }
-        
+      const q = localStorage.getItem(SK.SEARCH_QUERY), r = localStorage.getItem(SK.SEARCH_RESULTS);
+      if (q && r) {
+        lastSearchQuery = q; lastSearchResults = JSON.parse(r);
+        const inp = document.getElementById("store-search-input-new"); if (inp) inp.value = q;
+        if (lastSearchResults) renderSearchResultsNew(lastSearchResults);
         return true;
       }
-    } catch (e) {
-      console.error('Failed to load saved search:', e);
-    }
+    } catch (_) {}
     return false;
   }
-  
-  function clearSavedSearch() {
-    localStorage.removeItem(SK.SEARCH_QUERY);
-    localStorage.removeItem(SK.SEARCH_RESULTS);
-    lastSearchQuery = '';
-    lastSearchResults = null;
-  }
+  function clearSavedSearch() { localStorage.removeItem(SK.SEARCH_QUERY); localStorage.removeItem(SK.SEARCH_RESULTS); lastSearchQuery = ''; lastSearchResults = null; }
 
-  /* ✅ FIXED AUTO-SCROLL FUNCTION - Scrolls to bottom when latest results appear */
   function scrollToSearchResults() {
-    const mainContainer = document.getElementById("widget-main-container");
-    
-    if (!mainContainer) {
-      console.error('❌ Scroll container not found');
-      return;
-    }
-
-    // When previous search is shown, latest results are at bottom
-    // So we need to scroll all the way down to show latest results
-    
-    // Strategy 1: Immediate scroll to bottom (0ms)
-    requestAnimationFrame(() => {
-      mainContainer.scrollTop = mainContainer.scrollHeight;
-    });
-
-    // Strategy 2: After DOM render (200ms)
-    setTimeout(() => {
-      const scrollTarget = mainContainer.scrollHeight;
-      mainContainer.scrollTo({
-        top: scrollTarget,
-        behavior: 'smooth'
-      });
-    }, 200);
-
-    // Strategy 3: After images load (500ms)
-    setTimeout(() => {
-      const scrollTarget = mainContainer.scrollHeight;
-      mainContainer.scrollTo({
-        top: scrollTarget,
-        behavior: 'smooth'
-      });
-    }, 500);
-
-    // Strategy 4: Final scroll with force (1000ms)
-    setTimeout(() => {
-      const scrollTarget = mainContainer.scrollHeight;
-      
-      // Try smooth scroll first
-      mainContainer.scrollTo({
-        top: scrollTarget,
-        behavior: 'smooth'
-      });
-      
-      // Verify and force if needed
-      setTimeout(() => {
-        const currentPos = mainContainer.scrollTop;
-        const maxScroll = scrollTarget - mainContainer.clientHeight;
-        
-        // If not at bottom, force scroll
-        if (Math.abs(currentPos - maxScroll) > 100) {
-          console.log('Forcing scroll to bottom:', scrollTarget);
-          mainContainer.scrollTop = scrollTarget;
-        }
-      }, 600);
-    }, 1000);
-    
-    // Strategy 5: Extra final check (2000ms) - for slow connections
-    setTimeout(() => {
-      const finalTarget = mainContainer.scrollHeight;
-      if (mainContainer.scrollTop < finalTarget - mainContainer.clientHeight - 50) {
-        console.log('Final force scroll to bottom');
-        mainContainer.scrollTop = finalTarget;
-      }
-    }, 2000);
+    const c = document.getElementById("widget-main-container");
+    if (!c) return;
+    requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; });
+    [200, 500, 1000].forEach(t => setTimeout(() => c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' }), t));
   }
 
   async function performSearchNew(query) {
     if (!query || query.length < 2) {
-      clearSearchResults();
-      clearPreviousSearchResults();
-      clearSavedSearch();
-      document.getElementById("search-results-wrapper").style.display = "none";
-      document.getElementById("previous-search-wrapper").style.display = "none";
-      document.getElementById("search-empty-state").style.display = "flex";
-      document.getElementById("no-results-state").style.display = "none";
+      clearSearchResults(); clearPreviousSearchResults(); clearSavedSearch();
+      document.getElementById("search-results-wrapper").style.display   = "none";
+      document.getElementById("previous-search-wrapper").style.display  = "none";
+      document.getElementById("search-empty-state").style.display       = "flex";
+      document.getElementById("no-results-state").style.display         = "none";
       return;
     }
-
     if (lastSearchQuery && lastSearchResults && lastSearchQuery !== query) {
-      previousSearchQuery = lastSearchQuery;
-      previousSearchResults = lastSearchResults;
+      previousSearchQuery = lastSearchQuery; previousSearchResults = lastSearchResults;
       renderPreviousSearchResults(previousSearchResults, previousSearchQuery);
     }
-
     clearSearchResults();
-
     document.getElementById("search-loading-indicator").style.display = "flex";
-    document.getElementById("search-empty-state").style.display = "none";
-    document.getElementById("no-results-state").style.display = "none";
-
+    document.getElementById("search-empty-state").style.display       = "none";
+    document.getElementById("no-results-state").style.display         = "none";
     try {
-      await fetch(`${BASE_URL}/app/chat/search-log`, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-          shop, query, searchType: "frontend",
-          userEmail : localStorage.getItem(SK.EMAIL) || 'anonymous',
-          sessionId : localStorage.getItem(SK.SID) || 'no-session',
-          firstName : localStorage.getItem(SK.FNAME) || '',
-          lastName  : localStorage.getItem(SK.LNAME) || '',
-          createdAt : new Date()
-        })
-      });
+      await fetch(`${BASE_URL}/app/chat/search-log`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ shop, query, searchType:"frontend", userEmail: localStorage.getItem(SK.EMAIL)||'anonymous', sessionId: localStorage.getItem(SK.SID)||'no-session', firstName: localStorage.getItem(SK.FNAME)||'', lastName: localStorage.getItem(SK.LNAME)||'', createdAt: new Date() }) });
     } catch (_) {}
-
     try {
-      const res = await fetch(`${BASE_URL}/app/chat/search?shop=${encodeURIComponent(shop)}&query=${encodeURIComponent(query)}&type=all`);
-      const data = await res.json();
+      const data = await (await fetch(`${BASE_URL}/app/chat/search?shop=${encodeURIComponent(shop)}&query=${encodeURIComponent(query)}&type=all`)).json();
       document.getElementById("search-loading-indicator").style.display = "none";
-      
-      if (!data.success) {
-        document.getElementById("no-results-state").style.display = "flex";
-        document.getElementById("search-results-wrapper").style.display = "none";
-        return;
-      }
-      
+      if (!data.success) { document.getElementById("no-results-state").style.display = "flex"; document.getElementById("search-results-wrapper").style.display = "none"; return; }
       document.getElementById("no-results-state").style.display = "none";
-      
       saveSearch(query, data.results);
       renderSearchResultsNew(data.results);
-      
-      // ✅ TRIGGER AUTO-SCROLL AFTER RESULTS RENDER
       scrollToSearchResults();
-      
-    } catch (_) {
-      document.getElementById("search-loading-indicator").style.display = "none";
-      document.getElementById("no-results-state").style.display = "flex";
-    }
+    } catch (_) { document.getElementById("search-loading-indicator").style.display = "none"; document.getElementById("no-results-state").style.display = "flex"; }
   }
 
   function renderSearchResultsNew(results) {
-    const has = (results.products    && results.products.length)    ||
-                (results.collections && results.collections.length) ||
-                (results.pages       && results.pages.length)       ||
-                (results.orders      && results.orders.length);
-    if (!has) {
-      document.getElementById("search-results-wrapper").style.display = "none";
-      document.getElementById("no-results-state").style.display       = "block";
-      return;
-    }
+    const has = (results.products&&results.products.length)||(results.collections&&results.collections.length)||(results.pages&&results.pages.length)||(results.orders&&results.orders.length);
+    if (!has) { document.getElementById("search-results-wrapper").style.display="none"; document.getElementById("no-results-state").style.display="block"; return; }
     document.getElementById("search-results-wrapper").style.display = "block";
     document.getElementById("search-empty-state").style.display     = "none";
     document.getElementById("no-results-state").style.display       = "none";
-
-    function fill(section, items, cardFn) {
-      const wrap  = document.getElementById(`${section}-results-section`);
-      const count = document.getElementById(`${section}-count`);
-      const scroll= document.getElementById(`${section}-scroll`);
-      if (items && items.length) {
-        wrap.style.display = "block";
-        count.textContent  = items.length;
-        scroll.innerHTML   = items.map(cardFn).join('');
-        const lb = wrap.querySelector('.scroll-left');
-        const rb = wrap.querySelector('.scroll-right');
-        if (items.length <= 1) { if(lb) lb.style.display='none'; if(rb) rb.style.display='none'; }
-        else { if(lb) lb.style.display='flex'; if(rb) rb.style.display='flex'; }
-      } else {
-        wrap.style.display = "none";
-      }
+    const pc = currentConfig.primaryColor || '#F39C12';
+    function fill(sec, items, fn) {
+      const w = document.getElementById(`${sec}-results-section`), c = document.getElementById(`${sec}-count`), s = document.getElementById(`${sec}-scroll`);
+      if (items && items.length) { w.style.display="block"; c.textContent=items.length; s.innerHTML=items.map(fn).join(''); } else { w.style.display="none"; }
     }
-
-    const primaryColor = currentConfig.primaryColor || '#F39C12';
-
-    fill('products', results.products, p =>
-      `<div class="result-card" onclick="window.open('${p.url}','_blank')">
-        ${p.image ? `<img src="${p.image}" class="result-card-image" alt="${p.title}"/>` : '<div class="result-card-image"></div>'}
-        <div class="result-card-content">
-          <div class="result-card-title">${p.title}</div>
-          <div class="result-card-price" style="color:${primaryColor}">${p.currency} ${parseFloat(p.price).toFixed(2)}</div>
-        </div>
-      </div>`
-    );
-
-    fill('collections', results.collections, c =>
-      `<div class="result-card" onclick="window.open('${c.url}','_blank')">
-        ${c.image ? `<img src="${c.image}" class="result-card-image" alt="${c.title}"/>` : '<div class="result-card-image"></div>'}
-        <div class="result-card-content">
-          <div class="result-card-title">${c.title}</div>
-          <div class="result-card-meta">${c.productCount || 0} products</div>
-        </div>
-      </div>`
-    );
-
-    fill('pages', results.pages, pg =>
-      `<div class="result-card" onclick="window.open('${pg.url}','_blank')">
-        <div class="result-card-image"></div>
-        <div class="result-card-content">
-          <div class="result-card-type" style="background:${primaryColor}">Page</div>
-          <div class="result-card-title">${pg.title}</div>
-          ${pg.description ? `<div class="result-card-meta">${pg.description.substring(0,55)}…</div>` : ''}
-        </div>
-      </div>`
-    );
-
-    fill('orders', results.orders, o =>
-      `<div class="result-card">
-        <div class="result-card-image"></div>
-        <div class="result-card-content">
-          <div class="result-card-type" style="background:${primaryColor}">Order</div>
-          <div class="result-card-title">${o.orderNumber}</div>
-          <div class="result-card-price" style="color:${primaryColor}">${o.currency} ${parseFloat(o.total).toFixed(2)}</div>
-          <div class="result-card-meta">${o.email}</div>
-        </div>
-      </div>`
-    );
+    fill('products',    results.products,    p  => `<div class="result-card" onclick="window.open('${p.url}','_blank')">${p.image?`<img src="${p.image}" class="result-card-image" alt="${p.title}"/>`:'<div class="result-card-image"></div>'}<div class="result-card-content"><div class="result-card-title">${p.title}</div><div class="result-card-price" style="color:${pc}">${p.currency} ${parseFloat(p.price).toFixed(2)}</div></div></div>`);
+    fill('collections', results.collections, c  => `<div class="result-card" onclick="window.open('${c.url}','_blank')">${c.image?`<img src="${c.image}" class="result-card-image" alt="${c.title}"/>`:'<div class="result-card-image"></div>'}<div class="result-card-content"><div class="result-card-title">${c.title}</div><div class="result-card-meta">${c.productCount||0} products</div></div></div>`);
+    fill('pages',       results.pages,       pg => `<div class="result-card" onclick="window.open('${pg.url}','_blank')"><div class="result-card-image"></div><div class="result-card-content"><div class="result-card-type" style="background:${pc}">Page</div><div class="result-card-title">${pg.title}</div>${pg.description?`<div class="result-card-meta">${pg.description.substring(0,55)}…</div>`:''}</div></div>`);
+    fill('orders',      results.orders,      o  => `<div class="result-card"><div class="result-card-image"></div><div class="result-card-content"><div class="result-card-type" style="background:${pc}">Order</div><div class="result-card-title">${o.orderNumber}</div><div class="result-card-price" style="color:${pc}">${o.currency} ${parseFloat(o.total).toFixed(2)}</div><div class="result-card-meta">${o.email}</div></div></div>`);
   }
 
   function renderPreviousSearchResults(results, query) {
-    if (!results || !query) {
-      clearPreviousSearchResults();
-      return;
-    }
-
-    const has = (results.products    && results.products.length)    ||
-                (results.collections && results.collections.length) ||
-                (results.pages       && results.pages.length)       ||
-                (results.orders      && results.orders.length);
-    
-    if (!has) {
-      clearPreviousSearchResults();
-      return;
-    }
-
+    if (!results || !query) { clearPreviousSearchResults(); return; }
+    const has = (results.products&&results.products.length)||(results.collections&&results.collections.length)||(results.pages&&results.pages.length)||(results.orders&&results.orders.length);
+    if (!has) { clearPreviousSearchResults(); return; }
     document.getElementById("previous-search-wrapper").style.display = "block";
     document.getElementById("previous-query-text").textContent = `"${query}"`;
-
-    function fillPrev(section, items, cardFn) {
-      const wrap  = document.getElementById(`prev-${section}-results-section`);
-      const count = document.getElementById(`prev-${section}-count`);
-      const scroll= document.getElementById(`prev-${section}-scroll`);
-      if (items && items.length) {
-        wrap.style.display = "block";
-        count.textContent  = items.length;
-        scroll.innerHTML   = items.map(cardFn).join('');
-        const lb = wrap.querySelector('.scroll-left');
-        const rb = wrap.querySelector('.scroll-right');
-        if (items.length <= 1) { if(lb) lb.style.display='none'; if(rb) rb.style.display='none'; }
-        else { if(lb) lb.style.display='flex'; if(rb) lb.style.display='flex'; }
-      } else {
-        wrap.style.display = "none";
-      }
-    }
-
-    const primaryColor = currentConfig.primaryColor || '#F39C12';
-
-    fillPrev('products', results.products, p =>
-      `<div class="result-card" onclick="window.open('${p.url}','_blank')">
-        ${p.image ? `<img src="${p.image}" class="result-card-image" alt="${p.title}"/>` : '<div class="result-card-image"></div>'}
-        <div class="result-card-content">
-          <div class="result-card-title">${p.title}</div>
-          <div class="result-card-price" style="color:${primaryColor}">${p.currency} ${parseFloat(p.price).toFixed(2)}</div>
-        </div>
-      </div>`
-    );
-
-    fillPrev('collections', results.collections, c =>
-      `<div class="result-card" onclick="window.open('${c.url}','_blank')">
-        ${c.image ? `<img src="${c.image}" class="result-card-image" alt="${c.title}"/>` : '<div class="result-card-image"></div>'}
-        <div class="result-card-content">
-          <div class="result-card-title">${c.title}</div>
-          <div class="result-card-meta">${c.productCount || 0} products</div>
-        </div>
-      </div>`
-    );
-
-    fillPrev('pages', results.pages, pg =>
-      `<div class="result-card" onclick="window.open('${pg.url}','_blank')">
-        <div class="result-card-image"></div>
-        <div class="result-card-content">
-          <div class="result-card-type" style="background:${primaryColor}">Page</div>
-          <div class="result-card-title">${pg.title}</div>
-          ${pg.description ? `<div class="result-card-meta">${pg.description.substring(0,55)}…</div>` : ''}
-        </div>
-      </div>`
-    );
-
-    fillPrev('orders', results.orders, o =>
-      `<div class="result-card">
-        <div class="result-card-image"></div>
-        <div class="result-card-content">
-          <div class="result-card-type" style="background:${primaryColor}">Order</div>
-          <div class="result-card-title">${o.orderNumber}</div>
-          <div class="result-card-price" style="color:${primaryColor}">${o.currency} ${parseFloat(o.total).toFixed(2)}</div>
-          <div class="result-card-meta">${o.email}</div>
-        </div>
-      </div>`
-    );
   }
 
-  window.scrollSection = function(section, dir) {
-    const el = document.getElementById(`${section}-scroll`);
-    el.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' });
-  };
+  window.scrollSection = function(sec, dir) { const el = document.getElementById(`${sec}-scroll`); if (el) el.scrollBy({ left: dir==='left'?-200:200, behavior:'smooth' }); };
 
   /* ── FAQs ── */
   async function loadFAQs() {
     try {
-      const res  = await fetch(`${BASE_URL}/api/faq/categories?shop=${shop}`);
-      const data = await res.json();
+      const data = await (await fetch(`${BASE_URL}/api/faq/categories?shop=${shop}`)).json();
       faqData = data.categories || [];
-      renderHomeFAQs();
-      renderFAQs();
-    } catch (_) {
-      document.getElementById("faq-categories-list").innerHTML =
-        '<div style="text-align:center;padding:40px 20px;color:#888;">❌ Failed to load FAQs</div>';
-    }
+      renderHomeFAQs(); renderFAQs();
+    } catch (_) { document.getElementById("faq-categories-list").innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888;">❌ Failed to load FAQs</div>'; }
   }
-
   function renderHomeFAQs() {
-    const c = document.getElementById("home-faq-list");
-    c.innerHTML = '';
+    const c = document.getElementById("home-faq-list"); c.innerHTML = '';
     faqData.forEach(cat => {
       if (!cat.isActive || !cat.faqs) return;
       cat.faqs.filter(f => f.isActive).forEach(faq => {
-        const item = document.createElement("div");
-        item.className = "faq-item";
-        item.innerHTML = `
-          <div class="faq-item-header">
-            <div class="faq-question">${faq.question}</div>
-            <div class="faq-arrow">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="m9 18 6-6-6-6"/>
-              </svg>
-            </div>
-          </div>`;
-        item.onclick = () => {
-          item.classList.toggle('open');
-          if (item.classList.contains('open') && !item.querySelector('.faq-answer')) {
-            const ans = document.createElement('div');
-            ans.className = 'faq-answer';
-            ans.innerHTML = `<div class="faq-answer-text">${faq.answer}</div>`;
-            item.appendChild(ans);
-          }
-        };
+        const item = document.createElement("div"); item.className = "faq-item";
+        item.innerHTML = `<div class="faq-item-header"><div class="faq-question">${faq.question}</div><div class="faq-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></div></div>`;
+        item.onclick = () => { item.classList.toggle('open'); if (item.classList.contains('open') && !item.querySelector('.faq-answer')) { const a = document.createElement('div'); a.className='faq-answer'; a.innerHTML=`<div class="faq-answer-text">${faq.answer}</div>`; item.appendChild(a); } };
         c.appendChild(item);
       });
     });
-    if (!c.children.length)
-      c.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">❓ No FAQs available</div>';
+    if (!c.children.length) c.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">❓ No FAQs available</div>';
   }
-
   function renderFAQs() {
-    const c = document.getElementById("faq-categories-list");
-    c.innerHTML = '';
+    const c = document.getElementById("faq-categories-list"); c.innerHTML = '';
     faqData.forEach(cat => {
       if (!cat.isActive || !cat.faqs) return;
-      const active = cat.faqs.filter(f => f.isActive);
-      if (!active.length) return;
-      const catDiv = document.createElement('div');
-      catDiv.className = 'faq-category';
-      const primaryColor = currentConfig.primaryColor || '#F39C12';
-      let html = `<div class="faq-category-title"><span>${cat.title}</span><span class="faq-category-badge" style="background:${primaryColor} !important">${active.length}</span></div>`;
+      const active = cat.faqs.filter(f => f.isActive); if (!active.length) return;
+      const catDiv = document.createElement('div'); catDiv.className = 'faq-category';
+      const pc = currentConfig.primaryColor || '#F39C12';
+      let html = `<div class="faq-category-title"><span>${cat.title}</span><span class="faq-category-badge" style="background:${pc} !important">${active.length}</span></div>`;
       active.forEach(faq => {
         const id = `faq-${faq.id}`;
-        html += `<div class="faq-item" onclick="window.toggleFaq('${id}')">
-          <div class="faq-item-header">
-            <div class="faq-question">${faq.question}</div>
-            <div class="faq-arrow" id="${id}-arrow">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
-            </div>
-          </div>
-          <div class="faq-answer" id="${id}-answer" style="display:none;">
-            <div class="faq-answer-text">${faq.answer}</div>
-          </div>
-        </div>`;
+        html += `<div class="faq-item" onclick="window.toggleFaq('${id}')"><div class="faq-item-header"><div class="faq-question">${faq.question}</div><div class="faq-arrow" id="${id}-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></div></div><div class="faq-answer" id="${id}-answer" style="display:none;"><div class="faq-answer-text">${faq.answer}</div></div></div>`;
       });
-      catDiv.innerHTML = html;
-      c.appendChild(catDiv);
+      catDiv.innerHTML = html; c.appendChild(catDiv);
     });
   }
+  window.toggleFaq = function(id) { const a = document.getElementById(`${id}-answer`), item = a?.closest('.faq-item'); if (a && item) { const open = a.style.display==='block'; a.style.display=open?'none':'block'; item.classList.toggle('open',!open); } };
 
-  window.toggleFaq = function(id) {
-    const ans   = document.getElementById(`${id}-answer`);
-    const item  = ans?.closest('.faq-item');
-    if (ans && item) {
-      const open = ans.style.display === 'block';
-      ans.style.display = open ? 'none' : 'block';
-      item.classList.toggle('open', !open);
-    }
-  };
-
-  /* ── DOM-ready bindings ── */
+  /* ── DOM ready ── */
   document.addEventListener('DOMContentLoaded', () => {
-    const searchInput = document.getElementById("store-search-input-new");
-    const searchBtn   = document.getElementById("search-icon-btn");
-
-    searchBtn && searchBtn.addEventListener('click', () => {
-      const q = searchInput.value.trim();
-      if (q) {
-        performSearchNew(q);
-      } else {
-        clearSearchResults();
-        clearPreviousSearchResults();
-        clearSavedSearch();
-        document.getElementById("search-results-wrapper").style.display = "none";
-        document.getElementById("search-empty-state").style.display = "block";
-        document.getElementById("no-results-state").style.display = "none";
-        document.querySelector(".search-hero").style.display = "block";
-      }
-    });
-    searchInput && searchInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) { 
-        e.preventDefault(); 
-        const q = searchInput.value.trim(); 
-        if (q) {
-          performSearchNew(q);
-        } else {
-          clearSearchResults();
-          clearPreviousSearchResults();
-          clearSavedSearch();
-          document.getElementById("search-results-wrapper").style.display = "none";
-          document.getElementById("search-empty-state").style.display = "block";
-          document.getElementById("no-results-state").style.display = "none";
-          document.querySelector(".search-hero").style.display = "block";
-        }
-      }
-    });
-
-    const hsi = document.getElementById("home-search-input");
-    const hsb = document.getElementById("home-search-btn");
-    function goSearch(q) {
-      if (!faqData.length) {
-        loadFAQs().then(() => switchToFAQ(q));
-      } else {
-        switchToFAQ(q);
-      }
-    }
-    function switchToFAQ(q) {
-      document.querySelector('[data-tab="faq"]').click();
-      setTimeout(() => {
-        const faqInput = document.getElementById("faq-search-input");
-        if (faqInput) {
-          faqInput.value = q;
-          faqInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }, 80);
-    }
-    hsb && hsb.addEventListener('click', () => { const q = hsi.value.trim(); if (q) goSearch(q); });
-    hsi && hsi.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const q = hsi.value.trim(); if (q) goSearch(q); } });
-
+    const si = document.getElementById("store-search-input-new"), sb = document.getElementById("search-icon-btn");
+    sb && sb.addEventListener('click', () => { const q=si.value.trim(); if(q) performSearchNew(q); });
+    si && si.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();const q=si.value.trim();if(q)performSearchNew(q);} });
+    const hsi = document.getElementById("home-search-input"), hsb = document.getElementById("home-search-btn");
+    function goSearch(q) { if (!faqData.length) { loadFAQs().then(()=>switchToFAQ(q)); } else { switchToFAQ(q); } }
+    function switchToFAQ(q) { document.querySelector('[data-tab="faq"]').click(); setTimeout(()=>{ const fi=document.getElementById("faq-search-input"); if(fi){fi.value=q;fi.dispatchEvent(new Event('input',{bubbles:true}));} },80); }
+    hsb && hsb.addEventListener('click', ()=>{ const q=hsi.value.trim(); if(q) goSearch(q); });
+    hsi && hsi.addEventListener('keydown', e=>{ if(e.key==='Enter'){e.preventDefault();const q=hsi.value.trim();if(q)goSearch(q);} });
     const fsi = document.getElementById("faq-search-input");
     fsi && fsi.addEventListener('input', e => {
       const term = e.target.value.toLowerCase();
-      document.querySelectorAll('#faq-categories-list .faq-item').forEach(item => {
-        const q = (item.querySelector('.faq-question')?.textContent || '').toLowerCase();
-        const a = (item.querySelector('.faq-answer-text')?.textContent || '').toLowerCase();
-        item.style.display = (q.includes(term) || a.includes(term)) ? '' : 'none';
-      });
-      document.querySelectorAll('.faq-category').forEach(cat => {
-        cat.style.display = cat.querySelectorAll('.faq-item:not([style*="display: none"])').length ? '' : 'none';
-      });
+      document.querySelectorAll('#faq-categories-list .faq-item').forEach(item => { const q=(item.querySelector('.faq-question')?.textContent||'').toLowerCase(), a=(item.querySelector('.faq-answer-text')?.textContent||'').toLowerCase(); item.style.display=(q.includes(term)||a.includes(term))?'':'none'; });
+      document.querySelectorAll('.faq-category').forEach(cat => { cat.style.display=cat.querySelectorAll('.faq-item:not([style*="display: none"])').length?'':'none'; });
     });
   });
 
-  /* ── polling helpers ── */
-  function startPolling() {
-    fetchMessages();
-    if (pollInterval) clearInterval(pollInterval);
-    pollInterval = setInterval(fetchMessages, 3500);
-  }
+  /* ── polling ── */
+  function startPolling() { fetchMessages(); if (pollInterval) clearInterval(pollInterval); pollInterval = setInterval(fetchMessages, 3500); }
 
-  /* ── launcher toggle ── */
+  /* ── launcher ── */
   launcher.onclick = () => {
     const open = widget.classList.toggle("chat-visible");
     widget.classList.toggle("chat-hidden", !open);
-    document.getElementById("launcher-icon").style.display       = open ? "none"  : "flex";
-    document.getElementById("close-launcher-icon").style.display = open ? "flex"  : "none";
+    document.getElementById("launcher-icon").style.display       = open ? "none" : "flex";
+    document.getElementById("close-launcher-icon").style.display = open ? "flex" : "none";
   };
 
-  /* ── tab nav ── */
+  /* ── tabs ── */
   document.querySelectorAll('.nav-item').forEach(nav => {
     nav.onclick = () => {
       const tab = nav.dataset.tab;
@@ -1242,166 +736,73 @@ window.openImagePopup = function(imageUrl) {
       document.getElementById(`tab-${tab}`).style.display = 'flex';
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
       nav.classList.add('active');
-
-      if (tab === 'chat') { 
-        fetchMessages(); 
-        setTimeout(() => msgBox.scrollTop = msgBox.scrollHeight, 80); 
-      }
+      if (tab === 'chat') { fetchMessages(); setTimeout(() => msgBox.scrollTop = msgBox.scrollHeight, 80); }
       if (tab === 'faq' && !faqData.length) loadFAQs();
-      
       if (tab === 'search') {
-        const hasSavedSearch = loadSavedSearch();
-        if (!hasSavedSearch) {
-          document.getElementById("store-search-input-new").value = "";
-          clearSearchResults();
-          clearPreviousSearchResults();
-          document.getElementById("search-results-wrapper").style.display = "none";
-          document.getElementById("search-empty-state").style.display = "block";
-          document.getElementById("no-results-state").style.display = "none";
-          document.querySelector(".search-hero").style.display = "block";
-        } else {
-          if (previousSearchQuery && previousSearchResults) {
-            renderPreviousSearchResults(previousSearchResults, previousSearchQuery);
-          }
-        }
+        const saved = loadSavedSearch();
+        if (!saved) { document.getElementById("store-search-input-new").value=""; clearSearchResults(); clearPreviousSearchResults(); document.getElementById("search-results-wrapper").style.display="none"; document.getElementById("search-empty-state").style.display="block"; document.getElementById("no-results-state").style.display="none"; }
       }
     };
   });
 
-  /* ── search-here card → search tab ── */
-  document.getElementById("search-here-trigger").onclick = () =>
-    document.querySelector('[data-tab="search"]').click();
-
-  /* ── contact card → chat tab ── */
-  document.querySelector('.contact-card').addEventListener('click', (e) => {
-    if (e.target.closest('.chat-now-btn'))
-      document.querySelector('[data-tab="chat"]').click();
-  });
+  document.getElementById("search-here-trigger").onclick = () => document.querySelector('[data-tab="search"]').click();
+  document.querySelector('.contact-card').addEventListener('click', e => { if(e.target.closest('.chat-now-btn')) document.querySelector('[data-tab="chat"]').click(); });
 
   /* ── onboarding submit ── */
   submitBtn.onclick = async () => {
-    const f = fnameInput.value.trim(), l = lnameInput.value.trim(), e = emailInput.value.trim();
-    if (!f || !e) return alert("Required fields missing");
-    submitBtn.disabled = true; submitBtn.textContent = "Connecting…";
+    const f=fnameInput.value.trim(), l=lnameInput.value.trim(), e=emailInput.value.trim();
+    if (!f||!e) return alert("Required fields missing");
+    submitBtn.disabled=true; submitBtn.textContent="Connecting…";
     const sid = getOrCreateSessionId();
     try {
-      const res = await fetch(`${BASE_URL}/app/chat/register`, {
-        method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ shop, firstName: f, lastName: l, email: e, sessionId: sid })
-      });
+      const res = await fetch(`${BASE_URL}/app/chat/register`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ shop, firstName:f, lastName:l, email:e, sessionId:sid }) });
       if (res.ok) {
-        localStorage.setItem(SK.SID, sid);
-        localStorage.setItem(SK.FNAME, f);
-        localStorage.setItem(SK.LNAME, l || '');
-        localStorage.setItem(SK.EMAIL, e);
+        localStorage.setItem(SK.SID,sid); localStorage.setItem(SK.FNAME,f); localStorage.setItem(SK.LNAME,l||''); localStorage.setItem(SK.EMAIL,e);
         showChatInterface(); startPolling();
+        await updateTokenAfterLogin(); // 🔥 update FCM token with user info
       } else alert("Registration failed.");
     } catch (_) { alert("Connection error."); }
-    submitBtn.disabled = false; submitBtn.textContent = "Start Chatting";
+    submitBtn.disabled=false; submitBtn.textContent="Start Chatting";
   };
 
-  /* ── file / image ── */
+  /* ── file ── */
   const fInput = document.getElementById("chat-file-input");
   document.getElementById("file-btn").onclick = () => fInput.click();
-  
-  fInput.onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
+  fInput.onchange = async e => {
+    const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (ev) => {
+    reader.onload = async ev => {
       selectedImg = ev.target.result;
-      
-      const loaderDiv = document.createElement("div");
-      loaderDiv.className = "msg user";
-      loaderDiv.id = "upload-loader-msg";
-      loaderDiv.innerHTML = `
-        <div class="msg-content" style="background:#F39C12;color:#fff;border:none;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div class="upload-spinner"></div>
-            <span>Uploading image...</span>
-          </div>
-        </div>
-      `;
-      msgBox.appendChild(loaderDiv);
-      msgBox.scrollTop = msgBox.scrollHeight;
-
-      try {
-        await postMessage("", selectedImg);
-        
-        const loader = document.getElementById("upload-loader-msg");
-        if (loader) loader.remove();
-        
-        selectedImg = null;
-        fInput.value = "";
-        
-      } catch (err) {
-        console.error("Upload error:", err);
-        
-        const loader = document.getElementById("upload-loader-msg");
-        if (loader) loader.remove();
-        
-        const errorDiv = document.createElement("div");
-        errorDiv.className = "msg user";
-        errorDiv.innerHTML = `
-          <div class="msg-content" style="background:#ef4444;color:#fff;border:none;">
-            <span>❌ Upload failed. Please try again.</span>
-          </div>
-        `;
-        msgBox.appendChild(errorDiv);
-        msgBox.scrollTop = msgBox.scrollHeight;
-        
-        setTimeout(() => errorDiv.remove(), 3000);
+      const ld = document.createElement("div"); ld.className="msg user"; ld.id="upload-loader-msg";
+      ld.innerHTML=`<div class="msg-content" style="background:#F39C12;color:#fff;border:none;"><div style="display:flex;align-items:center;gap:10px;"><div class="upload-spinner"></div><span>Uploading image...</span></div></div>`;
+      msgBox.appendChild(ld); msgBox.scrollTop=msgBox.scrollHeight;
+      try { await postMessage("", selectedImg); document.getElementById("upload-loader-msg")?.remove(); selectedImg=null; fInput.value=""; }
+      catch (err) {
+        document.getElementById("upload-loader-msg")?.remove();
+        const ed=document.createElement("div"); ed.className="msg user"; ed.innerHTML=`<div class="msg-content" style="background:#ef4444;color:#fff;border:none;"><span>❌ Upload failed. Please try again.</span></div>`;
+        msgBox.appendChild(ed); msgBox.scrollTop=msgBox.scrollHeight; setTimeout(()=>ed.remove(),3000);
       }
     };
     reader.readAsDataURL(file);
   };
-  
   document.getElementById("send-image-btn").onclick = async () => {
-    if (!selectedImg) {
-      alert("No image selected");
-      return;
-    }
-    
-    const sendBtn = document.getElementById("send-image-btn");
-    const originalHTML = sendBtn.innerHTML;
-    
-    try {
-      sendBtn.disabled = true;
-      sendBtn.innerHTML = '<span class="img-loader"></span> Uploading...';
-      
-      await postMessage("", selectedImg);
-      
-      selectedImg = null;
-      document.getElementById("image-preview-container").style.display = "none";
-      
-    } catch (err) {
-      console.error("Upload error:", err);
-      alert("Failed to send image. Please try again.");
-    } finally {
-      sendBtn.disabled = false;
-      sendBtn.innerHTML = originalHTML;
-    }
+    if (!selectedImg) { alert("No image selected"); return; }
+    const btn=document.getElementById("send-image-btn"), orig=btn.innerHTML;
+    try { btn.disabled=true; btn.innerHTML='<span class="img-loader"></span> Uploading...'; await postMessage("",selectedImg); selectedImg=null; document.getElementById("image-preview-container").style.display="none"; }
+    catch (_) { alert("Failed to send image. Please try again."); }
+    finally { btn.disabled=false; btn.innerHTML=orig; }
   };
-  
-  document.getElementById("remove-image-btn").onclick = () => {
-    selectedImg = null;
-    document.getElementById("image-preview-container").style.display = "none";
-  };
+  document.getElementById("remove-image-btn").onclick = () => { selectedImg=null; document.getElementById("image-preview-container").style.display="none"; };
 
   /* ── emoji ── */
   const picker = document.getElementById("emoji-picker");
-  picker.innerHTML = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏"]
-    .map(em => `<span class="e-item" style="cursor:pointer;font-size:20px;">${em}</span>`).join('');
+  picker.innerHTML = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏"].map(em=>`<span class="e-item" style="cursor:pointer;font-size:20px;">${em}</span>`).join('');
   document.getElementById("emoji-btn").onclick = e => { e.stopPropagation(); picker.classList.toggle("hidden-picker"); };
-  picker.onclick = e => {
-    if (e.target.classList.contains('e-item')) { chatInput.value += e.target.innerText; picker.classList.add("hidden-picker"); chatInput.focus(); }
-  };
+  picker.onclick = e => { if(e.target.classList.contains('e-item')){ chatInput.value+=e.target.innerText; picker.classList.add("hidden-picker"); chatInput.focus(); } };
 
-  /* ── send shortcuts ── */
-  chatInput.onkeydown = e => { if (e.key === 'Enter') postMessage(); };
-  document.getElementById("chat-send").onclick = () => postMessage();
-  document.getElementById("chat-close").onclick = () => launcher.click();
+  chatInput.onkeydown = e => { if(e.key==='Enter') postMessage(); };
+  document.getElementById("chat-send").onclick  = () => postMessage();
+  document.getElementById("chat-close").onclick  = () => launcher.click();
 
   /* ── INIT ── */
   async function initialize() {
@@ -1409,14 +810,13 @@ window.openImagePopup = function(imageUrl) {
     await loadFAQs();
     await checkExistingSession();
     startStatusPolling();
-    
-    const currentTab = document.querySelector('.nav-item.active')?.dataset.tab;
-    if (currentTab === 'search') {
-      loadSavedSearch();
+    if (document.querySelector('.nav-item.active')?.dataset.tab === 'search') loadSavedSearch();
+    // 🔥 Firebase push notifications initialize
+    if ('serviceWorker' in navigator && 'Notification' in window) {
+      initFirebasePush().catch(e => console.warn('Push unavailable:', e));
     }
   }
   initialize();
-
 })();
 </script>
 

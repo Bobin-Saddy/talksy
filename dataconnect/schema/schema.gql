@@ -1,0 +1,38 @@
+type User @table {
+  displayName: String!
+  createdAt: Timestamp!
+  email: String
+  photoUrl: String
+  timezone: String
+}
+
+type Notification @table {
+  user: User
+  title: String!
+  message: String!
+  scheduledAt: Timestamp!
+  createdAt: Timestamp!
+  priority: String
+  soundPreference: String
+  vibrationPreference: String
+}
+
+type NotificationHistory @table {
+  user: User
+  notification: Notification
+  receivedAt: Timestamp!
+  notificationStatus: String!
+}
+
+type SubscriptionType @table {
+  name: String!
+  description: String
+}
+
+type NotificationRecurrence @table {
+  notification: Notification
+  subscriptionType: SubscriptionType
+  type: String!
+  dayOfWeek: Int
+  dayOfMonth: Int
+}
