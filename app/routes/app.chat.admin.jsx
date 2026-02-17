@@ -41,11 +41,15 @@ async function subscribeToPush(shop) {
     alert('❌ Yeh browser push notifications support nahi karta.\nChrome ya Edge use karo.');
     return null;
   }
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') {
-    alert('❌ Notification permission deny ki gayi.\nBrowser settings mein jaake allow karo.');
-    return null;
-  }
+ // ✅ New — request only if not already decided
+let perm = Notification.permission;
+if (perm === "default") {
+  perm = await Notification.requestPermission();
+}
+if (perm !== "granted") {
+  console.log("🔕 Notification permission denied or not yet granted");
+  return;
+}
   try {
     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     await navigator.serviceWorker.ready;
@@ -256,13 +260,11 @@ export default function NeuralChatAdmin() {
   };
 
   // ─── Init audio + check push status ───────────────────────
-  useEffect(() => {
-    audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-    checkPushStatus().then(setPushEnabled);
-  }, []);
+useEffect(() => {
+  audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
+  // ✅ Don't request permission here — FCM setup will handle it
+  checkPushStatus().then(setPushEnabled);
+}, []);
 
   // 🔥 FCM — Setup Firebase push for admin
   useEffect(() => {
@@ -278,7 +280,8 @@ export default function NeuralChatAdmin() {
         // Service Worker register karo — public/firebase-messaging-sw.js
         let swReg;
         try {
-          swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+          swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+
           console.log("✅ FCM SW registered");
         } catch (e) {
           console.warn("FCM SW registration failed:", e.message);
