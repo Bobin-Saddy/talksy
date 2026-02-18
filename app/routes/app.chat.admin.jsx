@@ -461,17 +461,35 @@ export default function NeuralChatAdmin() {
 
   // ─── Session polling ───────────────────────────────────────
   useEffect(() => {
+    let pollFailCount = 0;
+    const MAX_FAILS = 5;
+
     const interval = setInterval(async () => {
+      // ✅ FIX: Skip poll if too many consecutive failures (avoids log spam)
+      if (pollFailCount >= MAX_FAILS) return;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
       try {
         const res = await fetch("/app/chat/poll", {
-          headers    : { Accept: "application/json", "Content-Type": "application/json" },
+          headers    : { Accept: "application/json" },
           credentials: "include",
+          signal     : controller.signal,
         });
-        if (!res.ok) return;
+        clearTimeout(timeout);
+
+        if (!res.ok) {
+          pollFailCount++;
+          return;
+        }
         const ct = res.headers.get("content-type");
-        if (!ct || !ct.includes("application/json")) return;
+        if (!ct || !ct.includes("application/json")) { pollFailCount++; return; }
+
         const data = await res.json();
         if (!data.sessions || !data.planLimit) return;
+
+        pollFailCount = 0; // reset on success
 
         const currentSessionIds = sessions.map(s => s.sessionId);
         const newSessions = data.sessions.filter(s => !currentSessionIds.includes(s.sessionId));
@@ -501,9 +519,12 @@ export default function NeuralChatAdmin() {
 
         lastSessionCountRef.current = data.sessions.length;
       } catch (e) {
-        console.error("Session poll error:", e.message);
+        clearTimeout(timeout);
+        if (e.name === "AbortError") return; // timeout — silent
+        pollFailCount++;
+        if (pollFailCount <= 2) console.warn("Session poll error:", e.message);
       }
-    }, 1500);
+    }, 3000); // ✅ FIX: Slowed from 1500ms to 3000ms to reduce rate-limit issues
     return () => clearInterval(interval);
   }, [sessions, activeSession]);
 
@@ -541,14 +562,32 @@ export default function NeuralChatAdmin() {
 
   useEffect(() => {
     if (!activeSession) return;
+    let msgFailCount = 0;
+    const MAX_MSG_FAILS = 5;
+
     const interval = setInterval(async () => {
+      if (msgFailCount >= MAX_MSG_FAILS) return;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
       try {
         const res = await fetch("/app/chat/messages?sessionId=" + activeSession.sessionId, {
-          headers: { Accept: "application/json" }, credentials: "include",
+          headers: { Accept: "application/json" },
+          credentials: "include",
+          signal: controller.signal,
         });
-        if (!res.ok) return;
+        clearTimeout(timeout);
+
+        if (!res.ok) { msgFailCount++; return; }
+        const ct = res.headers.get("content-type");
+        if (!ct || !ct.includes("application/json")) { msgFailCount++; return; }
+
         const data = await res.json();
         if (!Array.isArray(data)) return;
+
+        msgFailCount = 0; // reset on success
+
         const hasNew     = data.length !== messages.length;
         const hasUpdated = data.length > 0 && messages.length > 0 && data[data.length - 1].id !== lastMessageIdRef.current;
         if (hasNew || hasUpdated) {
@@ -558,8 +597,13 @@ export default function NeuralChatAdmin() {
           setMessages([...data]);
           if (data.length > 0) lastMessageIdRef.current = data[data.length - 1].id;
         }
-      } catch (err) { console.error("Message poll error:", err.message); }
-    }, 1500);
+      } catch (err) {
+        clearTimeout(timeout);
+        if (err.name === "AbortError") return;
+        msgFailCount++;
+        if (msgFailCount <= 2) console.warn("Message poll error:", err.message);
+      }
+    }, 3000);
     return () => clearInterval(interval);
   }, [activeSession?.sessionId, messages.length]);
 
@@ -775,49 +819,61 @@ export default function NeuralChatAdmin() {
         {notifBlocked && (
           <div style={{
             margin      : "0 16px 8px",
-            padding     : "10px 12px",
-            background  : "#fee2e2",
-            border      : "1px solid #fca5a5",
-            borderRadius: "8px",
+            padding     : "12px",
+            background  : "#fff7ed",
+            border      : "1px solid #fed7aa",
+            borderRadius: "10px",
             fontSize    : "11px",
-            color       : "#991b1b",
-            display     : "flex",
-            alignItems  : "flex-start",
-            gap         : "8px",
+            color       : "#9a3412",
           }}>
-            <span style={{ flexShrink:0, fontSize:"14px" }}>🚫</span>
-            <div style={{ flex:1 }}>
-              <strong>Notifications blocked in browser.</strong>
-              <br />
-              Click the 🔒 lock icon in your address bar → <strong>Notifications → Allow</strong>, then refresh the page.
+            <div style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"8px", fontWeight:"700", fontSize:"12px" }}>
+              <span>🚫</span> Notifications Blocked
+            </div>
+            <div style={{ lineHeight:"1.7", marginBottom:"10px" }}>
+              To fix, follow these steps in Chrome:<br/>
+              <strong>1.</strong> Open a new tab → go to{" "}
+              <code style={{ background:"#fee2e2", padding:"1px 4px", borderRadius:"3px", fontSize:"10px" }}>
+                chrome://settings/content/notifications
+              </code><br/>
+              <strong>2.</strong> Under <strong>"Not allowed to send notifications"</strong>, find<br/>
+              <code style={{ background:"#fee2e2", padding:"1px 4px", borderRadius:"3px", fontSize:"10px", wordBreak:"break-all" }}>
+                talksy-production-5d43.up.railway.app
+              </code><br/>
+              <strong>3.</strong> Click the <strong>🗑️ delete / ✏️ edit</strong> icon → set to <strong>Allow</strong><br/>
+              <strong>4.</strong> Come back here and click <strong>Retry</strong> below
             </div>
             <button
               onClick={async () => {
-                // If user has since allowed it in browser settings, retry FCM without prompting
-                if ("Notification" in window && Notification.permission === "granted") {
+                const realPerm = "Notification" in window ? Notification.permission : "denied";
+                if (realPerm === "granted") {
                   setNotifBlocked(false);
                   setNotifPermission("granted");
                   fcmInitRef.current = false;
                   await initFCM();
                 } else {
-                  window.location.reload();
+                  alert(
+                    "Browser still shows: " + realPerm + "\n\n" +
+                    "Steps to fix:\n" +
+                    "1. Open chrome://settings/content/notifications\n" +
+                    "2. Find talksy-production-5d43.up.railway.app\n" +
+                    "3. Delete it from Blocked list (or set to Allow)\n" +
+                    "4. Come back and click Retry again"
+                  );
                 }
               }}
               style={{
-                flexShrink  : 0,
-                marginTop   : "2px",
-                padding     : "5px 10px",
-                background  : "#dc2626",
+                width       : "100%",
+                padding     : "8px",
+                background  : "linear-gradient(135deg, #ea580c, #dc2626)",
                 color       : "white",
                 border      : "none",
-                borderRadius: "6px",
+                borderRadius: "7px",
                 fontWeight  : "700",
-                fontSize    : "10px",
+                fontSize    : "11px",
                 cursor      : "pointer",
-                whiteSpace  : "nowrap",
               }}
             >
-              Retry
+              ✅ I fixed it — Retry Now
             </button>
           </div>
         )}
