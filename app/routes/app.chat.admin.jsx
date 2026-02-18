@@ -357,10 +357,17 @@ export default function NeuralChatAdmin() {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
     checkPushStatus().then(setPushEnabled);
 
-    // ✅ Sync initial permission state
+    // ✅ FIX: Read real browser permission on load — never set notifBlocked when granted
     if ("Notification" in window) {
-      setNotifPermission(Notification.permission);
-      if (Notification.permission === "denied") setNotifBlocked(true);
+      const perm = Notification.permission;
+      setNotifPermission(perm);
+      // Only show blocked banner when truly denied — clear it if granted
+      if (perm === "granted") {
+        setNotifBlocked(false);
+      } else if (perm === "denied") {
+        setNotifBlocked(true);
+      }
+      // "default" = not yet asked — shows "Enable Now" button instead
     }
   }, []);
 
@@ -428,6 +435,15 @@ export default function NeuralChatAdmin() {
 
       } catch (err) {
         console.error("❌ FCM setup failed:", err.message);
+        // ✅ FIX: SW registration failure or getToken failure is NOT a permission denial.
+        // Do NOT set notifBlocked here — only set it when Notification.permission === "denied"
+        // Re-read the real permission so UI reflects truth
+        if ("Notification" in window) {
+          const realPerm = Notification.permission;
+          setNotifPermission(realPerm);
+          setNotifBlocked(realPerm === "denied");
+          if (realPerm === "granted") setNotifBlocked(false);
+        }
       }
     }
 
@@ -746,7 +762,7 @@ export default function NeuralChatAdmin() {
           </div>
         )}
 
-        {/* 🔥 FIX: Notification blocked banner — shown when browser has denied permission */}
+        {/* 🔥 FIX: Notification blocked banner — only shown when browser truly denied */}
         {notifBlocked && (
           <div style={{
             margin      : "0 16px 8px",
@@ -761,11 +777,39 @@ export default function NeuralChatAdmin() {
             gap         : "8px",
           }}>
             <span style={{ flexShrink:0, fontSize:"14px" }}>🚫</span>
-            <div>
+            <div style={{ flex:1 }}>
               <strong>Notifications blocked in browser.</strong>
               <br />
               Click the 🔒 lock icon in your address bar → <strong>Notifications → Allow</strong>, then refresh the page.
             </div>
+            <button
+              onClick={async () => {
+                // If user has since allowed it in browser settings, retry FCM without prompting
+                if ("Notification" in window && Notification.permission === "granted") {
+                  setNotifBlocked(false);
+                  setNotifPermission("granted");
+                  fcmInitRef.current = false;
+                  await initFCM();
+                } else {
+                  window.location.reload();
+                }
+              }}
+              style={{
+                flexShrink  : 0,
+                marginTop   : "2px",
+                padding     : "5px 10px",
+                background  : "#dc2626",
+                color       : "white",
+                border      : "none",
+                borderRadius: "6px",
+                fontWeight  : "700",
+                fontSize    : "10px",
+                cursor      : "pointer",
+                whiteSpace  : "nowrap",
+              }}
+            >
+              Retry
+            </button>
           </div>
         )}
 
