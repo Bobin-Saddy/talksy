@@ -1,6 +1,6 @@
 // ============================================================
 // firebase-messaging-sw.js
-// LOCATION: Shopify Theme → Assets folder mein upload karo
+
 // ============================================================
 
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');

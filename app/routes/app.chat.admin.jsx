@@ -229,7 +229,7 @@ export default function NeuralChatAdmin() {
 
   // 🔥 FCM — state
   const [fcmReady, setFcmReady]             = useState(false);
-  const [adminToast, setAdminToast]         = useState(null);
+  const [adminToasts, setAdminToasts]       = useState([]); // ✅ array — supports multiple simultaneous toasts
   const [notifBlocked, setNotifBlocked]     = useState(false);   // always false on SSR
   const [notifPermission, setNotifPermission] = useState("default"); // always "default" on SSR — real value set in useEffect
 
@@ -245,24 +245,33 @@ export default function NeuralChatAdmin() {
   const emojis = ["😊","👍","❤️","🙌","✨","🔥","✅","🤔","💡","🚀","👋","🙏","🎉"];
   const goToSubscription = () => navigate("/app/subscription");
 
-  // ✅ NEW: Shared helper to wire up FCM onMessage handler
+  // ✅ Shared helper — pushes each message into the toasts array (supports rapid-fire messages)
   const attachFcmMessageHandler = (messagingInstance) => {
     onMessage(messagingInstance, (payload) => {
       console.log("🔔 FCM foreground message:", payload);
       if (audioRef.current) audioRef.current.play().catch(() => {});
+
       if (document.hidden) {
+        // Tab hidden → native browser notification
         new Notification(payload.notification?.title || "💬 New Message", {
           body: payload.notification?.body || "Customer sent a message",
           icon: "/favicon.ico",
         });
       } else {
-        setAdminToast({
+        // Tab visible → push into toasts array (keeps all messages)
+        const toastId = Date.now() + Math.random();
+        const newToast = {
+          id       : toastId,
           title    : payload.notification?.title || "💬 New Message",
           body     : payload.notification?.body  || "Customer sent a message",
           sessionId: payload.data?.sessionId,
-          id       : Date.now(),
-        });
-        setTimeout(() => setAdminToast(null), 5000);
+          time     : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        };
+        setAdminToasts(prev => [...prev, newToast]);
+        // Auto-dismiss this specific toast after 7s
+        setTimeout(() => {
+          setAdminToasts(prev => prev.filter(t => t.id !== toastId));
+        }, 7000);
       }
     });
   };
@@ -677,44 +686,125 @@ export default function NeuralChatAdmin() {
   return (
     <div style={{ display:"flex", height:"100vh", backgroundColor:"#f9fafb", color:"#111827", fontFamily:'"Inter", system-ui, sans-serif' }}>
 
-      {/* 🔥 FCM TOAST — foreground notification */}
-      {adminToast && (
-        <div
-          onClick={() => {
-            if (adminToast.sessionId) {
-              const s = sessions.find(s => s.sessionId === adminToast.sessionId);
-              if (s) loadChat(s);
-            }
-            setAdminToast(null);
-          }}
-          style={{
-            position     : "fixed",
-            bottom       : "32px",
-            right        : "32px",
-            zIndex       : 99999,
-            background   : "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-            color        : "white",
-            borderRadius : "16px",
-            padding      : "16px 20px",
-            maxWidth     : "340px",
-            boxShadow    : "0 8px 32px rgba(99,102,241,0.4)",
-            display      : "flex",
-            alignItems   : "flex-start",
-            gap          : "12px",
-            cursor       : adminToast.sessionId ? "pointer" : "default",
-            animation    : "slideInRight 0.3s ease",
-          }}
-        >
-          <div style={{ width:"40px", height:"40px", background:"rgba(255,255,255,0.2)", borderRadius:"12px", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:"20px" }}>💬</div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontWeight:"700", fontSize:"14px", marginBottom:"4px" }}>{adminToast.title}</div>
-            <div style={{ fontSize:"13px", opacity:0.9, lineHeight:"1.4" }}>{adminToast.body}</div>
-            {adminToast.sessionId && <div style={{ fontSize:"11px", opacity:0.7, marginTop:"6px" }}>Click to open chat →</div>}
-          </div>
-          <button
-            onClick={e => { e.stopPropagation(); setAdminToast(null); }}
-            style={{ background:"rgba(255,255,255,0.2)", border:"none", color:"white", width:"24px", height:"24px", borderRadius:"6px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:"14px", fontWeight:"700" }}
-          >×</button>
+      {/* 🔥 FCM TOAST STACK — multiple messages stack upward, each auto-dismisses */}
+      {adminToasts.length > 0 && (
+        <div style={{
+          position      : "fixed",
+          bottom        : "32px",
+          right         : "32px",
+          zIndex        : 99999,
+          display       : "flex",
+          flexDirection : "column-reverse", // newest at bottom
+          gap           : "10px",
+          maxWidth      : "360px",
+          width         : "360px",
+          pointerEvents : "none", // container itself not clickable
+        }}>
+          {/* "Dismiss all" button — only shown when 2+ toasts */}
+          {adminToasts.length >= 2 && (
+            <div style={{ pointerEvents:"auto", display:"flex", justifyContent:"flex-end" }}>
+              <button
+                onClick={() => setAdminToasts([])}
+                style={{
+                  padding:"5px 12px", background:"rgba(0,0,0,0.55)", color:"white",
+                  border:"none", borderRadius:"20px", fontSize:"11px", fontWeight:"600",
+                  cursor:"pointer", backdropFilter:"blur(4px)",
+                }}
+              >
+                ✕ Dismiss all ({adminToasts.length})
+              </button>
+            </div>
+          )}
+
+          {adminToasts.map((toast, idx) => (
+            <div
+              key={toast.id}
+              onClick={() => {
+                if (toast.sessionId) {
+                  const s = sessions.find(s => s.sessionId === toast.sessionId);
+                  if (s) loadChat(s);
+                }
+                setAdminToasts(prev => prev.filter(t => t.id !== toast.id));
+              }}
+              style={{
+                pointerEvents : "auto",
+                background    : "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                color         : "white",
+                borderRadius  : "16px",
+                padding       : "14px 16px",
+                boxShadow     : "0 6px 24px rgba(99,102,241,0.45)",
+                display       : "flex",
+                alignItems    : "flex-start",
+                gap           : "12px",
+                cursor        : toast.sessionId ? "pointer" : "default",
+                animation     : "slideInRight 0.3s ease",
+                border        : "1px solid rgba(255,255,255,0.15)",
+                position      : "relative",
+                overflow      : "hidden",
+              }}
+            >
+              {/* Progress bar — auto-dismiss timer visual */}
+              <div style={{
+                position  : "absolute",
+                bottom    : 0,
+                left      : 0,
+                height    : "3px",
+                background: "rgba(255,255,255,0.4)",
+                borderRadius: "0 0 0 16px",
+                animation : "toastProgress 7s linear forwards",
+                width     : "100%",
+              }} />
+
+              {/* Icon with message count badge if multiple */}
+              <div style={{ position:"relative", flexShrink:0 }}>
+                <div style={{ width:"38px", height:"38px", background:"rgba(255,255,255,0.2)", borderRadius:"10px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px" }}>
+                  💬
+                </div>
+                {idx === 0 && adminToasts.length > 1 && (
+                  <div style={{
+                    position:"absolute", top:"-6px", right:"-6px",
+                    background:"#ef4444", color:"white", fontSize:"9px", fontWeight:"800",
+                    width:"16px", height:"16px", borderRadius:"50%",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    border:"2px solid white",
+                  }}>
+                    {adminToasts.length}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"3px" }}>
+                  <div style={{ fontWeight:"700", fontSize:"13px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"220px" }}>
+                    {toast.title}
+                  </div>
+                  <div style={{ fontSize:"10px", opacity:0.65, flexShrink:0, marginLeft:"8px" }}>{toast.time}</div>
+                </div>
+                <div style={{ fontSize:"12px", opacity:0.9, lineHeight:"1.45", wordBreak:"break-word" }}>
+                  {toast.body}
+                </div>
+                {toast.sessionId && (
+                  <div style={{ fontSize:"10px", opacity:0.7, marginTop:"5px", display:"flex", alignItems:"center", gap:"4px" }}>
+                    <span>👆</span> Tap to open chat
+                  </div>
+                )}
+              </div>
+
+              {/* Close button */}
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  setAdminToasts(prev => prev.filter(t => t.id !== toast.id));
+                }}
+                style={{
+                  background:"rgba(255,255,255,0.2)", border:"none", color:"white",
+                  width:"22px", height:"22px", borderRadius:"6px", cursor:"pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  flexShrink:0, fontSize:"13px", fontWeight:"700", marginTop:"1px",
+                }}
+              >×</button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -1071,6 +1161,10 @@ export default function NeuralChatAdmin() {
       </div>
 
       <style>{`
+        @keyframes toastProgress {
+          from { width: 100%; }
+          to   { width: 0%; }
+        }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f3f4f6; }
         ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
