@@ -1,17 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.chat.message.jsx   ← .JSX FILE
 //  PATH: Remix app → app/routes/app.chat.message.jsx
-//  CHANGES FROM ORIGINAL: 
+//  CHANGES FROM ORIGINAL:
 //    - sendPushToAdmin() call added after user message saved
 //    - BACKEND_URL constant added at top
-//    - Baaki sab original code same hai
+//    - All content changed to English
+//    - Mac notification fix: FCM + VAPID both supported
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { canCreateChat } from "../planLimits.server";
 
-// ✅ NEW: Railway backend URL (push notification ke liye)
+// ✅ Railway backend URL (for push notifications)
 const BACKEND_URL = "https://talksy-production-5d43.up.railway.app";
 
 const corsHeaders = {
@@ -22,7 +23,7 @@ const corsHeaders = {
 
 export const loader = () => json({}, { headers: corsHeaders });
 
-// ✅ NEW: Helper — Admin ko push notification bhejo (Railway backend se)
+// ✅ Helper — Send push notification to admin via Railway backend
 async function sendPushToAdmin(shop, { title, body, url }) {
   try {
     const response = await fetch(`${BACKEND_URL}/app/push/send`, {
@@ -37,7 +38,7 @@ async function sendPushToAdmin(shop, { title, body, url }) {
       console.log("🔔 Push sent to admin for shop:", shop);
     }
   } catch (err) {
-    // Push fail hone se message delivery block nahi hogi
+    // Push failure should NOT block message delivery
     console.error("❌ Push notification error (non-blocking):", err.message);
   }
 }
@@ -56,7 +57,7 @@ export const action = async ({ request }) => {
       ? body.sender
       : "user";
 
-    // fname — push notification title ke liye
+    // fname — used for push notification title
     const fname = body.fname || body.firstName || null;
 
     console.log("📨 Message received:", {
@@ -149,28 +150,28 @@ export const action = async ({ request }) => {
       return { chatSession, newMessage };
     });
 
-    // ✅ NEW: PUSH NOTIFICATION — sirf user messages pe admin ko notify karo
+    // ✅ PUSH NOTIFICATION — notify admin only on user messages
     if (sender === "user" && message && message.trim()) {
       const shopDomain = shop.replace(".myshopify.com", "");
       const displayName = fname || (email ? email.split("@")[0] : "Customer");
       const msgPreview =
         message.length > 100 ? message.substring(0, 100) + "…" : message;
 
-      // Non-blocking — await nahi karte taaki response fast rahe
+      // Non-blocking — no await so response stays fast
       sendPushToAdmin(shop, {
-        title: `💬 ${displayName} ne message kiya`,
+        title: `💬 New message from ${displayName}`,
         body: msgPreview,
         url: `https://admin.shopify.com/store/${shopDomain}/apps/talksy`,
       });
     }
 
-    // IF LIMIT REACHED ON NEW CHAT, SEND AUTO-REPLY FROM BOT
+    // IF LIMIT REACHED ON NEW CHAT — send auto-reply from bot
     if (limitReached) {
       const botReply = await prisma.chatMessage.create({
         data: {
-          message: `Thank you for contacting us! We've reached our chat capacity on our current plan. Our team will respond to you via email at ${
+          message: `Thank you for reaching out! We've reached our chat capacity on our current plan. Our team will get back to you via email at ${
             email || "your registered email"
-          } as soon as possible.`,
+          } as soon as possible. We appreciate your patience!`,
           sender: "bot",
           session: {
             connect: { sessionId: result.chatSession.sessionId },
