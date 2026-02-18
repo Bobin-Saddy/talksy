@@ -230,8 +230,8 @@ export default function NeuralChatAdmin() {
   // 🔥 FCM — state
   const [fcmReady, setFcmReady]             = useState(false);
   const [adminToast, setAdminToast]         = useState(null);
-  const [notifBlocked, setNotifBlocked]     = useState(false);
-  const [notifPermission, setNotifPermission] = useState("default"); // ✅ NEW: track live permission state
+  const [notifBlocked, setNotifBlocked]     = useState(false);   // always false on SSR
+  const [notifPermission, setNotifPermission] = useState("default"); // always "default" on SSR — real value set in useEffect
 
   const fetcher            = useFetcher();
   const scrollRef          = useRef(null);
@@ -356,6 +356,15 @@ export default function NeuralChatAdmin() {
   useEffect(() => {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
     checkPushStatus().then(setPushEnabled);
+
+    // ✅ FIX: Load Google Fonts client-side only (avoids SSR 404 and hydration mismatch #418)
+    if (!document.getElementById("inter-font")) {
+      const link = document.createElement("link");
+      link.id   = "inter-font";
+      link.rel  = "stylesheet";
+      link.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap";
+      document.head.appendChild(link);
+    }
 
     // ✅ FIX: Read real browser permission on load — never set notifBlocked when granted
     if ("Notification" in window) {
@@ -1006,7 +1015,6 @@ export default function NeuralChatAdmin() {
       </div>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f3f4f6; }
         ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
