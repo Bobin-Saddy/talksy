@@ -246,32 +246,56 @@ export default function NeuralChatAdmin() {
   const goToSubscription = () => navigate("/app/subscription");
 
   // ✅ Shared helper — pushes each message into the toasts array (supports rapid-fire messages)
+  // ✅ Helper: push a toast from any source (FCM or polling)
+  const pushToast = (title, body, sessionId, imageUrl = null) => {
+    const toastId = Date.now() + Math.random();
+    const newToast = {
+      id       : toastId,
+      title,
+      body,
+      sessionId,
+      imageUrl,                            // ✅ image support
+      isImage  : !!(imageUrl),
+      time     : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    };
+    setAdminToasts(prev => [...prev, newToast]);
+    setTimeout(() => {
+      setAdminToasts(prev => prev.filter(t => t.id !== toastId));
+    }, 8000);
+    return toastId;
+  };
+
   const attachFcmMessageHandler = (messagingInstance) => {
     onMessage(messagingInstance, (payload) => {
       console.log("🔔 FCM foreground message:", payload);
       if (audioRef.current) audioRef.current.play().catch(() => {});
 
+      // Extract image URL — check both notification.image and data fields
+      const imageUrl = payload.notification?.image
+        || payload.data?.imageUrl
+        || payload.data?.fileUrl
+        || null;
+
+      const isImageMsg = !!(imageUrl);
+      const bodyText = isImageMsg
+        ? "📷 Sent an image"
+        : (payload.notification?.body || payload.data?.message || "Customer sent a message");
+
       if (document.hidden) {
         // Tab hidden → native browser notification
         new Notification(payload.notification?.title || "💬 New Message", {
-          body: payload.notification?.body || "Customer sent a message",
-          icon: "/favicon.ico",
+          body : bodyText,
+          icon : imageUrl || "/favicon.ico",
+          image: imageUrl || undefined,
         });
       } else {
-        // Tab visible → push into toasts array (keeps all messages)
-        const toastId = Date.now() + Math.random();
-        const newToast = {
-          id       : toastId,
-          title    : payload.notification?.title || "💬 New Message",
-          body     : payload.notification?.body  || "Customer sent a message",
-          sessionId: payload.data?.sessionId,
-          time     : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        };
-        setAdminToasts(prev => [...prev, newToast]);
-        // Auto-dismiss this specific toast after 7s
-        setTimeout(() => {
-          setAdminToasts(prev => prev.filter(t => t.id !== toastId));
-        }, 7000);
+        // Tab visible → push into toast stack
+        pushToast(
+          payload.notification?.title || "💬 New Message",
+          bodyText,
+          payload.data?.sessionId,
+          imageUrl,
+        );
       }
     });
   };
@@ -563,10 +587,23 @@ export default function NeuralChatAdmin() {
     if (audioRef.current) audioRef.current.play().catch(() => {});
     if (activeSession?.sessionId !== session.sessionId)
       setUnreadCounts(prev => ({ ...prev, [session.sessionId]: (prev[session.sessionId] || 0) + 1 }));
-    if (document.visibilityState !== "visible" && Notification.permission === "granted")
-      new Notification("New message from " + (session.email || "Customer"), {
-        body: message.message, icon: "/favicon.ico",
+
+    const isImage   = !!(message.fileUrl && (message.fileUrl.includes("image") || message.fileUrl.startsWith("data:image")));
+    const isFile    = !!(message.fileUrl && !isImage);
+    const bodyText  = isImage ? "📷 Sent an image" : isFile ? "📎 Sent a file" : (message.message || "New message");
+    const imageUrl  = isImage ? message.fileUrl : null;
+    const senderName = session.email?.split("@")[0] || "Customer";
+
+    if (document.visibilityState !== "visible" && Notification.permission === "granted") {
+      new Notification("💬 " + senderName, {
+        body : bodyText,
+        icon : imageUrl || "/favicon.ico",
+        image: imageUrl || undefined,
       });
+    } else {
+      // Show in-app toast for every new message (even when tab is visible)
+      pushToast("💬 " + senderName, bodyText, session.sessionId, imageUrl);
+    }
   };
 
   useEffect(() => {
@@ -600,9 +637,15 @@ export default function NeuralChatAdmin() {
         const hasNew     = data.length !== messages.length;
         const hasUpdated = data.length > 0 && messages.length > 0 && data[data.length - 1].id !== lastMessageIdRef.current;
         if (hasNew || hasUpdated) {
-          const latest = data[data.length - 1];
-          if (latest?.sender === "user" && latest.id !== lastMessageIdRef.current && !isFirstLoadRef.current)
-            notifyNewMessage(activeSession, latest);
+          // ✅ FIX: find ALL new messages since last known ID — not just the latest one
+          const lastKnownId = lastMessageIdRef.current;
+          const newMessages = lastKnownId
+            ? data.filter(m => m.sender === "user" && m.id > lastKnownId)
+            : (hasNew ? data.filter(m => m.sender === "user").slice(-1) : []);
+
+          if (!isFirstLoadRef.current && newMessages.length > 0) {
+            newMessages.forEach(msg => notifyNewMessage(activeSession, msg));
+          }
           setMessages([...data]);
           if (data.length > 0) lastMessageIdRef.current = data[data.length - 1].id;
         }
@@ -612,7 +655,7 @@ export default function NeuralChatAdmin() {
         msgFailCount++;
         if (msgFailCount <= 2) console.warn("Message poll error:", err.message);
       }
-    }, 3000);
+    }, 1200); // ✅ FIX: 1.2s for near-instant message detection
     return () => clearInterval(interval);
   }, [activeSession?.sessionId, messages.length]);
 
@@ -774,17 +817,33 @@ export default function NeuralChatAdmin() {
               </div>
 
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"3px" }}>
-                  <div style={{ fontWeight:"700", fontSize:"13px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"220px" }}>
+                {/* Header row: title + timestamp */}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"4px" }}>
+                  <div style={{ fontWeight:"700", fontSize:"13px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"200px" }}>
                     {toast.title}
                   </div>
-                  <div style={{ fontSize:"10px", opacity:0.65, flexShrink:0, marginLeft:"8px" }}>{toast.time}</div>
+                  <div style={{ fontSize:"10px", opacity:0.6, flexShrink:0, marginLeft:"8px" }}>{toast.time}</div>
                 </div>
+
+                {/* Image preview — shown when message contains an image */}
+                {toast.imageUrl && (
+                  <div style={{ marginBottom:"6px", borderRadius:"8px", overflow:"hidden", maxHeight:"120px", background:"rgba(0,0,0,0.2)" }}>
+                    <img
+                      src={toast.imageUrl}
+                      alt="attachment"
+                      style={{ width:"100%", maxHeight:"120px", objectFit:"cover", borderRadius:"8px", display:"block" }}
+                      onError={e => { e.currentTarget.style.display = "none"; }}
+                    />
+                  </div>
+                )}
+
+                {/* Body text */}
                 <div style={{ fontSize:"12px", opacity:0.9, lineHeight:"1.45", wordBreak:"break-word" }}>
                   {toast.body}
                 </div>
+
                 {toast.sessionId && (
-                  <div style={{ fontSize:"10px", opacity:0.7, marginTop:"5px", display:"flex", alignItems:"center", gap:"4px" }}>
+                  <div style={{ fontSize:"10px", opacity:0.65, marginTop:"5px", display:"flex", alignItems:"center", gap:"4px" }}>
                     <span>👆</span> Tap to open chat
                   </div>
                 )}
