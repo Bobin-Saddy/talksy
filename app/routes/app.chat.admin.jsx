@@ -924,240 +924,177 @@ export default function NeuralChatAdmin() {
         )}
 
         {/* ✅ NEW: "Enable Notifications" banner — shown when permission is default (not yet asked) */}
-        {/* ✅ PERMISSION GUIDE MODAL */}
+        {/* ════ PERMISSION MODAL — Mode A: not asked yet | Mode B: blocked ════ */}
         {showPermissionGuide && (
           <div
             onClick={() => setShowPermissionGuide(false)}
             style={{
               position:"fixed", top:0, left:0, width:"100vw", height:"100vh",
-              background:"rgba(0,0,0,0.6)", zIndex:99998, display:"flex",
+              background:"rgba(0,0,0,0.65)", zIndex:99998, display:"flex",
               alignItems:"center", justifyContent:"center", backdropFilter:"blur(6px)",
             }}
           >
             <div
               onClick={e => e.stopPropagation()}
               style={{
-                background:"white", borderRadius:"20px", padding:"32px",
-                maxWidth:"460px", width:"90%", boxShadow:"0 24px 60px rgba(0,0,0,0.25)",
+                background:"white", borderRadius:"20px", padding:"28px 32px",
+                maxWidth:"440px", width:"92%", boxShadow:"0 24px 64px rgba(0,0,0,0.3)",
                 position:"relative",
               }}
             >
-              {/* Close */}
               <button
                 onClick={() => setShowPermissionGuide(false)}
-                style={{ position:"absolute", top:"16px", right:"16px", background:"#f3f4f6", border:"none", borderRadius:"8px", width:"32px", height:"32px", cursor:"pointer", fontSize:"16px", display:"flex", alignItems:"center", justifyContent:"center", color:"#6b7280" }}
-              >×</button>
+                style={{ position:"absolute", top:"14px", right:"14px", background:"#f3f4f6", border:"none", borderRadius:"8px", width:"30px", height:"30px", cursor:"pointer", fontSize:"16px", display:"flex", alignItems:"center", justifyContent:"center", color:"#6b7280" }}
+              >x</button>
 
-              {/* Header */}
-              <div style={{ textAlign:"center", marginBottom:"24px" }}>
-                <div style={{ fontSize:"40px", marginBottom:"12px" }}>🔔</div>
-                <h2 style={{ margin:0, fontSize:"20px", fontWeight:"800", color:"#111827" }}>Enable Notifications</h2>
-                <p style={{ margin:"8px 0 0", fontSize:"13px", color:"#6b7280", lineHeight:"1.5" }}>
-                  Follow these steps to allow Talksy to send you real-time customer alerts.
-                </p>
-              </div>
-
-              {/* Steps */}
-              <div style={{ display:"flex", flexDirection:"column", gap:"12px", marginBottom:"24px" }}>
-                {[
-                  {
-                    num: "1",
-                    icon: "🌐",
-                    title: "Open Chrome Notification Settings",
-                    desc: "Click the button below to copy the settings URL, then paste it in a new Chrome tab.",
-                    action: (
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText("chrome://settings/content/notifications").catch(() => {});
-                          alert("✅ URL copied!\n\nPaste it in a new Chrome tab:\nchrome://settings/content/notifications");
-                        }}
-                        style={{ marginTop:"8px", padding:"6px 12px", background:"#6366f1", color:"white", border:"none", borderRadius:"6px", fontSize:"11px", fontWeight:"700", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px" }}
-                      >
-                        📋 Copy Settings URL
-                      </button>
-                    )
-                  },
-                  {
-                    num: "2",
-                    icon: "➕",
-                    title: 'Click "Add" under Allowed Sites',
-                    desc: 'In Chrome settings, scroll to "Allowed to send notifications" → click Add → paste this URL:',
-                    action: (
-                      <div style={{ marginTop:"8px", display:"flex", alignItems:"center", gap:"8px" }}>
-                        <code style={{ flex:1, background:"#f3f4f6", padding:"6px 10px", borderRadius:"6px", fontSize:"11px", color:"#111827", wordBreak:"break-all", fontFamily:"monospace" }}>
-                          https://talksy-production-5d43.up.railway.app/
-                        </code>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText("https://talksy-production-5d43.up.railway.app/").catch(() => {});
-                            alert("✅ URL copied to clipboard!");
-                          }}
-                          style={{ flexShrink:0, padding:"6px 10px", background:"#10b981", color:"white", border:"none", borderRadius:"6px", fontSize:"11px", fontWeight:"700", cursor:"pointer" }}
-                        >
-                          📋 Copy
-                        </button>
-                      </div>
-                    )
-                  },
-                  {
-                    num: "3",
-                    icon: "✅",
-                    title: "Come back here & click Enable",
-                    desc: "After adding the URL in Chrome settings, come back to this tab and click the button below.",
-                  },
-                ].map((step, i) => (
-                  <div key={i} style={{ display:"flex", gap:"12px", padding:"14px", background:"#f9fafb", borderRadius:"12px", border:"1px solid #e5e7eb" }}>
-                    <div style={{ width:"28px", height:"28px", borderRadius:"50%", background:"linear-gradient(135deg, #6366f1, #8b5cf6)", color:"white", fontSize:"13px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      {step.num}
-                    </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:"700", fontSize:"13px", color:"#111827", marginBottom:"3px" }}>
-                        {step.icon} {step.title}
-                      </div>
-                      <div style={{ fontSize:"12px", color:"#6b7280", lineHeight:"1.5" }}>{step.desc}</div>
-                      {step.action}
+              {notifPermission !== "denied" ? (
+                <div>
+                  <div style={{ textAlign:"center", marginBottom:"20px" }}>
+                    <div style={{ fontSize:"44px", marginBottom:"10px" }}>🔔</div>
+                    <h2 style={{ margin:0, fontSize:"19px", fontWeight:"800", color:"#111827" }}>Enable Notifications</h2>
+                    <p style={{ margin:"8px 0 0", fontSize:"13px", color:"#6b7280", lineHeight:"1.6" }}>
+                      Click Allow when your browser asks. That is all — done in one click!
+                    </p>
+                  </div>
+                  <div style={{ background:"#f0f9ff", border:"1px solid #bae6fd", borderRadius:"12px", padding:"14px 16px", marginBottom:"20px", display:"flex", gap:"12px", alignItems:"flex-start" }}>
+                    <span style={{ fontSize:"22px", flexShrink:0 }}>💡</span>
+                    <div style={{ fontSize:"12px", color:"#0369a1", lineHeight:"1.6" }}>
+                      A popup will appear asking permission for <strong>talksy-production-5d43.up.railway.app</strong> — click <strong>Allow</strong> and notifications will be active instantly.
                     </div>
                   </div>
-                ))}
-              </div>
-
-              {/* Enable button */}
-              <button
-                onClick={async () => {
-                  setShowPermissionGuide(false);
-                  await handleEnableNotifications();
-                }}
-                style={{
-                  width:"100%", padding:"14px", background:"linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                  color:"white", border:"none", borderRadius:"12px", fontWeight:"800",
-                  fontSize:"15px", cursor:"pointer", boxShadow:"0 4px 16px rgba(99,102,241,0.4)",
-                  display:"flex", alignItems:"center", justifyContent:"center", gap:"8px",
-                }}
-              >
-                🔔 Enable Notifications Now
-              </button>
-              <p style={{ textAlign:"center", fontSize:"11px", color:"#9ca3af", marginTop:"10px", marginBottom:0 }}>
-                You can disable notifications anytime from browser settings.
-              </p>
+                  <button
+                    onClick={async () => {
+                      setShowPermissionGuide(false);
+                      await handleEnableNotifications();
+                    }}
+                    style={{
+                      width:"100%", padding:"14px",
+                      background:"linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                      color:"white", border:"none", borderRadius:"12px", fontWeight:"800",
+                      fontSize:"15px", cursor:"pointer", boxShadow:"0 4px 16px rgba(99,102,241,0.4)",
+                      display:"flex", alignItems:"center", justifyContent:"center", gap:"8px",
+                    }}
+                  >
+                    🔔 Allow Notifications
+                  </button>
+                  <p style={{ textAlign:"center", fontSize:"11px", color:"#9ca3af", marginTop:"10px", marginBottom:0 }}>
+                    You can turn off notifications anytime from browser settings.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ textAlign:"center", marginBottom:"20px" }}>
+                    <div style={{ fontSize:"44px", marginBottom:"10px" }}>🚫</div>
+                    <h2 style={{ margin:0, fontSize:"19px", fontWeight:"800", color:"#dc2626" }}>Notifications Blocked</h2>
+                    <p style={{ margin:"8px 0 0", fontSize:"13px", color:"#6b7280", lineHeight:"1.6" }}>
+                      You previously blocked notifications. Follow 3 steps to fix:
+                    </p>
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:"10px", marginBottom:"20px" }}>
+                    <div style={{ background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:"10px", padding:"12px 14px", display:"flex", gap:"12px" }}>
+                      <div style={{ width:"24px", height:"24px", borderRadius:"50%", background:"#6366f1", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>1</div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontWeight:"700", fontSize:"12px", color:"#111827", marginBottom:"4px" }}>🌐 Open Chrome Notification Settings</div>
+                        <div style={{ fontSize:"11px", color:"#6b7280", marginBottom:"8px" }}>Open a new Chrome tab, paste this URL and press Enter:</div>
+                        <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+                          <code style={{ flex:1, background:"#f3f4f6", padding:"5px 8px", borderRadius:"5px", fontSize:"10px", color:"#111827", fontFamily:"monospace" }}>chrome://settings/content/notifications</code>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText("chrome://settings/content/notifications").catch(() => {}); }}
+                            style={{ flexShrink:0, padding:"5px 8px", background:"#6366f1", color:"white", border:"none", borderRadius:"5px", fontSize:"10px", fontWeight:"700", cursor:"pointer" }}
+                          >Copy</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:"10px", padding:"12px 14px", display:"flex", gap:"12px" }}>
+                      <div style={{ width:"24px", height:"24px", borderRadius:"50%", background:"#6366f1", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>2</div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontWeight:"700", fontSize:"12px", color:"#111827", marginBottom:"4px" }}>🗑️ Delete the block for Talksy</div>
+                        <div style={{ fontSize:"11px", color:"#6b7280", marginBottom:"8px" }}>Under "Not allowed", find this site and click the trash icon:</div>
+                        <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+                          <code style={{ flex:1, background:"#fee2e2", padding:"5px 8px", borderRadius:"5px", fontSize:"10px", color:"#991b1b", fontFamily:"monospace", wordBreak:"break-all" }}>talksy-production-5d43.up.railway.app</code>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText("talksy-production-5d43.up.railway.app").catch(() => {}); }}
+                            style={{ flexShrink:0, padding:"5px 8px", background:"#ef4444", color:"white", border:"none", borderRadius:"5px", fontSize:"10px", fontWeight:"700", cursor:"pointer" }}
+                          >Copy</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:"10px", padding:"12px 14px", display:"flex", gap:"12px" }}>
+                      <div style={{ width:"24px", height:"24px", borderRadius:"50%", background:"#10b981", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>3</div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontWeight:"700", fontSize:"12px", color:"#065f46", marginBottom:"4px" }}>✅ Return here and click Retry</div>
+                        <div style={{ fontSize:"11px", color:"#6b7280" }}>After deleting the block, come back to this tab and click the button below.</div>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setShowPermissionGuide(false);
+                      const realPerm = "Notification" in window ? Notification.permission : "denied";
+                      if (realPerm === "granted") {
+                        setNotifBlocked(false);
+                        setNotifPermission("granted");
+                        fcmInitRef.current = false;
+                        await initFCM();
+                      } else if (realPerm === "default") {
+                        setNotifBlocked(false);
+                        setNotifPermission("default");
+                      }
+                    }}
+                    style={{
+                      width:"100%", padding:"13px",
+                      background:"linear-gradient(135deg, #ea580c 0%, #dc2626 100%)",
+                      color:"white", border:"none", borderRadius:"12px", fontWeight:"800",
+                      fontSize:"14px", cursor:"pointer", boxShadow:"0 4px 14px rgba(220,38,38,0.35)",
+                    }}
+                  >
+                    I removed the block — Retry
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* ✅ Enable Notifications banner — shown when permission is default (not yet granted) */}
-        {!notifBlocked && !fcmReady && notifPermission === "default" && (
+        {/* ✅ Unified notification banner — one for all states */}
+        {!fcmReady && notifPermission !== "granted" && (
           <div style={{
             margin      : "0 16px 8px",
             padding     : "12px 14px",
-            background  : "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
-            border      : "1px solid #c7d2fe",
+            background  : notifPermission === "denied" ? "linear-gradient(135deg, #fff7ed, #fef2f2)" : "linear-gradient(135deg, #eff6ff, #f5f3ff)",
+            border      : notifPermission === "denied" ? "1px solid #fca5a5" : "1px solid #c7d2fe",
             borderRadius: "12px",
-            fontSize    : "11px",
-            color       : "#3730a3",
           }}>
             <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"10px" }}>
-              <span style={{ fontSize:"20px" }}>🔔</span>
+              <span style={{ fontSize:"20px" }}>{notifPermission === "denied" ? "🚫" : "🔔"}</span>
               <div style={{ flex:1 }}>
-                <div style={{ fontWeight:"700", fontSize:"12px", marginBottom:"2px" }}>Notifications not enabled</div>
-                <div style={{ opacity:0.8, lineHeight:"1.4" }}>Get instant alerts when customers message you.</div>
+                <div style={{ fontWeight:"700", fontSize:"12px", color: notifPermission === "denied" ? "#991b1b" : "#3730a3", marginBottom:"2px" }}>
+                  {notifPermission === "denied" ? "Notifications Blocked" : "Notifications not enabled"}
+                </div>
+                <div style={{ fontSize:"11px", color:"#6b7280", lineHeight:"1.4" }}>
+                  {notifPermission === "denied" ? "You previously blocked alerts. Tap below to fix." : "Get instant alerts when customers message you."}
+                </div>
               </div>
-            </div>
-            <div style={{ display:"flex", gap:"8px" }}>
-              <button
-                onClick={() => setShowPermissionGuide(true)}
-                style={{
-                  flex        : 1,
-                  padding     : "8px",
-                  background  : "white",
-                  color       : "#6366f1",
-                  border      : "2px solid #6366f1",
-                  borderRadius: "8px",
-                  fontWeight  : "700",
-                  fontSize    : "11px",
-                  cursor      : "pointer",
-                }}
-              >
-                📖 How to Enable
-              </button>
-              <button
-                onClick={handleEnableNotifications}
-                style={{
-                  flex        : 1,
-                  padding     : "8px",
-                  background  : "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                  color       : "white",
-                  border      : "none",
-                  borderRadius: "8px",
-                  fontWeight  : "700",
-                  fontSize    : "11px",
-                  cursor      : "pointer",
-                  boxShadow   : "0 2px 8px rgba(99,102,241,0.35)",
-                }}
-              >
-                🔔 Enable Now
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 🔥 FIX: Notification blocked banner — only shown when browser truly denied */}
-        {notifBlocked && (
-          <div style={{
-            margin      : "0 16px 8px",
-            padding     : "12px",
-            background  : "#fff7ed",
-            border      : "1px solid #fed7aa",
-            borderRadius: "10px",
-            fontSize    : "11px",
-            color       : "#9a3412",
-          }}>
-            <div style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"8px", fontWeight:"700", fontSize:"12px" }}>
-              <span>🚫</span> Notifications Blocked
-            </div>
-            <div style={{ lineHeight:"1.7", marginBottom:"10px" }}>
-              To fix, follow these steps in Chrome:<br/>
-              <strong>1.</strong> Open a new tab → go to{" "}
-              <code style={{ background:"#fee2e2", padding:"1px 4px", borderRadius:"3px", fontSize:"10px" }}>
-                chrome://settings/content/notifications
-              </code><br/>
-              <strong>2.</strong> Under <strong>"Not allowed to send notifications"</strong>, find<br/>
-              <code style={{ background:"#fee2e2", padding:"1px 4px", borderRadius:"3px", fontSize:"10px", wordBreak:"break-all" }}>
-                talksy-production-5d43.up.railway.app
-              </code><br/>
-              <strong>3.</strong> Click the <strong>🗑️ delete / ✏️ edit</strong> icon → set to <strong>Allow</strong><br/>
-              <strong>4.</strong> Come back here and click <strong>Retry</strong> below
             </div>
             <button
               onClick={async () => {
-                const realPerm = "Notification" in window ? Notification.permission : "denied";
-                if (realPerm === "granted") {
-                  setNotifBlocked(false);
-                  setNotifPermission("granted");
-                  fcmInitRef.current = false;
-                  await initFCM();
+                if (notifPermission === "denied") {
+                  setShowPermissionGuide(true);
                 } else {
-                  alert(
-                    "Browser still shows: " + realPerm + "\n\n" +
-                    "Steps to fix:\n" +
-                    "1. Open chrome://settings/content/notifications\n" +
-                    "2. Find talksy-production-5d43.up.railway.app\n" +
-                    "3. Delete it from Blocked list (or set to Allow)\n" +
-                    "4. Come back and click Retry again"
-                  );
+                  await handleEnableNotifications();
                 }
               }}
               style={{
-                width       : "100%",
-                padding     : "8px",
-                background  : "linear-gradient(135deg, #ea580c, #dc2626)",
-                color       : "white",
-                border      : "none",
-                borderRadius: "7px",
-                fontWeight  : "700",
-                fontSize    : "11px",
-                cursor      : "pointer",
+                width:"100%", padding:"9px",
+                background: notifPermission === "denied"
+                  ? "linear-gradient(135deg, #ea580c 0%, #dc2626 100%)"
+                  : "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                color:"white", border:"none", borderRadius:"8px",
+                fontWeight:"700", fontSize:"12px", cursor:"pointer",
+                boxShadow:"0 2px 8px rgba(99,102,241,0.3)",
               }}
             >
-              ✅ I fixed it — Retry Now
+              {notifPermission === "denied" ? "🔓 Fix Notifications" : "🔔 Enable Notifications"}
             </button>
           </div>
         )}
