@@ -6,6 +6,7 @@
 //    2. Added fcmInitRef guard to prevent multiple FCM setups
 //    3. Added notifBlocked state + UI banner for denied permission
 //    4. Fixed SW scope conflict between /sw.js and firebase-messaging-sw.js
+//    5. ✅ NEW: "Enable Notifications" button for default/not-yet-granted state
 //  SEARCH: "🔥 FCM" to find all FCM additions
 // ═══════════════════════════════════════════════════════════
 
@@ -227,9 +228,10 @@ export default function NeuralChatAdmin() {
   const [pushLoading, setPushLoading]     = useState(false);
 
   // 🔥 FCM — state
-  const [fcmReady, setFcmReady]         = useState(false);
-  const [adminToast, setAdminToast]     = useState(null);
-  const [notifBlocked, setNotifBlocked] = useState(false); // 🔥 FIX: track denied state
+  const [fcmReady, setFcmReady]             = useState(false);
+  const [adminToast, setAdminToast]         = useState(null);
+  const [notifBlocked, setNotifBlocked]     = useState(false);
+  const [notifPermission, setNotifPermission] = useState("default"); // ✅ NEW: track live permission state
 
   const fetcher            = useFetcher();
   const scrollRef          = useRef(null);
@@ -238,10 +240,81 @@ export default function NeuralChatAdmin() {
   const lastMessageIdRef   = useRef(null);
   const isFirstLoadRef     = useRef(true);
   const lastSessionCountRef = useRef(initialSessions.length);
-  const fcmInitRef         = useRef(false); // 🔥 FIX: prevent multiple FCM setups
+  const fcmInitRef         = useRef(false);
 
   const emojis = ["😊","👍","❤️","🙌","✨","🔥","✅","🤔","💡","🚀","👋","🙏","🎉"];
   const goToSubscription = () => navigate("/app/subscription");
+
+  // ✅ NEW: Shared helper to wire up FCM onMessage handler
+  const attachFcmMessageHandler = (messagingInstance) => {
+    onMessage(messagingInstance, (payload) => {
+      console.log("🔔 FCM foreground message:", payload);
+      if (audioRef.current) audioRef.current.play().catch(() => {});
+      if (document.hidden) {
+        new Notification(payload.notification?.title || "💬 New Message", {
+          body: payload.notification?.body || "Customer sent a message",
+          icon: "/favicon.ico",
+        });
+      } else {
+        setAdminToast({
+          title    : payload.notification?.title || "💬 New Message",
+          body     : payload.notification?.body  || "Customer sent a message",
+          sessionId: payload.data?.sessionId,
+          id       : Date.now(),
+        });
+        setTimeout(() => setAdminToast(null), 5000);
+      }
+    });
+  };
+
+  // ✅ NEW: Shared FCM init function (reusable by both useEffect and Enable button)
+  const initFCM = async () => {
+    try {
+      const app = getApps().length > 0 ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
+      const messaging = getMessaging(app);
+
+      let swReg;
+      try {
+        swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+        console.log("✅ FCM SW registered");
+      } catch (e) {
+        console.warn("FCM SW registration failed:", e.message);
+        return false;
+      }
+
+      const token = await getToken(messaging, {
+        vapidKey                  : FIREBASE_VAPID_KEY,
+        serviceWorkerRegistration : swReg,
+      });
+
+      if (!token) {
+        console.warn("⚠️ FCM token nahi mila");
+        return false;
+      }
+
+      console.log("✅ Admin FCM token:", token.substring(0, 20) + "...");
+
+      await fetch(`${BACKEND_URL}/app/admin/register-fcm-token`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({
+          shop        : currentShop,
+          fcmToken    : token,
+          registeredAt: new Date().toISOString(),
+        }),
+      });
+
+      console.log("✅ Admin FCM token backend mein save ho gaya");
+      setFcmReady(true);
+      setNotifBlocked(false);
+      setNotifPermission("granted");
+      attachFcmMessageHandler(messaging);
+      return true;
+    } catch (err) {
+      console.error("❌ FCM init failed:", err.message);
+      return false;
+    }
+  };
 
   // ─── Push toggle (existing VAPID logic) ───────────────────
   const handlePushToggle = async () => {
@@ -262,30 +335,47 @@ export default function NeuralChatAdmin() {
     }
   };
 
+  // ✅ NEW: Handle "Enable Notifications" button click
+  const handleEnableNotifications = async () => {
+    if (!("Notification" in window)) {
+      alert("❌ Yeh browser notifications support nahi karta.");
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    setNotifPermission(perm);
+    if (perm === "granted") {
+      setNotifBlocked(false);
+      fcmInitRef.current = false; // reset guard so initFCM can run
+      await initFCM();
+    } else if (perm === "denied") {
+      setNotifBlocked(true);
+    }
+  };
+
   // ─── Init audio + check push status ───────────────────────
-  // 🔥 FIX: Removed Notification.requestPermission() from here.
-  //         FCM setup useEffect handles it once, correctly.
   useEffect(() => {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
     checkPushStatus().then(setPushEnabled);
+
+    // ✅ Sync initial permission state
+    if ("Notification" in window) {
+      setNotifPermission(Notification.permission);
+      if (Notification.permission === "denied") setNotifBlocked(true);
+    }
   }, []);
 
   // 🔥 FCM — Setup Firebase push for admin
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator) || !("Notification" in window)) return;
-
-    // 🔥 FIX: Guard against multiple invocations (StrictMode / re-renders)
     if (fcmInitRef.current) return;
     fcmInitRef.current = true;
 
     async function setupFCM() {
       try {
-        // Firebase app init
         const app = getApps().length > 0 ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
         const messaging = getMessaging(app);
 
-        // 🔥 FIX: Register FCM SW without scope conflict with /sw.js
         let swReg;
         try {
           swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
@@ -295,21 +385,20 @@ export default function NeuralChatAdmin() {
           return;
         }
 
-        // 🔥 FIX: Check existing permission first — only prompt if "default"
+        // Check existing permission — only prompt if "default"
         let perm = Notification.permission;
         if (perm === "default") {
-          perm = await Notification.requestPermission();
+          // ✅ Do NOT auto-prompt here — let the user click "Enable Now" button instead
+          console.log("🔔 Notification permission not yet granted — showing Enable button");
+          setNotifPermission("default");
+          return;
         }
         if (perm !== "granted") {
-          console.log("🔕 Notification permission denied or not yet granted");
-          // 🔥 FIX: Track denied state so we can show UI hint
-          if (perm === "denied") {
-            setNotifBlocked(true);
-          }
+          console.log("🔕 Notification permission denied");
+          if (perm === "denied") setNotifBlocked(true);
           return;
         }
 
-        // FCM token lo
         const token = await getToken(messaging, {
           vapidKey                  : FIREBASE_VAPID_KEY,
           serviceWorkerRegistration : swReg,
@@ -322,7 +411,6 @@ export default function NeuralChatAdmin() {
 
         console.log("✅ Admin FCM token:", token.substring(0, 20) + "...");
 
-        // Backend mein register karo
         await fetch(`${BACKEND_URL}/app/admin/register-fcm-token`, {
           method : "POST",
           headers: { "Content-Type": "application/json" },
@@ -335,32 +423,8 @@ export default function NeuralChatAdmin() {
 
         console.log("✅ Admin FCM token backend mein save ho gaya");
         setFcmReady(true);
-        setNotifBlocked(false); // clear any previous blocked state
-
-        // 🔥 Foreground messages — jab admin panel open ho
-        onMessage(messaging, (payload) => {
-          console.log("🔔 FCM foreground message:", payload);
-
-          // Sound bajao
-          if (audioRef.current) audioRef.current.play().catch(() => {});
-
-          // Tab hidden ho toh browser notification
-          if (document.hidden) {
-            new Notification(payload.notification?.title || "💬 New Message", {
-              body: payload.notification?.body || "Customer sent a message",
-              icon: "/favicon.ico",
-            });
-          } else {
-            // Tab open ho toh in-app toast
-            setAdminToast({
-              title    : payload.notification?.title || "💬 New Message",
-              body     : payload.notification?.body  || "Customer sent a message",
-              sessionId: payload.data?.sessionId,
-              id       : Date.now(),
-            });
-            setTimeout(() => setAdminToast(null), 5000);
-          }
-        });
+        setNotifPermission("granted");
+        attachFcmMessageHandler(messaging);
 
       } catch (err) {
         console.error("❌ FCM setup failed:", err.message);
@@ -614,7 +678,6 @@ export default function NeuralChatAdmin() {
             <h2 style={{ fontSize:"24px", fontWeight:"700", color:"#111827", margin:0 }}>Messages</h2>
             <p style={{ fontSize:"13px", color:"#6b7280", marginTop:4, marginBottom:0 }}>
               Manage customer conversations
-              {/* 🔥 FCM ready indicator */}
               {fcmReady && (
                 <span style={{ marginLeft:"8px", background:"#d1fae5", color:"#065f46", fontSize:"10px", fontWeight:"700", padding:"2px 6px", borderRadius:"4px" }}>
                   🔥 FCM ON
@@ -633,11 +696,53 @@ export default function NeuralChatAdmin() {
           </button>
         </div>
 
-        {/* 🔥 VAPID push enabled banner */}
+        {/* VAPID push enabled banner */}
         {pushEnabled && (
           <div style={{ margin:"0 16px 8px", padding:"8px 12px", background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:"8px", fontSize:"11px", color:"#166534", display:"flex", alignItems:"center", gap:"6px" }}>
             <span>🔔</span>
             <span><strong>Push ON</strong> — Customer message kare toh browser notification aayega</span>
+          </div>
+        )}
+
+        {/* ✅ NEW: "Enable Notifications" banner — shown when permission is default (not yet asked) */}
+        {!notifBlocked && !fcmReady && notifPermission === "default" && (
+          <div style={{
+            margin      : "0 16px 8px",
+            padding     : "10px 12px",
+            background  : "linear-gradient(135deg, #eff6ff, #f5f3ff)",
+            border      : "1px solid #c7d2fe",
+            borderRadius: "10px",
+            fontSize    : "11px",
+            color       : "#3730a3",
+            display     : "flex",
+            alignItems  : "center",
+            gap         : "10px",
+          }}>
+            <span style={{ fontSize:"18px", flexShrink:0 }}>🔔</span>
+            <div style={{ flex:1, lineHeight:"1.5" }}>
+              <strong>Enable notifications</strong> to get instant alerts when customers message you.
+            </div>
+            <button
+              onClick={handleEnableNotifications}
+              style={{
+                flexShrink  : 0,
+                padding     : "7px 14px",
+                background  : "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                color       : "white",
+                border      : "none",
+                borderRadius: "8px",
+                fontWeight  : "700",
+                fontSize    : "11px",
+                cursor      : "pointer",
+                whiteSpace  : "nowrap",
+                boxShadow   : "0 2px 8px rgba(99,102,241,0.35)",
+                transition  : "opacity 0.2s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+            >
+              Enable Now
+            </button>
           </div>
         )}
 
