@@ -229,6 +229,7 @@ export default function NeuralChatAdmin() {
 
   // 🔥 FCM — state
   const [fcmReady, setFcmReady]             = useState(false);
+  const [showPermissionGuide, setShowPermissionGuide] = useState(false); // ✅ step-by-step permission modal
   const [adminToasts, setAdminToasts]       = useState([]); // ✅ array — supports multiple simultaneous toasts
   const [notifBlocked, setNotifBlocked]     = useState(false);   // always false on SSR
   const [notifPermission, setNotifPermission] = useState("default"); // always "default" on SSR — real value set in useEffect
@@ -923,44 +924,178 @@ export default function NeuralChatAdmin() {
         )}
 
         {/* ✅ NEW: "Enable Notifications" banner — shown when permission is default (not yet asked) */}
+        {/* ✅ PERMISSION GUIDE MODAL */}
+        {showPermissionGuide && (
+          <div
+            onClick={() => setShowPermissionGuide(false)}
+            style={{
+              position:"fixed", top:0, left:0, width:"100vw", height:"100vh",
+              background:"rgba(0,0,0,0.6)", zIndex:99998, display:"flex",
+              alignItems:"center", justifyContent:"center", backdropFilter:"blur(6px)",
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background:"white", borderRadius:"20px", padding:"32px",
+                maxWidth:"460px", width:"90%", boxShadow:"0 24px 60px rgba(0,0,0,0.25)",
+                position:"relative",
+              }}
+            >
+              {/* Close */}
+              <button
+                onClick={() => setShowPermissionGuide(false)}
+                style={{ position:"absolute", top:"16px", right:"16px", background:"#f3f4f6", border:"none", borderRadius:"8px", width:"32px", height:"32px", cursor:"pointer", fontSize:"16px", display:"flex", alignItems:"center", justifyContent:"center", color:"#6b7280" }}
+              >×</button>
+
+              {/* Header */}
+              <div style={{ textAlign:"center", marginBottom:"24px" }}>
+                <div style={{ fontSize:"40px", marginBottom:"12px" }}>🔔</div>
+                <h2 style={{ margin:0, fontSize:"20px", fontWeight:"800", color:"#111827" }}>Enable Notifications</h2>
+                <p style={{ margin:"8px 0 0", fontSize:"13px", color:"#6b7280", lineHeight:"1.5" }}>
+                  Follow these steps to allow Talksy to send you real-time customer alerts.
+                </p>
+              </div>
+
+              {/* Steps */}
+              <div style={{ display:"flex", flexDirection:"column", gap:"12px", marginBottom:"24px" }}>
+                {[
+                  {
+                    num: "1",
+                    icon: "🌐",
+                    title: "Open Chrome Notification Settings",
+                    desc: "Click the button below to copy the settings URL, then paste it in a new Chrome tab.",
+                    action: (
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText("chrome://settings/content/notifications").catch(() => {});
+                          alert("✅ URL copied!\n\nPaste it in a new Chrome tab:\nchrome://settings/content/notifications");
+                        }}
+                        style={{ marginTop:"8px", padding:"6px 12px", background:"#6366f1", color:"white", border:"none", borderRadius:"6px", fontSize:"11px", fontWeight:"700", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px" }}
+                      >
+                        📋 Copy Settings URL
+                      </button>
+                    )
+                  },
+                  {
+                    num: "2",
+                    icon: "➕",
+                    title: 'Click "Add" under Allowed Sites',
+                    desc: 'In Chrome settings, scroll to "Allowed to send notifications" → click Add → paste this URL:',
+                    action: (
+                      <div style={{ marginTop:"8px", display:"flex", alignItems:"center", gap:"8px" }}>
+                        <code style={{ flex:1, background:"#f3f4f6", padding:"6px 10px", borderRadius:"6px", fontSize:"11px", color:"#111827", wordBreak:"break-all", fontFamily:"monospace" }}>
+                          https://talksy-production-5d43.up.railway.app/
+                        </code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText("https://talksy-production-5d43.up.railway.app/").catch(() => {});
+                            alert("✅ URL copied to clipboard!");
+                          }}
+                          style={{ flexShrink:0, padding:"6px 10px", background:"#10b981", color:"white", border:"none", borderRadius:"6px", fontSize:"11px", fontWeight:"700", cursor:"pointer" }}
+                        >
+                          📋 Copy
+                        </button>
+                      </div>
+                    )
+                  },
+                  {
+                    num: "3",
+                    icon: "✅",
+                    title: "Come back here & click Enable",
+                    desc: "After adding the URL in Chrome settings, come back to this tab and click the button below.",
+                  },
+                ].map((step, i) => (
+                  <div key={i} style={{ display:"flex", gap:"12px", padding:"14px", background:"#f9fafb", borderRadius:"12px", border:"1px solid #e5e7eb" }}>
+                    <div style={{ width:"28px", height:"28px", borderRadius:"50%", background:"linear-gradient(135deg, #6366f1, #8b5cf6)", color:"white", fontSize:"13px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      {step.num}
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:"700", fontSize:"13px", color:"#111827", marginBottom:"3px" }}>
+                        {step.icon} {step.title}
+                      </div>
+                      <div style={{ fontSize:"12px", color:"#6b7280", lineHeight:"1.5" }}>{step.desc}</div>
+                      {step.action}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Enable button */}
+              <button
+                onClick={async () => {
+                  setShowPermissionGuide(false);
+                  await handleEnableNotifications();
+                }}
+                style={{
+                  width:"100%", padding:"14px", background:"linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                  color:"white", border:"none", borderRadius:"12px", fontWeight:"800",
+                  fontSize:"15px", cursor:"pointer", boxShadow:"0 4px 16px rgba(99,102,241,0.4)",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:"8px",
+                }}
+              >
+                🔔 Enable Notifications Now
+              </button>
+              <p style={{ textAlign:"center", fontSize:"11px", color:"#9ca3af", marginTop:"10px", marginBottom:0 }}>
+                You can disable notifications anytime from browser settings.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ Enable Notifications banner — shown when permission is default (not yet granted) */}
         {!notifBlocked && !fcmReady && notifPermission === "default" && (
           <div style={{
             margin      : "0 16px 8px",
-            padding     : "10px 12px",
-            background  : "linear-gradient(135deg, #eff6ff, #f5f3ff)",
+            padding     : "12px 14px",
+            background  : "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
             border      : "1px solid #c7d2fe",
-            borderRadius: "10px",
+            borderRadius: "12px",
             fontSize    : "11px",
             color       : "#3730a3",
-            display     : "flex",
-            alignItems  : "center",
-            gap         : "10px",
           }}>
-            <span style={{ fontSize:"18px", flexShrink:0 }}>🔔</span>
-            <div style={{ flex:1, lineHeight:"1.5" }}>
-              <strong>Enable notifications</strong> to get instant alerts when customers message you.
+            <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"10px" }}>
+              <span style={{ fontSize:"20px" }}>🔔</span>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:"700", fontSize:"12px", marginBottom:"2px" }}>Notifications not enabled</div>
+                <div style={{ opacity:0.8, lineHeight:"1.4" }}>Get instant alerts when customers message you.</div>
+              </div>
             </div>
-            <button
-              onClick={handleEnableNotifications}
-              style={{
-                flexShrink  : 0,
-                padding     : "7px 14px",
-                background  : "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                color       : "white",
-                border      : "none",
-                borderRadius: "8px",
-                fontWeight  : "700",
-                fontSize    : "11px",
-                cursor      : "pointer",
-                whiteSpace  : "nowrap",
-                boxShadow   : "0 2px 8px rgba(99,102,241,0.35)",
-                transition  : "opacity 0.2s",
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
-              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-            >
-              Enable Now
-            </button>
+            <div style={{ display:"flex", gap:"8px" }}>
+              <button
+                onClick={() => setShowPermissionGuide(true)}
+                style={{
+                  flex        : 1,
+                  padding     : "8px",
+                  background  : "white",
+                  color       : "#6366f1",
+                  border      : "2px solid #6366f1",
+                  borderRadius: "8px",
+                  fontWeight  : "700",
+                  fontSize    : "11px",
+                  cursor      : "pointer",
+                }}
+              >
+                📖 How to Enable
+              </button>
+              <button
+                onClick={handleEnableNotifications}
+                style={{
+                  flex        : 1,
+                  padding     : "8px",
+                  background  : "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                  color       : "white",
+                  border      : "none",
+                  borderRadius: "8px",
+                  fontWeight  : "700",
+                  fontSize    : "11px",
+                  cursor      : "pointer",
+                  boxShadow   : "0 2px 8px rgba(99,102,241,0.35)",
+                }}
+              >
+                🔔 Enable Now
+              </button>
+            </div>
           </div>
         )}
 
