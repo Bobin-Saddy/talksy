@@ -1,11 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: public/firebase-messaging-sw.js
-//
-//  DEFINITIVE FIX:
-//  1. Raw "push" event fires for EVERY push — no matter what page is open
-//  2. ALWAYS show OS notification (works even when browser is minimized)
-//  3. ALSO postMessage open clients for in-app toast
-//  4. skipWaiting + clients.claim = SW activates immediately on first load
+//  FIX: Using /favicon.ico instead of /icons/talksy-192.png
+//       which was causing 404 errors and breaking notifications
 // ═══════════════════════════════════════════════════════════
 
 importScripts("https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js");
@@ -22,7 +18,7 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// ── SW lifecycle: activate immediately without page reload ─
+// SW lifecycle — activate immediately without page reload
 self.addEventListener("install",  () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(clients.claim()));
 
@@ -30,8 +26,7 @@ self.addEventListener("activate", (event) => event.waitUntil(clients.claim()));
 function showOsNotification(title, body, imageUrl, sessionId, shopUrl) {
   return self.registration.showNotification(title, {
     body,
-    icon            : "/icons/talksy-192.png",
-    badge           : "/icons/talksy-badge.png",
+    icon            : "/favicon.ico",   // ✅ use existing file
     image           : imageUrl || undefined,
     tag             : "talksy-" + (sessionId || Date.now()),
     renotify        : true,
@@ -55,10 +50,7 @@ function notifyClients(title, body, imageUrl, sessionId, shopUrl) {
     });
 }
 
-// ══════════════════════════════════════════════════════════
-//  RAW PUSH — most reliable, fires for every push
-//  Works even when admin has NO page open at all
-// ══════════════════════════════════════════════════════════
+// ── Raw push event — fires for every push, any page/state ─
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data?.json() || {}; } catch (_) {}
@@ -79,9 +71,7 @@ self.addEventListener("push", (event) => {
   );
 });
 
-// ══════════════════════════════════════════════════════════
-//  FCM BACKGROUND MESSAGE — safety net for FCM delivery
-// ══════════════════════════════════════════════════════════
+// ── FCM background message — safety net ───────────────────
 messaging.onBackgroundMessage((payload) => {
   const title     = payload.notification?.title || "💬 New Message — Talksy";
   const body      = payload.notification?.body  || "A customer sent a message";
