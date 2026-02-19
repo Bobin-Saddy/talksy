@@ -1,14 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.chat.upload.jsx
-//  PURPOSE: Convert base64 image → store as Buffer in DB
-//           and return a permanent HTTPS URL that FCM can use
-//           in push notification image field.
-//
-//  FLOW:
-//  Widget sends base64 → POST /app/chat/upload
-//  → Saves to ChatImage table → Returns HTTPS URL
-//  → Widget sends HTTPS URL as fileUrl in message
-//  → FCM notification shows real image ✅
+//  FIX: All image formats supported (jpg, png, gif, webp, svg, bmp, heic)
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -22,6 +14,20 @@ const corsHeaders = {
 
 export const loader = () => json({}, { headers: corsHeaders });
 
+// All supported mime types → file extensions
+const MIME_TO_EXT = {
+  "image/jpeg"   : "jpg",
+  "image/jpg"    : "jpg",
+  "image/png"    : "png",
+  "image/gif"    : "gif",
+  "image/webp"   : "webp",
+  "image/svg+xml": "svg",
+  "image/bmp"    : "bmp",
+  "image/heic"   : "heic",
+  "image/heif"   : "heif",
+  "image/avif"   : "avif",
+};
+
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -34,32 +40,33 @@ export const action = async ({ request }) => {
       return json({ success: false, error: "shop and imageData required" }, { status: 400, headers: corsHeaders });
     }
 
-    // Strip data URL prefix if present: "data:image/png;base64,..."
+    // Strip data URL prefix: "data:image/png;base64,XXXX" → "XXXX"
     const base64 = imageData.includes(",") ? imageData.split(",")[1] : imageData;
-    const mime   = mimeType || (imageData.match(/data:([^;]+);/) || [])[1] || "image/jpeg";
-    const ext    = mime.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
 
-    // Convert base64 → Buffer and save to DB
+    // Detect mime type from data URL or from passed mimeType
+    const detectedMime = (imageData.match(/data:([^;]+);/) || [])[1] || mimeType || "image/jpeg";
+    const ext = MIME_TO_EXT[detectedMime] || detectedMime.split("/")[1] || "jpg";
+
     const buffer   = Buffer.from(base64, "base64");
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-    // Save image to ChatImage table
-    // Schema: id, shop, sessionId, filename, data (Bytes), mimeType, createdAt
     const saved = await prisma.chatImage.create({
       data: {
         shop,
         sessionId: sessionId || null,
         filename,
         data    : buffer,
-        mimeType: mime,
+        mimeType: detectedMime,
       },
     });
 
-    // Return permanent HTTPS URL pointing to the serve endpoint
-    const BASE_URL = "https://talksy-production-5d43.up.railway.app";
+    const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : "https://talksy-production-5d43.up.railway.app";
+
     const imageUrl = `${BASE_URL}/app/chat/image/${saved.id}`;
 
-    console.log(`✅ Image uploaded: ${filename} → ${imageUrl}`);
+    console.log(`✅ Image uploaded: ${filename} (${detectedMime}) → ${imageUrl}`);
     return json({ success: true, imageUrl, id: saved.id }, { headers: corsHeaders });
 
   } catch (error) {

@@ -1,10 +1,15 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.push.send.jsx
-//  FIXES:
-//  1. Image messages → show Talksy icon as notification image
-//     (data: URLs are rejected by FCM, so we use a placeholder)
-//  2. Title = just sender + "Talksy" — no Railway URL anywhere
-//  3. Body stays clean — no \n characters
+//
+//  FIX: Image was not showing in notification because it was
+//  only set in webpush.notification.image but FCM needs it in
+//  MULTIPLE places for the image to actually render:
+//
+//  1. webpush.notification.image  ← Chrome desktop notification
+//  2. data.imageUrl               ← SW reads this from event.data
+//  3. notification.imageUrl       ← Android FCM
+//
+//  All 3 must be set for cross-platform image support.
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -38,14 +43,11 @@ function getMessaging() {
   }
 }
 
-// ✅ Talksy app icon — used as notification icon + image placeholder
 const TALKSY_ICON = "https://cdn.shopify.com/app-store/listing_images/177dd497355fe743fa747f74896d9015/icon/CJmW96zmq5IDEAE=.png";
 
-// Only HTTPS URLs are valid for FCM image field
+// Only HTTPS URLs work in FCM notification image field
 function isValidHttpsUrl(url) {
-  if (!url) return false;
-  if (url.startsWith("data:")) return false;
-  return url.startsWith("https://");
+  return !!(url && url.startsWith("https://") && !url.startsWith("data:"));
 }
 
 // ── Per-session debounce ───────────────────────────────────
@@ -65,22 +67,21 @@ function debounceNotification(key, payload, sendFn) {
 async function sendPushToTokens(messaging, tokens, adminTokens, payload) {
   const { shop, title, notifBody, imageUrl, fileUrl, sessionId, shopUrl, notifTag } = payload;
 
-  // ✅ Resolve what image to show in notification:
-  // - If fileUrl/imageUrl is valid HTTPS → use it (rare, only if stored on CDN)
-  // - If message is an image but stored as data: URL → use Talksy icon as visual placeholder
-  // - Otherwise no image
-  const isImageMessage = notifBody.includes("📷");
-  const validHttpsImage = isValidHttpsUrl(imageUrl) ? imageUrl
+  // Resolve best image URL to use
+  const validImage = isValidHttpsUrl(imageUrl) ? imageUrl
     : isValidHttpsUrl(fileUrl) ? fileUrl
     : null;
 
-  // For image messages with no valid HTTPS image, use the Talksy icon as the notification image
-  // so the notification still looks rich and visual
-  const notifImage = validHttpsImage || (isImageMessage ? TALKSY_ICON : null);
+  // For image messages with no valid URL, use Talksy icon as placeholder
+  const isImageMsg = notifBody.includes("📷");
+  const notifImage = validImage || (isImageMsg ? TALKSY_ICON : null);
+
+  console.log(`🖼️ Notification image: ${notifImage || "none"}`);
 
   const message = {
     tokens,
 
+    // Top-level notification (Android + some platforms)
     notification: {
       title,
       body: notifBody,
@@ -96,7 +97,7 @@ async function sendPushToTokens(messaging, tokens, adminTokens, payload) {
         tag               : notifTag,
         renotify          : true,
         requireInteraction: true,
-        // ✅ Show image in notification — Talksy icon for image messages
+        // ✅ FIX 1: image in webpush.notification — Chrome desktop
         ...(notifImage ? { image: notifImage } : {}),
         actions: [
           { action: "open",    title: "Open Chat" },
@@ -112,24 +113,27 @@ async function sendPushToTokens(messaging, tokens, adminTokens, payload) {
         sound: "default",
         tag  : notifTag,
         color: "#6366f1",
+        // ✅ FIX 2: imageUrl in android notification — Android devices
         ...(notifImage ? { imageUrl: notifImage } : {}),
       },
     },
 
-    // All data values must be strings — no nulls
+    // ✅ FIX 3: imageUrl in data — SW reads this from event.data.json()
+    // This is what firebase-messaging-sw.js uses in the push event handler:
+    // const rawImage = d.imageUrl || d.fileUrl || null;
     data: {
-      shopUrl  : shopUrl   || "",
-      imageUrl : imageUrl  || "",
-      fileUrl  : fileUrl   || "",
-      sessionId: sessionId || "",
-      shop     : shop      || "",
-      tag      : notifTag  || "",
+      shopUrl  : shopUrl      || "",
+      imageUrl : notifImage   || "",  // ← SW reads this to show image
+      fileUrl  : fileUrl      || "",
+      sessionId: sessionId    || "",
+      shop     : shop         || "",
+      tag      : notifTag     || "",
     },
   };
 
   const batchResponse = await messaging.sendEachForMulticast(message);
 
-  // Remove expired/invalid tokens
+  // Clean expired tokens
   const expiredIds = [];
   batchResponse.responses.forEach((resp, idx) => {
     if (!resp.success) {
@@ -184,34 +188,26 @@ export const action = async ({ request }) => {
       return json({ success: true, sent: 0 }, { headers: corsHeaders });
     }
 
-    // ✅ Title: "💬 Sender — Talksy" — no Railway URL, no domain names
-    // Strip any URL-like content from title that might have leaked in
+    // Clean title — no URLs or domains
     const cleanTitle = (title || "New Message")
-      .replace(/https?:\/\/[^\s]*/g, "")  // remove any URLs
-      .replace(/\.myshopify\.com/g, "")   // remove shop domain
-      .replace(/railway\.app/g, "")       // remove Railway domain
+      .replace(/https?:\/\/[^\s]*/g, "")
+      .replace(/\.myshopify\.com/g, "")
+      .replace(/railway\.app/g, "")
       .trim();
 
     const notifTitle = `${cleanTitle} — Talksy`;
 
-    // ✅ Clean body — no \n (FCM rejects it)
-    const notifBody = (body || "New message")
-      .replace(/\n/g, " ")
-      .trim();
+    // Clean body — no \n (FCM rejects it)
+    const notifBody = (body || "New message").replace(/\n/g, " ").trim();
 
     const shopUrl  = url || `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`;
     const notifTag = `talksy-${sessionId || shop}-${Date.now()}`;
     const tokens   = adminTokens.map(t => t.token);
 
     const payload = {
-      shop,
-      title    : notifTitle,
-      notifBody,
-      imageUrl : imageUrl || "",
-      fileUrl  : fileUrl  || "",
-      sessionId,
-      shopUrl,
-      notifTag,
+      shop, title: notifTitle, notifBody,
+      imageUrl: imageUrl || "", fileUrl: fileUrl || "",
+      sessionId, shopUrl, notifTag,
     };
 
     const debounceKey = `${shop}:${sessionId || "global"}`;
