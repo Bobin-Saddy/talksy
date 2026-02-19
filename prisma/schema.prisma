@@ -337,3 +337,16 @@ model FcmToken {
   @@index([shop, type])
   @@index([shop])
 }
+
+model ChatImage {
+  id        Int      @id @default(autoincrement())
+  shop      String
+  sessionId String?
+  filename  String
+  data      Bytes              // ← stores raw image bytes
+  mimeType  String   @default("image/jpeg")
+  createdAt DateTime @default(now())
+
+  @@index([shop])
+  @@index([sessionId])
+}
