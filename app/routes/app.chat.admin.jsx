@@ -919,7 +919,7 @@ export default function NeuralChatAdmin() {
         {pushEnabled && (
           <div style={{ margin:"0 16px 8px", padding:"8px 12px", background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:"8px", fontSize:"11px", color:"#166534", display:"flex", alignItems:"center", gap:"6px" }}>
             <span>🔔</span>
-            <span><strong>Push ON</strong> — Customer message kare toh browser notification aayega</span>
+            {/* <span><strong>Push ON</strong> — Customer message kare toh browser notification aayega</span> */}
           </div>
         )}
 
