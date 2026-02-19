@@ -3,8 +3,8 @@
 //  PATH: app/routes/app.push.send.jsx
 //  FIX:  require() → createRequire (Remix ESM compatible)
 //
-//  app.chat.message.jsx → POST /app/push/send → yeh file
-//  DB se admin FCM tokens dhundti hai → Firebase se push bhejti hai
+//  app.chat.message.jsx → POST /app/push/send → this file
+//  Fetches admin FCM tokens from DB → sends push via Firebase
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -19,7 +19,7 @@ const corsHeaders = {
 
 export const loader = () => json({}, { headers: corsHeaders });
 
-// ── createRequire: Remix ESM mein CJS package load karne ka sahi tarika ──
+// ── createRequire: correct way to load CJS packages in Remix ESM ──
 const require = createRequire(import.meta.url);
 
 let _messaging = null;
@@ -34,7 +34,7 @@ function getMessaging() {
     }
     const svcJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     if (!svcJson) {
-      console.error("❌ FIREBASE_SERVICE_ACCOUNT_JSON Railway mein set nahi hai");
+      console.error("❌ FIREBASE_SERVICE_ACCOUNT_JSON is not set in Railway");
       return null;
     }
     admin.initializeApp({ credential: admin.credential.cert(JSON.parse(svcJson)) });
@@ -58,7 +58,7 @@ export const action = async ({ request }) => {
 
     if (!shop || !title) {
       return json(
-        { success: false, error: "shop aur title required hain" },
+        { success: false, error: "shop and title are required" },
         { status: 400, headers: corsHeaders }
       );
     }
@@ -66,12 +66,12 @@ export const action = async ({ request }) => {
     const messaging = getMessaging();
     if (!messaging) {
       return json(
-        { success: false, error: "Firebase initialize nahi hua — FIREBASE_SERVICE_ACCOUNT_JSON check karo" },
+        { success: false, error: "Firebase not initialized — check FIREBASE_SERVICE_ACCOUNT_JSON" },
         { status: 500, headers: corsHeaders }
       );
     }
 
-    // DB se is shop ke saare admin FCM tokens lo
+    // Fetch all admin FCM tokens for this shop from DB
     let adminTokens = [];
     try {
       adminTokens = await prisma.fcmToken.findMany({
@@ -79,7 +79,7 @@ export const action = async ({ request }) => {
         select: { id: true, token: true },
       });
     } catch (dbErr) {
-      console.error("❌ DB se tokens fetch failed:", dbErr.message);
+      console.error("❌ Failed to fetch tokens from DB:", dbErr.message);
       return json(
         { success: false, error: "DB query failed: " + dbErr.message },
         { status: 500, headers: corsHeaders }
@@ -87,14 +87,14 @@ export const action = async ({ request }) => {
     }
 
     if (adminTokens.length === 0) {
-      console.log(`ℹ️ ${shop} ke liye koi admin FCM token nahi — admin ne panel open nahi kiya`);
+      console.log(`ℹ️ No admin FCM tokens found for ${shop} — admin has not opened the panel`);
       return json(
-        { success: true, sent: 0, message: "Koi admin token registered nahi" },
+        { success: true, sent: 0, message: "No admin tokens registered" },
         { headers: corsHeaders }
       );
     }
 
-    console.log(`📤 ${adminTokens.length} admin token(s) ko push bhej raha hoon — ${shop}`);
+    console.log(`📤 Sending push to ${adminTokens.length} admin token(s) — ${shop}`);
 
     let sent   = 0;
     let failed = 0;
@@ -115,8 +115,8 @@ export const action = async ({ request }) => {
               tag               : `talksy-${shop}`,
               requireInteraction: true,
               actions: [
-                { action: "open",    title: "💬 Chat Kholo" },
-                { action: "dismiss", title: "Dismiss"       },
+                { action: "open",    title: "💬 Open Chat" },
+                { action: "dismiss", title: "Dismiss"      },
               ],
             },
             fcmOptions: {
@@ -143,11 +143,11 @@ export const action = async ({ request }) => {
       }
     }
 
-    // Expired tokens DB se hatao
+    // Remove expired tokens from DB
     for (const { tokenId, token } of expiredTokenIds) {
       try {
         await prisma.fcmToken.delete({ where: { id: tokenId } });
-        console.log(`🗑️ Expired token remove: ...${token.slice(-8)}`);
+        console.log(`🗑️ Expired token removed: ...${token.slice(-8)}`);
       } catch (_) {}
     }
 
