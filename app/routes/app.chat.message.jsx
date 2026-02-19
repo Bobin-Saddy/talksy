@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.chat.message.jsx
-//  FIXES:
-//  1. Never pass data: URLs to push — FCM rejects them
-//  2. Title has no Railway URL — just sender name
+//  FIX:  data:image URLs never sent to FCM — they cause
+//        messaging/invalid-payload and break notifications.
+//        Only HTTPS URLs are passed. data: URLs are blocked here.
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -29,9 +29,9 @@ async function sendPushToAdmin(shop, { title, body, url, imageUrl, fileUrl, sess
         title,
         body,
         url,
-        imageUrl  : imageUrl  || "",
-        fileUrl   : fileUrl   || "",
-        sessionId : sessionId || "",
+        imageUrl : imageUrl  || "",
+        fileUrl  : fileUrl   || "",
+        sessionId: sessionId || "",
       }),
     });
     if (!response.ok) console.warn("⚠️ Push failed:", response.status);
@@ -68,7 +68,11 @@ export const action = async ({ request }) => {
 
     const existingSession = await prisma.chatSession.findUnique({
       where : { sessionId },
-      select: { id:true, sessionId:true, shop:true, email:true, isResolved:true, _count:{ select:{ messages:true } } },
+      select: {
+        id: true, sessionId: true, shop: true,
+        email: true, isResolved: true,
+        _count: { select: { messages: true } },
+      },
     });
 
     const isNewChat = !existingSession;
@@ -79,6 +83,7 @@ export const action = async ({ request }) => {
     if (isNewChat && sender === "user") {
       chatLimit    = await canCreateChat(shop);
       limitReached = !chatLimit.allowed;
+      console.log(`📊 Plan check for ${shop}:`, { isNewChat, current: chatLimit.current, max: chatLimit.max, allowed: chatLimit.allowed, limitReached });
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -119,22 +124,19 @@ export const action = async ({ request }) => {
       ));
       const isFile = !!(fileUrl && !isImage);
 
-      // ✅ Clean title — just the sender name, no URLs or domains
+      // ✅ Clean title — only sender name, no URLs or domains
       const notifTitle = `💬 ${displayName}`;
 
       let notifBody;
-      if (isImage)                     notifBody = "📷 Sent an image";
-      else if (isFile)                 notifBody = "📎 Sent a file";
-      else if (message && message.trim()) {
-        notifBody = message.length > 100 ? message.substring(0, 100) + "…" : message;
-      } else {
-        notifBody = null;
-      }
+      if (isImage)                        notifBody = "📷 Sent an image";
+      else if (isFile)                    notifBody = "📎 Sent a file";
+      else if (message && message.trim()) notifBody = message.length > 100 ? message.substring(0, 100) + "…" : message;
+      else                                notifBody = null;
 
       if (notifBody) {
-        // ✅ Never pass data: URLs to FCM — they are rejected.
-        // For image messages, pass empty strings — push.send.jsx will
-        // show the camera emoji body text + Talksy placeholder image.
+        // ✅ CRITICAL: Never pass data: URLs to FCM — they cause invalid-payload error.
+        // Only pass HTTPS URLs. For data: URL images, pass empty string.
+        // app.push.send.jsx will show Talksy icon as visual placeholder instead.
         const pushImageUrl = (isImage && fileUrl && fileUrl.startsWith("https://")) ? fileUrl : "";
         const pushFileUrl  = (isFile  && fileUrl && fileUrl.startsWith("https://")) ? fileUrl : "";
 
@@ -149,7 +151,7 @@ export const action = async ({ request }) => {
       }
     }
 
-    // ── Limit reached auto-reply ───────────────────────────
+    // ── Limit reached — auto bot reply ─────────────────────
     if (limitReached) {
       const botReply = await prisma.chatMessage.create({
         data: {
@@ -161,22 +163,24 @@ export const action = async ({ request }) => {
 
       await prisma.chatSession.update({ where: { sessionId }, data: { updatedAt: new Date() } });
 
+      console.log(`⚠️ LIMIT REACHED for ${shop}: ${chatLimit.current + 1}/${chatLimit.max} — auto-reply sent`);
+
       return json(
-        { success:true, newMessage:result.newMessage, botReply, limitReached:true, usage:{ current:chatLimit.current+1, max:chatLimit.max, remaining:0 } },
+        { success: true, newMessage: result.newMessage, botReply, limitReached: true, usage: { current: chatLimit.current + 1, max: chatLimit.max, remaining: 0 } },
         { headers: corsHeaders }
       );
     }
 
     return json(
-      { success:true, newMessage:result.newMessage, limitReached:false, usage:{ current:chatLimit.current+(isNewChat?1:0), max:chatLimit.max||0, remaining:isNewChat?chatLimit.remaining-1:chatLimit.remaining } },
+      { success: true, newMessage: result.newMessage, limitReached: false, usage: { current: chatLimit.current + (isNewChat ? 1 : 0), max: chatLimit.max || 0, remaining: isNewChat ? chatLimit.remaining - 1 : chatLimit.remaining } },
       { headers: corsHeaders }
     );
 
   } catch (error) {
     console.error("❌ Message Error:", error);
     return json(
-      { error:error.message, details:process.env.NODE_ENV==="development"?error.stack:undefined },
-      { status:500, headers:corsHeaders }
+      { error: error.message, details: process.env.NODE_ENV === "development" ? error.stack : undefined },
+      { status: 500, headers: corsHeaders }
     );
   }
 };
