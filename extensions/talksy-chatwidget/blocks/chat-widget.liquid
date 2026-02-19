@@ -766,114 +766,34 @@
   };
 
   /* ── file ── */
-const fInput = document.getElementById("chat-file-input");
+  const fInput = document.getElementById("chat-file-input");
   document.getElementById("file-btn").onclick = () => fInput.click();
-
   fInput.onchange = async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // Show uploading indicator
-    const ld = document.createElement("div");
-    ld.className = "msg user";
-    ld.id = "upload-loader-msg";
-    ld.innerHTML = `<div class="msg-content" style="background:#F39C12;color:#fff;border:none;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div class="upload-spinner"></div>
-        <span>Uploading image...</span>
-      </div>
-    </div>`;
-    msgBox.appendChild(ld);
-    msgBox.scrollTop = msgBox.scrollHeight;
-
-    try {
-      // ✅ STEP 1: Read file as base64
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload  = ev => resolve(ev.target.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      // ✅ STEP 2: Upload to Railway → get permanent HTTPS URL
-      const uploadRes = await fetch(`${BASE_URL}/app/chat/upload`, {
-        method : "POST",
-        headers: { "Content-Type": "application/json" },
-        body   : JSON.stringify({
-          shop,
-          sessionId: localStorage.getItem(SK.SID) || null,
-          imageData: base64,
-          mimeType : file.type || "image/jpeg",
-        }),
-      });
-
-      if (!uploadRes.ok) throw new Error("Upload failed: " + uploadRes.status);
-
-      const { imageUrl } = await uploadRes.json();
-      if (!imageUrl) throw new Error("No imageUrl returned");
-
-      // ✅ STEP 3: Send message with HTTPS imageUrl (FCM can now show it!)
-      document.getElementById("upload-loader-msg")?.remove();
-      await postMessage("", imageUrl);
-
-      selectedImg = null;
-      fInput.value = "";
-
-    } catch (err) {
-      console.error("Image upload error:", err);
-      document.getElementById("upload-loader-msg")?.remove();
-      const ed = document.createElement("div");
-      ed.className = "msg user";
-      ed.innerHTML = `<div class="msg-content" style="background:#ef4444;color:#fff;border:none;">
-        <span>❌ Upload failed. Please try again.</span>
-      </div>`;
-      msgBox.appendChild(ed);
-      msgBox.scrollTop = msgBox.scrollHeight;
-      setTimeout(() => ed.remove(), 3000);
-      selectedImg = null;
-      fInput.value = "";
-    }
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      selectedImg = ev.target.result;
+      const ld = document.createElement("div"); ld.className="msg user"; ld.id="upload-loader-msg";
+      ld.innerHTML=`<div class="msg-content" style="background:#F39C12;color:#fff;border:none;"><div style="display:flex;align-items:center;gap:10px;"><div class="upload-spinner"></div><span>Uploading image...</span></div></div>`;
+      msgBox.appendChild(ld); msgBox.scrollTop=msgBox.scrollHeight;
+      try { await postMessage("", selectedImg); document.getElementById("upload-loader-msg")?.remove(); selectedImg=null; fInput.value=""; }
+      catch (err) {
+        document.getElementById("upload-loader-msg")?.remove();
+        const ed=document.createElement("div"); ed.className="msg user"; ed.innerHTML=`<div class="msg-content" style="background:#ef4444;color:#fff;border:none;"><span>❌ Upload failed. Please try again.</span></div>`;
+        msgBox.appendChild(ed); msgBox.scrollTop=msgBox.scrollHeight; setTimeout(()=>ed.remove(),3000);
+      }
+    };
+    reader.readAsDataURL(file);
   };
-
   document.getElementById("send-image-btn").onclick = async () => {
     if (!selectedImg) { alert("No image selected"); return; }
-    const btn = document.getElementById("send-image-btn"), orig = btn.innerHTML;
-    try {
-      btn.disabled = true;
-      btn.innerHTML = '<span class="img-loader"></span> Uploading...';
-
-      // Upload first, then send HTTPS URL
-      const uploadRes = await fetch(`${BASE_URL}/app/chat/upload`, {
-        method : "POST",
-        headers: { "Content-Type": "application/json" },
-        body   : JSON.stringify({
-          shop,
-          sessionId: localStorage.getItem(SK.SID) || null,
-          imageData: selectedImg,
-          mimeType : "image/jpeg",
-        }),
-      });
-
-      if (!uploadRes.ok) throw new Error("Upload failed");
-      const { imageUrl } = await uploadRes.json();
-      if (!imageUrl) throw new Error("No imageUrl");
-
-      await postMessage("", imageUrl);
-      selectedImg = null;
-      document.getElementById("image-preview-container").style.display = "none";
-
-    } catch (_) {
-      alert("Failed to send image. Please try again.");
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = orig;
-    }
+    const btn=document.getElementById("send-image-btn"), orig=btn.innerHTML;
+    try { btn.disabled=true; btn.innerHTML='<span class="img-loader"></span> Uploading...'; await postMessage("",selectedImg); selectedImg=null; document.getElementById("image-preview-container").style.display="none"; }
+    catch (_) { alert("Failed to send image. Please try again."); }
+    finally { btn.disabled=false; btn.innerHTML=orig; }
   };
+  document.getElementById("remove-image-btn").onclick = () => { selectedImg=null; document.getElementById("image-preview-container").style.display="none"; };
 
-  document.getElementById("remove-image-btn").onclick = () => {
-    selectedImg = null;
-    document.getElementById("image-preview-container").style.display = "none";
-  };
   /* ── emoji ── */
   const picker = document.getElementById("emoji-picker");
   picker.innerHTML = ["😊","👋","🙌","🔥","✅","🤔","💡","🚀","❤️","✨","👍","🙏"].map(em=>`<span class="e-item" style="cursor:pointer;font-size:20px;">${em}</span>`).join('');
