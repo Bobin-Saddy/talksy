@@ -104,25 +104,25 @@ export const action = async ({ request }) => {
       try {
         await messaging.send({
           token,
-          notification: { title, body },
-          webpush: {
-            headers: { Urgency: "high" },
-            notification: {
-              title,
-              body,
-              icon              : "/favicon.ico",
-              badge             : "/favicon.ico",
-              tag               : `talksy-${shop}`,
-              requireInteraction: true,
-              actions: [
-                { action: "open",    title: "💬 Open Chat" },
-                { action: "dismiss", title: "Dismiss"      },
-              ],
-            },
-            fcmOptions: {
-              link: url || `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`,
-            },
-          },
+notification: { title, body },
+webpush: {
+  headers: { Urgency: "high" },
+  notification: {
+    title,
+    body,
+    icon              : "/icons/talksy-192.png",  // ← use your actual Talksy logo
+    badge             : "/icons/talksy-badge.png", // ← small monochrome icon (72x72)
+    tag               : `talksy-${shop}`,
+    requireInteraction: true,
+    actions: [
+      { action: "open",    title: "💬 Open Chat" },
+      { action: "dismiss", title: "Dismiss"      },
+    ],
+  },
+  fcmOptions: {
+    link: url || `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`,
+  },
+},
           android: {
             priority    : "high",
             notification: { sound: "default" },
