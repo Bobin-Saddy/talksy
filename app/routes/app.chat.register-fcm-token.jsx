@@ -2,10 +2,10 @@
 //  FILE: app/routes/app.chat.register-fcm-token.jsx
 //  PATH: app/routes/app.chat.register-fcm-token.jsx
 //
-//  Liquid widget → POST /app/chat/register-fcm-token → yeh file
-//  Customer ka FCM token FcmToken DB mein save karta hai
-//  Existing app.chat.register.jsx se bilkul alag hai — woh
-//  ChatSession banata hai, yeh sirf FCM token save karta hai
+//  Liquid widget → POST /app/chat/register-fcm-token → this file
+//  Saves customer FCM token to FcmToken DB table.
+//  Completely separate from app.chat.register.jsx — that one
+//  creates a ChatSession; this one only saves the FCM token.
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -36,13 +36,12 @@ export const action = async ({ request }) => {
 
     if (!shop || !fcmToken) {
       return json(
-        { success: false, error: "shop aur fcmToken required hain" },
+        { success: false, error: "shop and fcmToken are required" },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    // FcmToken DB mein upsert karo
-    // (agar same token pehle se hai toh update, nahi toh create)
+    // Upsert FCM token — update if token already exists, create if not
     await prisma.fcmToken.upsert({
       where : { token: fcmToken },
       update: {
@@ -54,11 +53,12 @@ export const action = async ({ request }) => {
       },
       create: {
         shop,
-        token    : fcmToken,
-        type     : "customer",
-        sessionId: sessionId  || null,
-        email    : email      || null,
-        userAgent: userAgent  || null,
+        token       : fcmToken,
+        type        : "customer",
+        sessionId   : sessionId   || null,
+        email       : email       || null,
+        userAgent   : userAgent   || null,
+        registeredAt: registeredAt ? new Date(registeredAt) : new Date(),
       },
     });
 
@@ -73,13 +73,3 @@ export const action = async ({ request }) => {
     );
   }
 };
-
-
-
-
-
-
-
-
-
-

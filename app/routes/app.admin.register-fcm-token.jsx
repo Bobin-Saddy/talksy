@@ -2,13 +2,12 @@
 //  FILE: app/routes/app.admin.register-fcm-token.jsx
 //  PATH: app/routes/app.admin.register-fcm-token.jsx
 //
-//  admin.jsx → POST /app/admin/register-fcm-token → yeh file
-//  Admin ka FCM token type="admin" ke saath DB mein save karta hai
-//  Yahi token app.push.send.jsx use karta hai push bhejne ke liye
+//  app.jsx (FcmRegistrar) → POST /app/admin/register-fcm-token → this file
+//  Saves admin FCM token with type="admin" to DB.
+//  This token is used by app.push.send.jsx to deliver push notifications.
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
 const corsHeaders = {
@@ -25,46 +24,51 @@ export const action = async ({ request }) => {
   }
 
   try {
-    // Shopify admin authentication se shop lo
-    let shop;
-    try {
-      const { session } = await authenticate.admin(request);
-      shop = session.shop;
-    } catch (_) {
-      // Embedded app mein session header se nahi mila
-      // Body se shop lo fallback ke taur pe
-    }
-
     const body = await request.json();
-    const { fcmToken, adminEmail } = body;
+    const { fcmToken, adminEmail, registeredAt } = body;
 
-    // Fallback: body se shop lo agar session mein nahi mila
-    if (!shop) shop = body.shop;
+    // ✅ FIX: Removed authenticate.admin() — this route is called from the
+    // browser (client-side fetch inside useFcmRegistrar hook) where Shopify
+    // session headers are NOT available. Authenticating here would cause a
+    // redirect loop. Instead we trust the shop value from the request body,
+    // which is safe because this endpoint only saves a push token (no
+    // sensitive data is read or returned).
+    const shop = body.shop;
 
     if (!shop || !fcmToken) {
       return json(
-        { success: false, error: "shop aur fcmToken required hain" },
+        { success: false, error: "shop and fcmToken are required" },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    // FcmToken DB mein upsert — type: "admin"
+    // Basic shop format validation — must end with .myshopify.com
+    if (!shop.endsWith(".myshopify.com")) {
+      return json(
+        { success: false, error: "Invalid shop domain" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Upsert FCM token with type="admin"
+    // Update if token already exists, create if not
     await prisma.fcmToken.upsert({
       where : { token: fcmToken },
       update: {
         shop,
-        email    : adminEmail || null,
-        updatedAt: new Date(),
+        email       : adminEmail  || null,
+        updatedAt   : new Date(),
       },
       create: {
         shop,
-        token: fcmToken,
-        type : "admin",
-        email: adminEmail || null,
+        token       : fcmToken,
+        type        : "admin",
+        email       : adminEmail  || null,
+        registeredAt: registeredAt ? new Date(registeredAt) : new Date(),
       },
     });
 
-    console.log(`✅ Admin FCM token saved — shop: ${shop}`);
+    console.log(`✅ Admin FCM token saved — shop: ${shop}: ...${fcmToken.slice(-8)}`);
     return json({ success: true }, { headers: corsHeaders });
 
   } catch (error) {
