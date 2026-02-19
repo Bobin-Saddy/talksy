@@ -1,8 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.chat.message.jsx
-//  FIX: Now that images are uploaded via /app/chat/upload
-//       and stored as HTTPS URLs (railway.app/app/chat/image/ID),
-//       we pass them directly to FCM — real image shows in notification!
+//  ADDED: After saving user message, triggers 1-minute email
+//         timer via /app/email/unseen route
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -19,25 +18,33 @@ const corsHeaders = {
 
 export const loader = () => json({}, { headers: corsHeaders });
 
+// ── Send push notification ─────────────────────────────────
 async function sendPushToAdmin(shop, { title, body, url, imageUrl, fileUrl, sessionId }) {
   try {
     const response = await fetch(`${BACKEND_URL}/app/push/send`, {
       method : "POST",
       headers: { "Content-Type": "application/json" },
-      body   : JSON.stringify({
-        shop,
-        title,
-        body,
-        url,
-        imageUrl : imageUrl  || "",
-        fileUrl  : fileUrl   || "",
-        sessionId: sessionId || "",
-      }),
+      body   : JSON.stringify({ shop, title, body, url, imageUrl: imageUrl || "", fileUrl: fileUrl || "", sessionId: sessionId || "" }),
     });
     if (!response.ok) console.warn("⚠️ Push notification failed:", response.status);
     else console.log("🔔 Push sent to admin for shop:", shop);
   } catch (err) {
     console.error("❌ Push notification error (non-blocking):", err.message);
+  }
+}
+
+// ── Trigger 1-minute unseen email timer ───────────────────
+async function triggerUnseenEmailTimer(shop, sessionId, displayName, userMessage) {
+  try {
+    await fetch(`${BACKEND_URL}/app/email/unseen`, {
+      method : "POST",
+      headers: { "Content-Type": "application/json" },
+      body   : JSON.stringify({ shop, sessionId, displayName, userMessage }),
+    });
+    console.log(`⏰ Email timer triggered for session ${sessionId}`);
+  } catch (err) {
+    // Non-blocking — email failure must never affect message delivery
+    console.error("❌ Email timer trigger error (non-blocking):", err.message);
   }
 }
 
@@ -50,29 +57,17 @@ export const action = async ({ request }) => {
     const body = await request.json();
     const { sessionId, message, fileUrl, shop, email } = body;
 
-    const sender = (body.sender === "admin" || body.sender === "bot")
-      ? body.sender : "user";
+    const sender = (body.sender === "admin" || body.sender === "bot") ? body.sender : "user";
+    const fname  = body.fname || body.firstName || null;
 
-    const fname = body.fname || body.firstName || null;
-
-    console.log("📨 Message received:", {
-      sessionId,
-      sender,
-      shop,
-      messageLength: message?.length,
-      hasFile      : !!(fileUrl),
-    });
+    console.log("📨 Message received:", { sessionId, sender, shop, messageLength: message?.length, hasFile: !!(fileUrl) });
 
     if (!shop)      return json({ error: "Shop parameter is required" }, { status: 400, headers: corsHeaders });
     if (!sessionId) return json({ error: "Session ID is required" },     { status: 400, headers: corsHeaders });
 
     const existingSession = await prisma.chatSession.findUnique({
       where : { sessionId },
-      select: {
-        id: true, sessionId: true, shop: true,
-        email: true, isResolved: true,
-        _count: { select: { messages: true } },
-      },
+      select: { id:true, sessionId:true, shop:true, email:true, isResolved:true, _count:{ select:{ messages:true } } },
     });
 
     const isNewChat = !existingSession;
@@ -113,42 +108,28 @@ export const action = async ({ request }) => {
       return { chatSession, newMessage };
     });
 
-    // ── Push notification ──────────────────────────────────
+    // ── Push + Email (only for user messages) ─────────────
     if (sender === "user") {
       const shopDomain  = shop.replace(".myshopify.com", "");
       const displayName = fname || (email ? email.split("@")[0] : "Customer");
 
-      // ✅ Image detection — now handles 3 cases:
-      // 1. HTTPS URL from upload route (/app/chat/image/ID) ← NEW, works with FCM
-      // 2. Direct HTTPS image URL (CDN, etc)
-      // 3. data:image base64 ← old way, blocked from FCM
-      const isHttpsImage = !!(
-        fileUrl &&
-        fileUrl.startsWith("https://") &&
-        (
-          /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(fileUrl) ||
-          fileUrl.includes("/app/chat/image/")  // ← our upload route
-        )
-      );
-      const isDataImage = !!(fileUrl && fileUrl.startsWith("data:image"));
-      const isImage     = isHttpsImage || isDataImage;
-      const isFile      = !!(fileUrl && !isImage);
+      const isHttpsImage = !!(fileUrl && fileUrl.startsWith("https://") && (/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(fileUrl) || fileUrl.includes("/app/chat/image/")));
+      const isDataImage  = !!(fileUrl && fileUrl.startsWith("data:image"));
+      const isImage      = isHttpsImage || isDataImage;
+      const isFile       = !!(fileUrl && !isImage);
 
       const notifTitle = `💬 New message from ${displayName}`;
       let notifBody;
-
       if (isImage)                        notifBody = "📷 Customer sent an image";
       else if (isFile)                    notifBody = "📎 Customer sent a file";
       else if (message && message.trim()) notifBody = message.length > 100 ? message.substring(0, 100) + "…" : message;
       else                                notifBody = null;
 
-      if (notifBody) {
-        // ✅ KEY FIX: Pass HTTPS image URL directly to FCM — it will show in notification!
-        // data: URLs still blocked (FCM rejects them → invalid-payload error)
-        // HTTPS URLs from upload route pass through → real image in notification ✅
-        const pushImageUrl = isHttpsImage ? fileUrl : "";
-        const pushFileUrl  = (isFile && fileUrl && fileUrl.startsWith("https://")) ? fileUrl : "";
+      const pushImageUrl = isHttpsImage ? fileUrl : "";
+      const pushFileUrl  = (isFile && fileUrl && fileUrl.startsWith("https://")) ? fileUrl : "";
 
+      if (notifBody) {
+        // Fire push notification (non-blocking)
         sendPushToAdmin(shop, {
           title    : notifTitle,
           body     : notifBody,
@@ -158,6 +139,11 @@ export const action = async ({ request }) => {
           sessionId,
         });
       }
+
+      // ✅ Trigger 1-minute email timer (non-blocking)
+      // If admin reads the message within 1 min → email cancelled
+      // If admin does NOT read within 1 min → email sent
+      triggerUnseenEmailTimer(shop, sessionId, displayName, notifBody || message || "");
     }
 
     // ── Limit reached — auto bot reply ─────────────────────
@@ -174,21 +160,21 @@ export const action = async ({ request }) => {
       console.log(`⚠️ LIMIT REACHED for ${shop}: ${chatLimit.current + 1}/${chatLimit.max} — auto-reply sent`);
 
       return json(
-        { success: true, newMessage: result.newMessage, botReply, limitReached: true, usage: { current: chatLimit.current + 1, max: chatLimit.max, remaining: 0 } },
+        { success:true, newMessage:result.newMessage, botReply, limitReached:true, usage:{ current:chatLimit.current+1, max:chatLimit.max, remaining:0 } },
         { headers: corsHeaders }
       );
     }
 
     return json(
-      { success: true, newMessage: result.newMessage, limitReached: false, usage: { current: chatLimit.current + (isNewChat ? 1 : 0), max: chatLimit.max || 0, remaining: isNewChat ? chatLimit.remaining - 1 : chatLimit.remaining } },
+      { success:true, newMessage:result.newMessage, limitReached:false, usage:{ current:chatLimit.current+(isNewChat?1:0), max:chatLimit.max||0, remaining:isNewChat?chatLimit.remaining-1:chatLimit.remaining } },
       { headers: corsHeaders }
     );
 
   } catch (error) {
     console.error("❌ Message Error:", error);
     return json(
-      { error: error.message, details: process.env.NODE_ENV === "development" ? error.stack : undefined },
-      { status: 500, headers: corsHeaders }
+      { error:error.message, details:process.env.NODE_ENV==="development"?error.stack:undefined },
+      { status:500, headers:corsHeaders }
     );
   }
 };

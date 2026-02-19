@@ -69,7 +69,7 @@ model ChatMessage {
   fileUrl       String?     // URL to the uploaded file
   fileType      String?     // e.g., "image/png", "application/pdf"
   createdAt     DateTime    @default(now())
-  
+  seenByAdmin Boolean @default(false) 
   @@index([chatSessionId])
   @@index([createdAt])
 }
