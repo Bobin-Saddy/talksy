@@ -1,15 +1,14 @@
 // ============================================================
-// firebase-messaging-sw.js — v6
+// firebase-messaging-sw.js — v7 — FORCE CACHE BUST
 // LOCATION: /public/firebase-messaging-sw.js
 //
-// FIX: "Different notification structure" was caused by BOTH
-// raw "push" event AND onBackgroundMessage firing together,
-// showing two notifications with different styles.
+// CRITICAL: After uploading this file, you MUST force the
+// browser to load the new SW. Old cached SW won't read
+// data.imageUrl and will show no image in notification.
 //
-// SOLUTION: Remove onBackgroundMessage entirely.
-// Raw "push" event alone handles everything — it fires first,
-// calls event.waitUntil(showNotification()), and the browser
-// never gets a chance to show its own fallback notification.
+// HOW TO FORCE UPDATE (do this once after deploy):
+// Chrome DevTools → Application → Service Workers
+// → Click "Update" → Then refresh the page
 // ============================================================
 
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
@@ -24,35 +23,38 @@ firebase.initializeApp({
   appId            : "1:547076667229:web:e65ed249fe33f7724e9ab4",
 });
 
-// ✅ Initialize Firebase messaging (required for token generation)
-// but we do NOT call onBackgroundMessage — raw push event handles all delivery
+// Required for token generation — but we do NOT use onBackgroundMessage
+// (it causes duplicate/different-styled notifications)
 const messaging = firebase.messaging();
 
 const TALKSY_ICON = "https://cdn.shopify.com/app-store/listing_images/177dd497355fe743fa747f74896d9015/icon/CJmW96zmq5IDEAE=.png";
 
-// ── Activate new SW immediately ────────────────────────────
-self.addEventListener("install", () => {
-  console.log("[SW v6] install");
-  self.skipWaiting();
+// ── Activate immediately — replace old SW without page reload ─
+self.addEventListener("install", (e) => {
+  console.log("[SW v7] install");
+  e.waitUntil(self.skipWaiting());
 });
+
 self.addEventListener("activate", (e) => {
-  console.log("[SW v6] activate");
+  console.log("[SW v7] activate — claiming clients");
   e.waitUntil(clients.claim());
 });
 
-// ── Image URL resolver ─────────────────────────────────────
-// FCM only renders https:// URLs in notification image field.
-// data: URLs are silently ignored by Chrome.
+// ── Image resolver ─────────────────────────────────────────
 function resolveImage(rawImage, isImageMsg) {
+  // Only HTTPS URLs work — Chrome silently ignores data: URLs
   if (rawImage && rawImage.startsWith("https://")) return rawImage;
-  if (isImageMsg) return TALKSY_ICON; // placeholder for data: URL images
+  // Image message but no valid URL → use Talksy icon as placeholder
+  if (isImageMsg) return TALKSY_ICON;
   return null;
 }
 
 // ── Show OS notification ───────────────────────────────────
 function showNotif(title, body, rawImage, sessionId, shopUrl) {
   const isImageMsg = !!(rawImage) || body.includes("📷");
-  const image      = resolveImage(rawImage, isImageMsg);
+  const image = resolveImage(rawImage, isImageMsg);
+
+  console.log("[SW v7] showNotif — image:", image || "none");
 
   return self.registration.showNotification(title, {
     body,
@@ -71,7 +73,7 @@ function showNotif(title, body, rawImage, sessionId, shopUrl) {
   });
 }
 
-// ── postMessage open clients for in-app toast ──────────────
+// ── postMessage open app windows for in-app toast ──────────
 function pingClients(title, body, imageUrl, sessionId, shopUrl) {
   return clients
     .matchAll({ type: "window", includeUncontrolled: true })
@@ -81,26 +83,36 @@ function pingClients(title, body, imageUrl, sessionId, shopUrl) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  RAW PUSH EVENT — this is the ONLY notification handler
-//  onBackgroundMessage is intentionally removed because:
-//  1. Both firing together = duplicate / mismatched notifications
-//  2. Raw push event fires first and handles everything
-//  3. event.waitUntil() tells browser "I handled this,
-//     don't show your own fallback notification"
+//  RAW PUSH EVENT — only handler, no onBackgroundMessage
+//
+//  Reads image from ALL possible locations in the payload:
+//  - data.imageUrl  ← set by app.push.send.jsx ✅
+//  - data.fileUrl   ← fallback
+//  - notification.image ← FCM notification image field
 // ══════════════════════════════════════════════════════════
 self.addEventListener("push", (event) => {
-  console.log("[SW v6] push received");
+  console.log("[SW v7] push received");
 
   let data = {};
-  try { data = event.data?.json() || {}; } catch (_) {}
+  try {
+    data = event.data?.json() || {};
+  } catch (_) {
+    console.warn("[SW v7] Failed to parse push data");
+  }
 
-  const n         = data.notification || {};
-  const d         = data.data         || {};
+  const n = data.notification || {};
+  const d = data.data         || {};
+
   const title     = n.title     || "💬 New Message — Talksy";
   const body      = n.body      || "A customer sent a message";
-  const rawImage  = n.image     || d.imageUrl || d.fileUrl || null;
   const sessionId = d.sessionId || null;
   const shopUrl   = d.shopUrl   || "/";
+
+  // ✅ Read image from data fields (set by push.send.jsx)
+  // data.imageUrl is the HTTPS URL from our upload route
+  const rawImage = d.imageUrl || d.fileUrl || n.image || null;
+
+  console.log("[SW v7] payload imageUrl:", d.imageUrl, "| fileUrl:", d.fileUrl);
 
   event.waitUntil(
     Promise.all([
