@@ -916,12 +916,12 @@ export default function NeuralChatAdmin() {
         </div>
 
         {/* VAPID push enabled banner */}
-        {pushEnabled && (
+        {/* {pushEnabled && (
           <div style={{ margin:"0 16px 8px", padding:"8px 12px", background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:"8px", fontSize:"11px", color:"#166534", display:"flex", alignItems:"center", gap:"6px" }}>
             <span>🔔</span>
-            {/* <span><strong>Push ON</strong> — Customer message kare toh browser notification aayega</span> */}
+            <span><strong>Push ON</strong> — Customer message kare toh browser notification aayega</span>
           </div>
-        )}
+        )} */}
 
         {/* ✅ NEW: "Enable Notifications" banner — shown when permission is default (not yet asked) */}
         {/* ════ PERMISSION MODAL — Mode A: not asked yet | Mode B: blocked ════ */}
