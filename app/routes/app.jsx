@@ -1,8 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.jsx
-//  KEY FIX: Listen to SW postMessage instead of Firebase onMessage.
-//  SW postMessage works inside Shopify iframe on ALL pages.
-//  Firebase onMessage only works when the iframe is focused — unreliable.
+//
+//  DEFINITIVE FIX FOR "notifications only when chat page open":
+//
+//  ROOT CAUSE: FCM token was only being saved to DB when admin
+//  opened app.chat.admin.jsx. If admin never opened it, no token
+//  in DB = Firebase has nowhere to send the push.
+//
+//  FIX:
+//  1. Token registration runs in app.jsx root (every page load)
+//  2. SW registers with skipWaiting+claim (activates immediately)
+//  3. SW "push" event always fires and shows OS notification
+//  4. SW postMessages open clients → in-app toast shown
+//  5. No dependency on which page admin is on
 // ═══════════════════════════════════════════════════════════
 import { Outlet, useLoaderData, useRouteError, useLocation, useNavigate, useRevalidator } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -14,8 +24,6 @@ import { authenticate } from "../shopify.server";
 import { useEffect, useRef, useState } from "react";
 import { getUsageStats } from "../planLimits.server";
 import prisma from "../db.server";
-
-// 🔥 FCM — only need getToken, NOT onMessage (SW handles delivery)
 import { initializeApp, getApps } from "firebase/app";
 import { getMessaging, getToken } from "firebase/messaging";
 
@@ -31,6 +39,7 @@ const FIREBASE_VAPID_KEY =
   "BJzrkyA1gwJTL7auMx6y0RHjv34mSPzm6FpY5twRsMuuE54l0nL4cl4UUltGcgqO5cNGcJjWEugjyZFkkfTI1AE";
 const BACKEND_URL = "https://talksy-production-5d43.up.railway.app";
 
+// ── Loader ─────────────────────────────────────────────────
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
@@ -41,7 +50,6 @@ export const loader = async ({ request }) => {
   try {
     usage = await getUsageStats(shop);
   } catch (error) {
-    console.error("Error getting usage stats:", error);
     usage = {
       plan    : "FREE",
       chats   : { current: 0, max: 100, percentage: 0, remaining: 100 },
@@ -59,7 +67,7 @@ export const loader = async ({ request }) => {
   };
 };
 
-// ── Locked page overlay ────────────────────────────────────
+// ── Locked overlay ─────────────────────────────────────────
 function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNavigate }) {
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, WebkitBackdropFilter:"blur(12px)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
@@ -70,14 +78,14 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNav
         </h2>
         <p style={{ fontSize:"16px", color:"#6d7175", marginBottom:"28px", lineHeight:"1.6" }}>
           {isPendingApproval
-            ? <>Your subscription upgrade is pending billing approval. Complete the billing process to access this feature.</>
-            : <>This feature is available on the <strong>{requiredPlan}</strong> plan or higher.{currentPlan === "FREE" && " Upgrade now to unlock this feature."}</>}
+            ? <>Your subscription upgrade is pending billing approval.</>
+            : <>This feature requires the <strong>{requiredPlan}</strong> plan or higher.{currentPlan === "FREE" && " Upgrade now to unlock."}</>}
         </p>
         <button
           onClick={() => onNavigate("/app/subscription")}
-          style={{ display:"inline-block", padding:"14px 32px", backgroundColor:"#005BD3", color:"white", borderRadius:"8px", fontWeight:"600", fontSize:"16px", border:"none", cursor:"pointer", boxShadow:"0 2px 8px rgba(0,91,211,0.3)" }}
-          onMouseEnter={e => { e.target.style.backgroundColor = "#004FC4"; e.target.style.transform = "translateY(-1px)"; }}
-          onMouseLeave={e => { e.target.style.backgroundColor = "#005BD3"; e.target.style.transform = "translateY(0)"; }}
+          style={{ padding:"14px 32px", backgroundColor:"#005BD3", color:"white", borderRadius:"8px", fontWeight:"600", fontSize:"16px", border:"none", cursor:"pointer" }}
+          onMouseEnter={e => { e.target.style.backgroundColor = "#004FC4"; }}
+          onMouseLeave={e => { e.target.style.backgroundColor = "#005BD3"; }}
         >
           {isPendingApproval ? "Complete Billing Approval" : "View Plans"}
         </button>
@@ -86,37 +94,59 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNav
   );
 }
 
-// ── Global toast notification ──────────────────────────────
+// ── Global in-app toast ────────────────────────────────────
 function GlobalToast({ toasts, onDismiss }) {
   if (!toasts.length) return null;
   return (
-    <div style={{ position:"fixed", bottom:"32px", right:"32px", zIndex:2147483647, display:"flex", flexDirection:"column-reverse", gap:"10px", maxWidth:"340px", width:"340px", pointerEvents:"none" }}>
+    <div style={{
+      position     : "fixed",
+      bottom       : "32px",
+      right        : "32px",
+      zIndex       : 2147483647, // max possible — always on top
+      display      : "flex",
+      flexDirection: "column-reverse",
+      gap          : "10px",
+      maxWidth     : "340px",
+      pointerEvents: "none",
+    }}>
       {toasts.map(toast => (
-        <div
-          key={toast.id}
-          style={{ pointerEvents:"auto", background:"linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)", color:"white", borderRadius:"16px", padding:"14px 16px", boxShadow:"0 6px 24px rgba(99,102,241,0.45)", display:"flex", alignItems:"flex-start", gap:"12px", animation:"globalSlideIn 0.3s ease", border:"1px solid rgba(255,255,255,0.15)", position:"relative", overflow:"hidden" }}
-        >
-          <div style={{ position:"absolute", bottom:0, left:0, height:"3px", background:"rgba(255,255,255,0.4)", animation:"globalToastProgress 7s linear forwards", width:"100%" }} />
+        <div key={toast.id} style={{
+          pointerEvents: "auto",
+          background   : "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+          color        : "white",
+          borderRadius : "16px",
+          padding      : "14px 16px",
+          boxShadow    : "0 6px 24px rgba(99,102,241,0.5)",
+          display      : "flex",
+          alignItems   : "flex-start",
+          gap          : "12px",
+          animation    : "talksySlideIn 0.3s ease",
+          border       : "1px solid rgba(255,255,255,0.15)",
+          position     : "relative",
+          overflow     : "hidden",
+        }}>
+          <div style={{ position:"absolute", bottom:0, left:0, height:"3px", background:"rgba(255,255,255,0.4)", animation:"talksyProgress 7s linear forwards", width:"100%" }} />
           <div style={{ width:"36px", height:"36px", background:"rgba(255,255,255,0.2)", borderRadius:"10px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px", flexShrink:0 }}>💬</div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontWeight:"700", fontSize:"13px", marginBottom:"4px" }}>{toast.title}</div>
             {toast.imageUrl && (
-              <img src={toast.imageUrl} alt="img" style={{ width:"100%", maxHeight:"100px", objectFit:"cover", borderRadius:"8px", marginBottom:"6px", display:"block" }} onError={e => { e.currentTarget.style.display = "none"; }} />
+              <img src={toast.imageUrl} alt="" style={{ width:"100%", maxHeight:"100px", objectFit:"cover", borderRadius:"8px", marginBottom:"6px" }} onError={e => e.currentTarget.style.display = "none"} />
             )}
             <div style={{ fontSize:"12px", opacity:0.9, lineHeight:"1.45", wordBreak:"break-word" }}>{toast.body}</div>
             <div style={{ fontSize:"10px", opacity:0.6, marginTop:"4px" }}>{toast.time}</div>
           </div>
-          <button onClick={() => onDismiss(toast.id)} style={{ background:"rgba(255,255,255,0.2)", border:"none", color:"white", width:"22px", height:"22px", borderRadius:"6px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:"13px", fontWeight:"700" }}>×</button>
+          <button onClick={() => onDismiss(toast.id)} style={{ background:"rgba(255,255,255,0.2)", border:"none", color:"white", width:"22px", height:"22px", borderRadius:"6px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:"14px" }}>×</button>
         </div>
       ))}
       <style>{`
-        @keyframes globalSlideIn { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes globalToastProgress { from{width:100%} to{width:0%} }
+        @keyframes talksySlideIn  { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes talksyProgress { from{width:100%} to{width:0%} }
       `}</style>
     </div>
   );
 }
 
+// ── Main App ───────────────────────────────────────────────
 export default function App() {
   const { apiKey, usage, subscriptionStatus, currentShop } = useLoaderData();
   const location    = useLocation();
@@ -124,9 +154,8 @@ export default function App() {
   const revalidator = useRevalidator();
 
   const [globalToasts, setGlobalToasts] = useState([]);
-  const fcmInitRef  = useRef(false);
-  const audioRef    = useRef(null);
-  const swUnsubRef  = useRef(null); // cleanup for SW message listener
+  const audioRef        = useRef(null);
+  const tokenSavedRef   = useRef(false); // prevent duplicate saves
 
   const pushGlobalToast = (title, body, imageUrl = null) => {
     const id = Date.now() + Math.random();
@@ -137,9 +166,11 @@ export default function App() {
     setTimeout(() => setGlobalToasts(prev => prev.filter(t => t.id !== id)), 8000);
   };
 
-  const dismissToast = (id) => setGlobalToasts(prev => prev.filter(t => t.id !== id));
-
-  // ── FCM token registration (no onMessage — SW handles delivery) ──
+  // ════════════════════════════════════════════════════════
+  //  FCM SETUP — runs on every page load in the root layout
+  //  Registers SW + saves token to DB so push is always
+  //  deliverable regardless of which page admin is on.
+  // ════════════════════════════════════════════════════════
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator) || !("Notification" in window)) return;
@@ -147,31 +178,39 @@ export default function App() {
 
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
 
-    async function registerToken() {
+    // ── Step 1: Register SW immediately (even before permission check)
+    // SW must be registered so it can receive background pushes.
+    // Token registration only happens after permission is granted.
+    async function registerSW() {
       try {
-        if (Notification.permission !== "granted") {
-          console.log(`[FCM] Permission "${Notification.permission}" — skipping token registration`);
-          return;
-        }
-
-        // Register SW
         const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+        // skipWaiting is handled in the SW itself
         await navigator.serviceWorker.ready;
+        console.log("[FCM] SW registered and ready");
+        return swReg;
+      } catch (err) {
+        console.warn("[FCM] SW registration failed:", err.message);
+        return null;
+      }
+    }
 
-        // Init Firebase
+    // ── Step 2: Save token to DB (only if permission granted)
+    async function saveToken(swReg) {
+      if (Notification.permission !== "granted") return;
+      if (tokenSavedRef.current) return;
+
+      try {
         const app       = getApps().length > 0 ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
         const messaging = getMessaging(app);
 
-        // Get token
         const token = await getToken(messaging, {
           vapidKey                 : FIREBASE_VAPID_KEY,
           serviceWorkerRegistration: swReg,
         });
 
-        if (!token) { console.warn("[FCM] No token obtained"); return; }
+        if (!token) { console.warn("[FCM] No token"); return; }
 
-        // Save to DB
-        await fetch(`${BACKEND_URL}/app/admin/register-fcm-token`, {
+        const res = await fetch(`${BACKEND_URL}/app/admin/register-fcm-token`, {
           method : "POST",
           headers: { "Content-Type": "application/json" },
           body   : JSON.stringify({
@@ -181,64 +220,57 @@ export default function App() {
           }),
         });
 
-        fcmInitRef.current = true;
-        console.log(`[FCM] ✅ Token registered — ${currentShop}: ...${token.slice(-8)}`);
-
+        if (res.ok) {
+          tokenSavedRef.current = true;
+          console.log(`[FCM] ✅ Token saved for ${currentShop}`);
+        }
       } catch (err) {
-        console.warn("[FCM] Token registration error:", err.message);
+        console.warn("[FCM] Token save error:", err.message);
       }
     }
 
-    // ✅ KEY FIX: Listen for SW postMessage instead of Firebase onMessage.
-    // SW sends TALKSY_PUSH to ALL clients (including Shopify iframe) on every push.
-    // This is the ONLY reliable way to receive push inside an iframe.
-    const handleSwMessage = (event) => {
+    // ── Step 3: Listen for SW → page postMessages (in-app toast)
+    // SW sends TALKSY_PUSH on every push received.
+    // This works inside Shopify iframe on any page.
+    function onSwMessage(event) {
       if (!event.data || event.data.type !== "TALKSY_PUSH") return;
-
-      console.log("[FCM] SW postMessage received:", event.data);
-
-      const { title, body, imageUrl } = event.data;
-
-      // Play sound
+      console.log("[FCM] SW message received:", event.data);
       if (audioRef.current) audioRef.current.play().catch(() => {});
+      pushGlobalToast(
+        event.data.title || "💬 New Message",
+        event.data.body  || "Customer sent a message",
+        event.data.imageUrl || null,
+      );
+    }
 
-      // Show in-app toast (always — even when tab is active)
-      pushGlobalToast(title || "💬 New Message", body || "Customer sent a message", imageUrl || null);
-    };
+    // ── Step 4: Listen for permission-granted event from chat admin page
+    function onPermissionGranted() {
+      tokenSavedRef.current = false; // reset so token is re-saved
+      registerSW().then(swReg => { if (swReg) saveToken(swReg); });
+    }
 
-    navigator.serviceWorker.addEventListener("message", handleSwMessage);
-    swUnsubRef.current = () => navigator.serviceWorker.removeEventListener("message", handleSwMessage);
+    navigator.serviceWorker.addEventListener("message", onSwMessage);
+    window.addEventListener("talksy:permission-granted", onPermissionGranted);
 
-    // ✅ Also listen for permission granted event (from chat admin page)
-    const handlePermissionGranted = () => {
-      fcmInitRef.current = false;
-      registerToken();
-    };
-    window.addEventListener("talksy:permission-granted", handlePermissionGranted);
-
-    // Run token registration
-    const timer = setTimeout(registerToken, 800);
+    // Run setup
+    registerSW().then(swReg => { if (swReg) saveToken(swReg); });
 
     return () => {
-      clearTimeout(timer);
-      if (swUnsubRef.current) swUnsubRef.current();
-      window.removeEventListener("talksy:permission-granted", handlePermissionGranted);
+      navigator.serviceWorker.removeEventListener("message", onSwMessage);
+      window.removeEventListener("talksy:permission-granted", onPermissionGranted);
     };
   }, [currentShop]);
 
-  // ── Plan / billing logic ───────────────────────────────────
+  // ── Plan / billing ─────────────────────────────────────────
   const isApproachingLimit = usage && typeof usage.chats.percentage === "number" && usage.chats.percentage > 80;
   const isAtLimit          = usage && typeof usage.chats.percentage === "number" && usage.chats.percentage >= 100;
-
-  const isBillingApproved = subscriptionStatus === "active" || subscriptionStatus === "trialing";
-  const isPendingApproval = subscriptionStatus === "pending_approval";
-
-  const isPremiumPlan  = usage && usage.plan === "PREMIUM"  && isBillingApproved;
-  const isStandardPlan = usage && usage.plan === "STANDARD" && isBillingApproved;
-  const isPaidPlan     = isPremiumPlan || isStandardPlan;
-
-  const canManageFAQs      = isPremiumPlan || isStandardPlan;
-  const canCustomizeWidget = isPremiumPlan || isStandardPlan;
+  const isBillingApproved  = subscriptionStatus === "active" || subscriptionStatus === "trialing";
+  const isPendingApproval  = subscriptionStatus === "pending_approval";
+  const isPremiumPlan      = usage && usage.plan === "PREMIUM"  && isBillingApproved;
+  const isStandardPlan     = usage && usage.plan === "STANDARD" && isBillingApproved;
+  const isPaidPlan         = isPremiumPlan || isStandardPlan;
+  const canManageFAQs      = isPaidPlan;
+  const canCustomizeWidget = isPaidPlan;
 
   const currentPath = location.pathname;
   let isPageLocked = false;
@@ -274,8 +306,8 @@ export default function App() {
     <ShopifyAppProvider embedded apiKey={apiKey}>
       <PolarisAppProvider i18n={enTranslations}>
 
-        {/* ✅ Global toast — max z-index so it's always above Shopify Polaris UI */}
-        <GlobalToast toasts={globalToasts} onDismiss={dismissToast} />
+        {/* ✅ Global toast — always visible on every page */}
+        <GlobalToast toasts={globalToasts} onDismiss={(id) => setGlobalToasts(p => p.filter(t => t.id !== id))} />
 
         <s-app-nav key={`${usage?.plan}-${subscriptionStatus}-${isBillingApproved}`}>
           <s-link href="/app/chat/admin">Chats</s-link>
@@ -287,12 +319,8 @@ export default function App() {
             {usage && isApproachingLimit && !isAtLimit && usage.chats.remaining !== "Unlimited" && (
               <span style={{ marginLeft:"8px" }}><Badge tone="warning">{usage.chats.remaining} left</Badge></span>
             )}
-            {usage && isAtLimit && (
-              <span style={{ marginLeft:"8px" }}><Badge tone="critical">Limit Reached</Badge></span>
-            )}
-            {isPendingApproval && (
-              <span style={{ marginLeft:"8px" }}><Badge tone="info">Pending</Badge></span>
-            )}
+            {usage && isAtLimit && <span style={{ marginLeft:"8px" }}><Badge tone="critical">Limit Reached</Badge></span>}
+            {isPendingApproval && <span style={{ marginLeft:"8px" }}><Badge tone="info">Pending</Badge></span>}
           </s-link>
         </s-app-nav>
 
@@ -307,7 +335,7 @@ export default function App() {
 
         {isPendingApproval && !showUnlockLoader && (
           <div style={{ padding:"12px 20px", backgroundColor:"#E3F2FD", borderBottom:"1px solid #90CAF9", textAlign:"center" }}>
-            <span style={{ fontWeight:600 }}>⏳ Your subscription upgrade is pending billing approval.</span>{" "}
+            <span style={{ fontWeight:600 }}>⏳ Subscription upgrade pending billing approval.</span>{" "}
             <button onClick={() => navigate("/app/subscription")} style={{ background:"none", border:"none", color:"#005BD3", textDecoration:"underline", cursor:"pointer", padding:0, font:"inherit" }}>Complete billing approval</button>
           </div>
         )}

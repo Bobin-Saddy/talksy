@@ -1,7 +1,11 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: public/firebase-messaging-sw.js
-//  KEY FIX: On every push received, postMessage ALL open clients
-//  so the app page can show an in-app toast — even inside Shopify iframe
+//
+//  DEFINITIVE FIX:
+//  1. Raw "push" event fires for EVERY push — no matter what page is open
+//  2. ALWAYS show OS notification (works even when browser is minimized)
+//  3. ALSO postMessage open clients for in-app toast
+//  4. skipWaiting + clients.claim = SW activates immediately on first load
 // ═══════════════════════════════════════════════════════════
 
 importScripts("https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js");
@@ -18,97 +22,77 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// ── Raw push event ─────────────────────────────────────────
-// This fires for EVERY push — background AND foreground.
-// We use this to postMessage all open clients (iframes included).
+// ── SW lifecycle: activate immediately without page reload ─
+self.addEventListener("install",  () => self.skipWaiting());
+self.addEventListener("activate", (event) => event.waitUntil(clients.claim()));
+
+// ── Helpers ────────────────────────────────────────────────
+function showOsNotification(title, body, imageUrl, sessionId, shopUrl) {
+  return self.registration.showNotification(title, {
+    body,
+    icon            : "/icons/talksy-192.png",
+    badge           : "/icons/talksy-badge.png",
+    image           : imageUrl || undefined,
+    tag             : "talksy-" + (sessionId || Date.now()),
+    renotify        : true,
+    requireInteraction: true,
+    vibrate         : [200, 100, 200],
+    data            : { shopUrl, sessionId, imageUrl },
+    actions         : [
+      { action: "open",    title: "💬 Open Chat" },
+      { action: "dismiss", title: "Dismiss"      },
+    ],
+  });
+}
+
+function notifyClients(title, body, imageUrl, sessionId, shopUrl) {
+  return clients
+    .matchAll({ type: "window", includeUncontrolled: true })
+    .then((list) => {
+      list.forEach((client) =>
+        client.postMessage({ type: "TALKSY_PUSH", title, body, imageUrl, sessionId, shopUrl })
+      );
+    });
+}
+
+// ══════════════════════════════════════════════════════════
+//  RAW PUSH — most reliable, fires for every push
+//  Works even when admin has NO page open at all
+// ══════════════════════════════════════════════════════════
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data?.json() || {}; } catch (_) {}
 
-  const notification = data.notification || {};
-  const customData   = data.data         || {};
+  const n         = data.notification || {};
+  const d         = data.data         || {};
+  const title     = n.title  || "💬 New Message — Talksy";
+  const body      = n.body   || "A customer sent a message";
+  const imageUrl  = n.image  || d.imageUrl || d.fileUrl || null;
+  const sessionId = d.sessionId || null;
+  const shopUrl   = d.shopUrl   || "/";
 
-  const title    = notification.title || "💬 New Message";
-  const body     = notification.body  || "Customer sent a message";
-  const imageUrl = notification.image || customData.imageUrl || customData.fileUrl || null;
-  const sessionId = customData.sessionId || null;
-  const shopUrl   = customData.shopUrl   || "/";
-
-  // ✅ postMessage to ALL open windows/iframes so they can show in-app toast
-  // This works even inside Shopify embedded iframe
   event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      clientList.forEach((client) => {
-        client.postMessage({
-          type     : "TALKSY_PUSH",
-          title,
-          body,
-          imageUrl,
-          sessionId,
-          shopUrl,
-        });
-      });
-
-      // Also show OS notification (works when tab is hidden or browser minimized)
-      return self.registration.showNotification(title, {
-        body,
-        icon   : "/icons/talksy-192.png",
-        badge  : "/icons/talksy-badge.png",
-        image  : imageUrl || undefined,
-        tag    : "talksy-" + (sessionId || Date.now()),
-        data   : { shopUrl, sessionId, imageUrl },
-        actions: [
-          { action: "open",    title: "💬 Open Chat" },
-          { action: "dismiss", title: "Dismiss"      },
-        ],
-        requireInteraction: true,
-        vibrate           : [200, 100, 200],
-      });
-    })
+    Promise.all([
+      showOsNotification(title, body, imageUrl, sessionId, shopUrl),
+      notifyClients(title, body, imageUrl, sessionId, shopUrl),
+    ])
   );
 });
 
-// ── Background message handler (FCM specific) ──────────────
-// This fires when Firebase FCM delivers the message in the background.
-// We also postMessage here as a safety net.
+// ══════════════════════════════════════════════════════════
+//  FCM BACKGROUND MESSAGE — safety net for FCM delivery
+// ══════════════════════════════════════════════════════════
 messaging.onBackgroundMessage((payload) => {
-  console.log("[SW] onBackgroundMessage:", payload);
-
-  const title    = payload.notification?.title || "💬 New Message";
-  const body     = payload.notification?.body  || "Customer sent a message";
-  const imageUrl = payload.notification?.image || payload.data?.imageUrl || null;
+  const title     = payload.notification?.title || "💬 New Message — Talksy";
+  const body      = payload.notification?.body  || "A customer sent a message";
+  const imageUrl  = payload.notification?.image || payload.data?.imageUrl || null;
   const sessionId = payload.data?.sessionId || null;
   const shopUrl   = payload.data?.shopUrl   || "/";
 
-  // postMessage all clients
-  clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-    clientList.forEach((client) => {
-      client.postMessage({
-        type: "TALKSY_PUSH",
-        title,
-        body,
-        imageUrl,
-        sessionId,
-        shopUrl,
-      });
-    });
-  });
-
-  // Show OS notification
-  return self.registration.showNotification(title, {
-    body,
-    icon   : "/icons/talksy-192.png",
-    badge  : "/icons/talksy-badge.png",
-    image  : imageUrl || undefined,
-    tag    : "talksy-" + (sessionId || Date.now()),
-    data   : { shopUrl, sessionId, imageUrl },
-    actions: [
-      { action: "open",    title: "💬 Open Chat" },
-      { action: "dismiss", title: "Dismiss"      },
-    ],
-    requireInteraction: true,
-    vibrate           : [200, 100, 200],
-  });
+  return Promise.all([
+    showOsNotification(title, body, imageUrl, sessionId, shopUrl),
+    notifyClients(title, body, imageUrl, sessionId, shopUrl),
+  ]);
 });
 
 // ── Notification click ─────────────────────────────────────
@@ -119,13 +103,15 @@ self.addEventListener("notificationclick", (event) => {
   const shopUrl = event.notification.data?.shopUrl || "/";
 
   event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && "focus" in client) {
-          return client.focus();
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((list) => {
+        for (const client of list) {
+          if (client.url.includes(self.location.origin) && "focus" in client) {
+            return client.focus();
+          }
         }
-      }
-      if (clients.openWindow) return clients.openWindow(shopUrl);
-    })
+        if (clients.openWindow) return clients.openWindow(shopUrl);
+      })
   );
 });
