@@ -1,10 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.admin.register-fcm-token.jsx
-//  PATH: app/routes/app.admin.register-fcm-token.jsx
-//
-//  app.jsx (FcmRegistrar) → POST /app/admin/register-fcm-token → this file
-//  Saves admin FCM token with type="admin" to DB.
-//  This token is used by app.push.send.jsx to deliver push notifications.
+//  FIX: Removed "registeredAt" — field does not exist in FcmToken schema.
+//       Prisma uses "createdAt" (auto-managed). Passing registeredAt
+//       caused a PrismaClientValidationError → 500 → token never saved
+//       → "No admin FCM tokens found" on every push.
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -25,14 +24,7 @@ export const action = async ({ request }) => {
 
   try {
     const body = await request.json();
-    const { fcmToken, adminEmail, registeredAt } = body;
-
-    // ✅ FIX: Removed authenticate.admin() — this route is called from the
-    // browser (client-side fetch inside useFcmRegistrar hook) where Shopify
-    // session headers are NOT available. Authenticating here would cause a
-    // redirect loop. Instead we trust the shop value from the request body,
-    // which is safe because this endpoint only saves a push token (no
-    // sensitive data is read or returned).
+    const { fcmToken, adminEmail } = body;
     const shop = body.shop;
 
     if (!shop || !fcmToken) {
@@ -42,7 +34,6 @@ export const action = async ({ request }) => {
       );
     }
 
-    // Basic shop format validation — must end with .myshopify.com
     if (!shop.endsWith(".myshopify.com")) {
       return json(
         { success: false, error: "Invalid shop domain" },
@@ -50,25 +41,24 @@ export const action = async ({ request }) => {
       );
     }
 
-    // Upsert FCM token with type="admin"
-    // Update if token already exists, create if not
+    // ✅ FIX: No "registeredAt" — not in schema.
+    // Prisma handles "createdAt" and "updatedAt" automatically.
     await prisma.fcmToken.upsert({
       where : { token: fcmToken },
       update: {
         shop,
-        email       : adminEmail  || null,
-        updatedAt   : new Date(),
+        email    : adminEmail || null,
+        updatedAt: new Date(),
       },
       create: {
         shop,
-        token       : fcmToken,
-        type        : "admin",
-        email       : adminEmail  || null,
-        registeredAt: registeredAt ? new Date(registeredAt) : new Date(),
+        token: fcmToken,
+        type : "admin",
+        email: adminEmail || null,
       },
     });
 
-    console.log(`✅ Admin FCM token saved — shop: ${shop}: ...${fcmToken.slice(-8)}`);
+    console.log(`✅ Admin FCM token saved — shop: ${shop}, token: ...${fcmToken.slice(-8)}`);
     return json({ success: true }, { headers: corsHeaders });
 
   } catch (error) {
