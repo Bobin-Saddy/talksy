@@ -127,7 +127,7 @@ export const action = async ({ request }) => {
         fileUrl.startsWith("https://") &&
         (
           /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(fileUrl) ||
-          fileUrl.includes("/app/chat/image/")  // ← our upload route
+          fileUrl.includes("/app/chat/image/$id/")  // ← our upload route
         )
       );
       const isDataImage = !!(fileUrl && fileUrl.startsWith("data:image"));
