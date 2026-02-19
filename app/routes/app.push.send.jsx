@@ -54,7 +54,8 @@ export const action = async ({ request }) => {
   }
 
   try {
-    const { shop, title, body, url } = await request.json();
+    // ✅ Accept imageUrl and fileUrl so image messages show image in notification
+    const { shop, title, body, url, imageUrl, fileUrl, sessionId } = await request.json();
 
     if (!shop || !title) {
       return json(
@@ -96,6 +97,19 @@ export const action = async ({ request }) => {
 
     console.log(`📤 Sending push to ${adminTokens.length} admin token(s) — ${shop}`);
 
+    // ✅ Resolve the image URL — prefer explicit imageUrl, fall back to fileUrl if it's an image
+    const resolvedImageUrl =
+      imageUrl ||
+      (fileUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl) ? fileUrl : null) ||
+      (fileUrl && fileUrl.startsWith("data:image") ? fileUrl : null) ||
+      null;
+
+    // ✅ If this is an image message, update the body text
+    const isImageMessage = !!(resolvedImageUrl);
+    const notifBody = isImageMessage && (!body || body === "")
+      ? "📷 Customer sent an image"
+      : (body || "");
+
     let sent   = 0;
     let failed = 0;
     const expiredTokenIds = [];
@@ -104,14 +118,24 @@ export const action = async ({ request }) => {
       try {
         await messaging.send({
           token,
-          notification: { title, body },
+
+          // ✅ Top-level notification — used by Android & some browsers
+          notification: {
+            title,
+            body : notifBody,
+            // ✅ image field — shows large image in Android / Chrome notifications
+            ...(resolvedImageUrl ? { imageUrl: resolvedImageUrl } : {}),
+          },
+
           webpush: {
             headers: { Urgency: "high" },
             notification: {
               title,
-              body,
-              icon              : "/favicon.ico",
-              badge             : "/favicon.ico",
+              body  : notifBody,
+              icon  : "/icons/talksy-192.png",
+              badge : "/icons/talksy-badge.png",
+              // ✅ image — shows large preview image inside the web push notification
+              ...(resolvedImageUrl ? { image: resolvedImageUrl } : {}),
               tag               : `talksy-${shop}`,
               requireInteraction: true,
               actions: [
@@ -120,14 +144,30 @@ export const action = async ({ request }) => {
               ],
             },
             fcmOptions: {
-              link: url || `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`,
+              link: url ||
+                `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`,
             },
           },
+
           android: {
             priority    : "high",
-            notification: { sound: "default" },
+            notification: {
+              sound      : "default",
+              // ✅ Android large image
+              ...(resolvedImageUrl ? { imageUrl: resolvedImageUrl } : {}),
+            },
+          },
+
+          // ✅ Custom data fields — read by the service worker & foreground handler
+          data: {
+            shopUrl   : url || `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`,
+            imageUrl  : resolvedImageUrl || "",
+            fileUrl   : fileUrl         || "",
+            sessionId : sessionId       || "",
+            shop,
           },
         });
+
         sent++;
         console.log(`✅ Push sent → ...${token.slice(-8)}`);
       } catch (err) {
