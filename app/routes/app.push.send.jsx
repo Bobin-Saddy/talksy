@@ -1,12 +1,10 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.push.send.jsx
-//
 //  FIXES:
-//  1. Removed \n from body — invalid FCM payload character
-//  2. data: URLs rejected as image — only HTTPS URLs allowed by FCM
-//  3. Icon = Talksy app icon from Shopify CDN
-//  4. "Powered by Talksy" moved to title instead of body
-//  5. Per-session debounce to prevent rapid-fire conflicts
+//  1. Image messages → show Talksy icon as notification image
+//     (data: URLs are rejected by FCM, so we use a placeholder)
+//  2. Title = just sender + "Talksy" — no Railway URL anywhere
+//  3. Body stays clean — no \n characters
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -40,15 +38,14 @@ function getMessaging() {
   }
 }
 
-// ✅ Talksy app icon — shown in every notification
+// ✅ Talksy app icon — used as notification icon + image placeholder
 const TALKSY_ICON = "https://cdn.shopify.com/app-store/listing_images/177dd497355fe743fa747f74896d9015/icon/CJmW96zmq5IDEAE=.png";
 
-// ✅ Only allow HTTPS image URLs — FCM rejects data: URLs and http:
-function isValidHttpsImageUrl(url) {
+// Only HTTPS URLs are valid for FCM image field
+function isValidHttpsUrl(url) {
   if (!url) return false;
-  if (url.startsWith("data:")) return false;  // data URLs not supported by FCM
-  if (!url.startsWith("https://")) return false;
-  return /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(url) || url.includes("cdn") || url.includes("storage");
+  if (url.startsWith("data:")) return false;
+  return url.startsWith("https://");
 }
 
 // ── Per-session debounce ───────────────────────────────────
@@ -66,18 +63,27 @@ function debounceNotification(key, payload, sendFn) {
 
 // ── Core send ─────────────────────────────────────────────
 async function sendPushToTokens(messaging, tokens, adminTokens, payload) {
-  const { shop, title, notifBody, imageUrl, sessionId, shopUrl, notifTag, fileUrl } = payload;
+  const { shop, title, notifBody, imageUrl, fileUrl, sessionId, shopUrl, notifTag } = payload;
 
-  // ✅ Only use image if it's a valid HTTPS URL — skip data: URLs entirely
-  const validImage = isValidHttpsImageUrl(imageUrl) ? imageUrl : null;
+  // ✅ Resolve what image to show in notification:
+  // - If fileUrl/imageUrl is valid HTTPS → use it (rare, only if stored on CDN)
+  // - If message is an image but stored as data: URL → use Talksy icon as visual placeholder
+  // - Otherwise no image
+  const isImageMessage = notifBody.includes("📷");
+  const validHttpsImage = isValidHttpsUrl(imageUrl) ? imageUrl
+    : isValidHttpsUrl(fileUrl) ? fileUrl
+    : null;
 
-  // Build base message — no \n, no data: URLs
+  // For image messages with no valid HTTPS image, use the Talksy icon as the notification image
+  // so the notification still looks rich and visual
+  const notifImage = validHttpsImage || (isImageMessage ? TALKSY_ICON : null);
+
   const message = {
     tokens,
 
     notification: {
       title,
-      body : notifBody,
+      body: notifBody,
     },
 
     webpush: {
@@ -85,13 +91,13 @@ async function sendPushToTokens(messaging, tokens, adminTokens, payload) {
       notification: {
         title,
         body              : notifBody,
-        icon              : TALKSY_ICON,   // ✅ Talksy app icon
+        icon              : TALKSY_ICON,
         badge             : TALKSY_ICON,
         tag               : notifTag,
         renotify          : true,
         requireInteraction: true,
-        // ✅ Only attach image if HTTPS URL — omit entirely for data: URLs
-        ...(validImage ? { image: validImage } : {}),
+        // ✅ Show image in notification — Talksy icon for image messages
+        ...(notifImage ? { image: notifImage } : {}),
         actions: [
           { action: "open",    title: "Open Chat" },
           { action: "dismiss", title: "Dismiss"   },
@@ -103,29 +109,27 @@ async function sendPushToTokens(messaging, tokens, adminTokens, payload) {
     android: {
       priority    : "high",
       notification: {
-        sound       : "default",
-        tag         : notifTag,
-        icon        : "notification_icon",
-        color       : "#6366f1",
-        // ✅ Only HTTPS image for Android too
-        ...(validImage ? { imageUrl: validImage } : {}),
+        sound: "default",
+        tag  : notifTag,
+        color: "#6366f1",
+        ...(notifImage ? { imageUrl: notifImage } : {}),
       },
     },
 
-    // ✅ data fields — all must be strings, no null values
+    // All data values must be strings — no nulls
     data: {
-      shopUrl  : shopUrl        || "",
-      imageUrl : validImage     || "",
-      fileUrl  : fileUrl        || "",
-      sessionId: sessionId      || "",
-      shop     : shop           || "",
-      tag      : notifTag       || "",
+      shopUrl  : shopUrl   || "",
+      imageUrl : imageUrl  || "",
+      fileUrl  : fileUrl   || "",
+      sessionId: sessionId || "",
+      shop     : shop      || "",
+      tag      : notifTag  || "",
     },
   };
 
   const batchResponse = await messaging.sendEachForMulticast(message);
 
-  // Clean up expired tokens
+  // Remove expired/invalid tokens
   const expiredIds = [];
   batchResponse.responses.forEach((resp, idx) => {
     if (!resp.success) {
@@ -135,9 +139,7 @@ async function sendPushToTokens(messaging, tokens, adminTokens, payload) {
         "messaging/invalid-registration-token",
         "messaging/registration-token-not-registered",
         "messaging/invalid-argument",
-      ].includes(code)) {
-        expiredIds.push(adminTokens[idx].id);
-      }
+      ].includes(code)) expiredIds.push(adminTokens[idx].id);
     }
   });
 
@@ -182,19 +184,20 @@ export const action = async ({ request }) => {
       return json({ success: true, sent: 0 }, { headers: corsHeaders });
     }
 
-    // Resolve image — only HTTPS URLs pass through
-    const resolvedImage =
-      (imageUrl && isValidHttpsImageUrl(imageUrl)) ? imageUrl :
-      (fileUrl  && isValidHttpsImageUrl(fileUrl))  ? fileUrl  :
-      null;
+    // ✅ Title: "💬 Sender — Talksy" — no Railway URL, no domain names
+    // Strip any URL-like content from title that might have leaked in
+    const cleanTitle = (title || "New Message")
+      .replace(/https?:\/\/[^\s]*/g, "")  // remove any URLs
+      .replace(/\.myshopify\.com/g, "")   // remove shop domain
+      .replace(/railway\.app/g, "")       // remove Railway domain
+      .trim();
 
-    const isImageMsg = !!(resolvedImage);
+    const notifTitle = `${cleanTitle} — Talksy`;
 
-    // ✅ "Powered by Talksy" in title, clean body (no \n)
-    const notifTitle = `${title} — Talksy`;
-    const notifBody  = isImageMsg && (!body || body === "")
-      ? "📷 Customer sent an image"
-      : (body || "New message");
+    // ✅ Clean body — no \n (FCM rejects it)
+    const notifBody = (body || "New message")
+      .replace(/\n/g, " ")
+      .trim();
 
     const shopUrl  = url || `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`;
     const notifTag = `talksy-${sessionId || shop}-${Date.now()}`;
@@ -204,14 +207,13 @@ export const action = async ({ request }) => {
       shop,
       title    : notifTitle,
       notifBody,
-      imageUrl : resolvedImage,
-      fileUrl  : fileUrl || "",
+      imageUrl : imageUrl || "",
+      fileUrl  : fileUrl  || "",
       sessionId,
       shopUrl,
       notifTag,
     };
 
-    // Debounce per session to prevent conflict on rapid messages
     const debounceKey = `${shop}:${sessionId || "global"}`;
     debounceNotification(debounceKey, payload, async (p) => {
       try {
