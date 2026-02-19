@@ -1,10 +1,12 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.push.send.jsx
-//  PATH: app/routes/app.push.send.jsx
-//  FIX:  require() → createRequire (Remix ESM compatible)
 //
-//  app.chat.message.jsx → POST /app/push/send → this file
-//  Fetches admin FCM tokens from DB → sends push via Firebase
+//  FIXES:
+//  1. tag now includes sessionId + timestamp → each message shows
+//     as separate notification (not replacing previous one)
+//  2. Use sendEachForMulticast() to send to all tokens in ONE
+//     Firebase call instead of a loop — faster + atomic
+//  3. favicon.ico instead of missing icon files
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -19,7 +21,6 @@ const corsHeaders = {
 
 export const loader = () => json({}, { headers: corsHeaders });
 
-// ── createRequire: correct way to load CJS packages in Remix ESM ──
 const require = createRequire(import.meta.url);
 
 let _messaging = null;
@@ -34,12 +35,12 @@ function getMessaging() {
     }
     const svcJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     if (!svcJson) {
-      console.error("❌ FIREBASE_SERVICE_ACCOUNT_JSON is not set in Railway");
+      console.error("❌ FIREBASE_SERVICE_ACCOUNT_JSON not set");
       return null;
     }
     admin.initializeApp({ credential: admin.credential.cert(JSON.parse(svcJson)) });
     _messaging = admin.messaging();
-    console.log("✅ Firebase Admin initialized — project: shopify-talksy");
+    console.log("✅ Firebase Admin initialized");
     return _messaging;
   } catch (err) {
     console.error("❌ Firebase init error:", err.message);
@@ -47,14 +48,12 @@ function getMessaging() {
   }
 }
 
-// ── MAIN ACTION ────────────────────────────────────────────
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
-    // ✅ Accept imageUrl and fileUrl so image messages show image in notification
     const { shop, title, body, url, imageUrl, fileUrl, sessionId } = await request.json();
 
     if (!shop || !title) {
@@ -67,12 +66,12 @@ export const action = async ({ request }) => {
     const messaging = getMessaging();
     if (!messaging) {
       return json(
-        { success: false, error: "Firebase not initialized — check FIREBASE_SERVICE_ACCOUNT_JSON" },
+        { success: false, error: "Firebase not initialized" },
         { status: 500, headers: corsHeaders }
       );
     }
 
-    // Fetch all admin FCM tokens for this shop from DB
+    // Fetch all admin FCM tokens for this shop
     let adminTokens = [];
     try {
       adminTokens = await prisma.fcmToken.findMany({
@@ -80,7 +79,6 @@ export const action = async ({ request }) => {
         select: { id: true, token: true },
       });
     } catch (dbErr) {
-      console.error("❌ Failed to fetch tokens from DB:", dbErr.message);
       return json(
         { success: false, error: "DB query failed: " + dbErr.message },
         { status: 500, headers: corsHeaders }
@@ -88,110 +86,109 @@ export const action = async ({ request }) => {
     }
 
     if (adminTokens.length === 0) {
-      console.log(`ℹ️ No admin FCM tokens found for ${shop} — admin has not opened the panel`);
+      console.log(`ℹ️ No admin FCM tokens found for ${shop}`);
       return json(
         { success: true, sent: 0, message: "No admin tokens registered" },
         { headers: corsHeaders }
       );
     }
 
-    console.log(`📤 Sending push to ${adminTokens.length} admin token(s) — ${shop}`);
-
-    // ✅ Resolve the image URL — prefer explicit imageUrl, fall back to fileUrl if it's an image
+    // Resolve image URL
     const resolvedImageUrl =
       imageUrl ||
       (fileUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl) ? fileUrl : null) ||
       (fileUrl && fileUrl.startsWith("data:image") ? fileUrl : null) ||
       null;
 
-    // ✅ If this is an image message, update the body text
-    const isImageMessage = !!(resolvedImageUrl);
-    const notifBody = isImageMessage && (!body || body === "")
+    const notifBody = resolvedImageUrl && (!body || body === "")
       ? "📷 Customer sent an image"
       : (body || "");
 
-    let sent   = 0;
-    let failed = 0;
+    // ✅ FIX: Unique tag per message so multiple messages each show
+    // as separate notifications instead of replacing each other.
+    // Format: talksy-{sessionId}-{timestamp}
+    const notifTag = `talksy-${sessionId || shop}-${Date.now()}`;
+
+    const shopUrl = url ||
+      `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`;
+
+    const tokens = adminTokens.map(t => t.token);
+
+    // ✅ FIX: sendEachForMulticast sends to ALL tokens in one Firebase call
+    // Previously the loop sent one-by-one which was slower and harder to handle errors
+    const multicastMessage = {
+      tokens, // ← all tokens at once (max 500 per Firebase limits)
+
+      notification: {
+        title,
+        body: notifBody,
+        ...(resolvedImageUrl ? { imageUrl: resolvedImageUrl } : {}),
+      },
+
+      webpush: {
+        headers: { Urgency: "high" },
+        notification: {
+          title,
+          body              : notifBody,
+          icon              : "/favicon.ico",  // ✅ exists — no more 404
+          tag               : notifTag,        // ✅ unique per message
+          renotify          : true,            // ✅ always show even same tag
+          requireInteraction: true,
+          ...(resolvedImageUrl ? { image: resolvedImageUrl } : {}),
+          actions: [
+            { action: "open",    title: "💬 Open Chat" },
+            { action: "dismiss", title: "Dismiss"      },
+          ],
+        },
+        fcmOptions: { link: shopUrl },
+      },
+
+      android: {
+        priority    : "high",
+        notification: {
+          sound: "default",
+          tag  : notifTag,  // ✅ unique per message on Android too
+          ...(resolvedImageUrl ? { imageUrl: resolvedImageUrl } : {}),
+        },
+      },
+
+      data: {
+        shopUrl,
+        imageUrl : resolvedImageUrl || "",
+        fileUrl  : fileUrl          || "",
+        sessionId: sessionId        || "",
+        shop,
+        tag      : notifTag,
+      },
+    };
+
+    const batchResponse = await messaging.sendEachForMulticast(multicastMessage);
+
+    let sent   = batchResponse.successCount;
+    let failed = batchResponse.failureCount;
+
+    // Clean up expired/invalid tokens
     const expiredTokenIds = [];
-
-    for (const { id: tokenId, token } of adminTokens) {
-      try {
-        await messaging.send({
-          token,
-
-          // ✅ Top-level notification — used by Android & some browsers
-          notification: {
-            title,
-            body : notifBody,
-            // ✅ image field — shows large image in Android / Chrome notifications
-            ...(resolvedImageUrl ? { imageUrl: resolvedImageUrl } : {}),
-          },
-
-          webpush: {
-            headers: { Urgency: "high" },
-            notification: {
-              title,
-              body  : notifBody,
-              icon  : "/icons/talksy-192.png",
-              badge : "/icons/talksy-badge.png",
-              // ✅ image — shows large preview image inside the web push notification
-              ...(resolvedImageUrl ? { image: resolvedImageUrl } : {}),
-              tag               : `talksy-${shop}`,
-              requireInteraction: true,
-              actions: [
-                { action: "open",    title: "💬 Open Chat" },
-                { action: "dismiss", title: "Dismiss"      },
-              ],
-            },
-            fcmOptions: {
-              link: url ||
-                `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`,
-            },
-          },
-
-          android: {
-            priority    : "high",
-            notification: {
-              sound      : "default",
-              // ✅ Android large image
-              ...(resolvedImageUrl ? { imageUrl: resolvedImageUrl } : {}),
-            },
-          },
-
-          // ✅ Custom data fields — read by the service worker & foreground handler
-          data: {
-            shopUrl   : url || `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`,
-            imageUrl  : resolvedImageUrl || "",
-            fileUrl   : fileUrl         || "",
-            sessionId : sessionId       || "",
-            shop,
-          },
-        });
-
-        sent++;
-        console.log(`✅ Push sent → ...${token.slice(-8)}`);
-      } catch (err) {
-        failed++;
-        console.error(`❌ Push failed → ...${token.slice(-8)}:`, err.code);
+    batchResponse.responses.forEach((resp, idx) => {
+      if (!resp.success) {
+        const code = resp.error?.code || "";
+        console.error(`❌ Push failed → ...${tokens[idx].slice(-8)}: ${code}`);
         if ([
           "messaging/invalid-registration-token",
           "messaging/registration-token-not-registered",
           "messaging/invalid-argument",
-        ].includes(err.code)) {
-          expiredTokenIds.push({ tokenId, token });
+        ].includes(code)) {
+          expiredTokenIds.push(adminTokens[idx].id);
         }
       }
+    });
+
+    if (expiredTokenIds.length > 0) {
+      await prisma.fcmToken.deleteMany({ where: { id: { in: expiredTokenIds } } });
+      console.log(`🗑️ Removed ${expiredTokenIds.length} expired token(s)`);
     }
 
-    // Remove expired tokens from DB
-    for (const { tokenId, token } of expiredTokenIds) {
-      try {
-        await prisma.fcmToken.delete({ where: { id: tokenId } });
-        console.log(`🗑️ Expired token removed: ...${token.slice(-8)}`);
-      } catch (_) {}
-    }
-
-    console.log(`📊 Result — ${shop}: ${sent} sent, ${failed} failed`);
+    console.log(`📊 Push result — ${shop}: ${sent} sent, ${failed} failed`);
     return json({ success: true, sent, failed }, { headers: corsHeaders });
 
   } catch (error) {
