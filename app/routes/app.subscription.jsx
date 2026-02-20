@@ -20,7 +20,7 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
 // ✅ TEST MODE TOGGLE - Set to true for testing, false for production
-const TEST_MODE = false; // ⚠️ CHANGE TO false FOR PRODUCTION
+const TEST_MODE = true; // ⚠️ CHANGE TO false FOR PRODUCTION
 
 // Plan definitions
 const PLANS = {
