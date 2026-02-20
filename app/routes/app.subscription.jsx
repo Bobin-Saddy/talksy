@@ -32,7 +32,7 @@ const PLANS = {
       { text: "30-day chat history",                 included: true  },
       { text: "Email alerts (30 min delay)",         included: true  },
       { text: "Image & file sharing in chat",        included: true  },
-      { text: "Product & order search in widget",    included: true  },
+      { text: "Product & order search in widget",    included: false  },
       { text: "Push notifications",                  included: false },
       { text: "FAQ management",                      included: false },
       { text: "Widget customization",                included: false },

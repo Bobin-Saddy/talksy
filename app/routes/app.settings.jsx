@@ -80,7 +80,11 @@ export default function UltimateSettings() {
   const actionData = useActionData();
   const submit     = useSubmit();
   const navigation = useNavigation();
-
+  
+const DEFAULTS = {
+  // ... existing defaults
+  showPoweredBy: "true", // FormData hamesha string bhejta hai, isliye string rakhein
+};
   const [form, setForm]         = useState(settings);
   const [activeTab, setTab]     = useState("style");
   const [toast, setToast]       = useState(false);
@@ -160,6 +164,20 @@ export default function UltimateSettings() {
                   </label>
                 </div>
               </Card>
+              <Card title="Settings">
+  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+    <input 
+      type="checkbox" 
+      id="showPoweredBy"
+      checked={form.showPoweredBy === "true" || form.showPoweredBy === true} 
+      onChange={e => set("showPoweredBy", e.target.checked ? "true" : "false")}
+      style={{ width: "18px", height: "18px", cursor: "pointer" }}
+    />
+    <label htmlFor="showPoweredBy" style={{ fontSize: "14px", fontWeight: "600", cursor: "pointer" }}>
+      Show "Powered by Talksy" branding
+    </label>
+  </div>
+</Card>
 
               <Card title="Header Gradient">
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:"14px" }}>

@@ -455,6 +455,15 @@ const FIREBASE_VAPID_KEY = "BByGfcXLNVQBVZdVUvPgsdK3lP6Avvw6FD_OcTauED_QyCUfqjyq
       const s = await (await fetch(`${BASE_URL}/api/chat-settings?shop=${shop}`)).json();
       currentConfig = s;
       const hdr = document.getElementById("chat-header");
+      const poweredByEl = document.querySelector(".powered-by-talksy");
+    if (poweredByEl) {
+      // Agar setting false hai (ya string "false" hai), toh hide kar do
+      if (s.showPoweredBy === false || s.showPoweredBy === "false") {
+        poweredByEl.style.display = "none";
+      } else {
+        poweredByEl.style.display = "block";
+      }
+    }
       hdr.style.background = (s.headerGradientStart && s.headerGradientEnd)
         ? `linear-gradient(135deg, ${s.headerGradientStart}, ${s.headerGradientEnd})`
         : "linear-gradient(135deg, #F39C12, #E67E22)";
@@ -470,10 +479,12 @@ const FIREBASE_VAPID_KEY = "BByGfcXLNVQBVZdVUvPgsdK3lP6Avvw6FD_OcTauED_QyCUfqjyq
       document.getElementById("onboarding-form-title").innerText    = s.onboardingTitle    || "Identify Yourself";
       document.getElementById("onboarding-form-subtitle").innerText = s.onboardingSubtitle || "How should we address you?";
       document.documentElement.style.setProperty('--tw-primary', s.primaryColor || '#F39C12');
+      
       if (s.launcherIcon === 'custom' && s.customLauncherImg)
         document.getElementById("launcher-icon").innerHTML = `<img src="${s.customLauncherImg}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"/>`;
       else
         document.getElementById("launcher-icon").innerHTML = ICON_SVGS[s.launcherIcon] || ICON_SVGS.bubble;
+      
     } catch (e) {
       document.documentElement.style.setProperty('--tw-primary', '#F39C12');
     }
