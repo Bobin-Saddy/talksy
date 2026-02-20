@@ -147,7 +147,7 @@
       <div class="search-container-new">
         <div id="previous-search-wrapper" style="display:none;">
           <div class="previous-search-header">
-            <h3>🕐 Previous Search</h3>
+            {% comment %} <h3>🕐 Previous Search</h3> {% endcomment %}
             <span class="previous-query-text" id="previous-query-text"></span>
           </div>
           <div id="prev-products-results-section" class="results-section" style="display:none;">
@@ -185,7 +185,7 @@
         </div>
 
         <div id="search-results-wrapper" style="display:none;">
-          <div class="results-header"><h3>✨ Latest Search Results</h3></div>
+          {% comment %} <div class="results-header"><h3>✨ Latest Search Results</h3></div> {% endcomment %}
           <div id="products-results-section" class="results-section" style="display:none;">
             <div class="section-header"><span class="section-icon">🛍️</span><span class="section-title">Products</span><span class="section-count" id="products-count">0</span></div>
             <div class="scroll-wrapper">
@@ -605,63 +605,202 @@ const FIREBASE_VAPID_KEY = "BByGfcXLNVQBVZdVUvPgsdK3lP6Avvw6FD_OcTauED_QyCUfqjyq
     [200, 500, 1000].forEach(t => setTimeout(() => c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' }), t));
   }
 
-  async function performSearchNew(query) {
-    if (!query || query.length < 2) {
-      clearSearchResults(); clearPreviousSearchResults(); clearSavedSearch();
-      document.getElementById("search-results-wrapper").style.display   = "none";
-      document.getElementById("previous-search-wrapper").style.display  = "none";
-      document.getElementById("search-empty-state").style.display       = "flex";
-      document.getElementById("no-results-state").style.display         = "none";
+
+
+ async function performSearchNew(query) {
+  if (!query || query.length < 2) {
+    clearSearchResults(); clearPreviousSearchResults(); clearSavedSearch();
+    document.getElementById("search-results-wrapper").style.display   = "none";
+    document.getElementById("previous-search-wrapper").style.display  = "none";
+    document.getElementById("search-empty-state").style.display       = "flex";
+    document.getElementById("no-results-state").style.display         = "none";
+    return;
+  }
+
+  // ✅ Save previous search BEFORE clearing current
+  if (lastSearchQuery && lastSearchResults && lastSearchQuery !== query) {
+    previousSearchQuery   = lastSearchQuery;
+    previousSearchResults = lastSearchResults;
+    // Show previous search results immediately while new search loads
+    renderPreviousSearchResults(previousSearchResults, previousSearchQuery);
+  }
+
+  clearSearchResults();
+  document.getElementById("search-loading-indicator").style.display = "flex";
+  document.getElementById("search-empty-state").style.display       = "none";
+  document.getElementById("no-results-state").style.display         = "none";
+
+  try {
+    await fetch(`${BASE_URL}/app/chat/search-log`, {
+      method : "POST",
+      headers: { "Content-Type": "application/json" },
+      body   : JSON.stringify({
+        shop, query, searchType: "frontend",
+        userEmail : localStorage.getItem(SK.EMAIL)  || "anonymous",
+        sessionId : localStorage.getItem(SK.SID)    || "no-session",
+        firstName : localStorage.getItem(SK.FNAME)  || "",
+        lastName  : localStorage.getItem(SK.LNAME)  || "",
+        createdAt : new Date(),
+      }),
+    });
+  } catch (_) {}
+
+  try {
+    const res  = await fetch(`${BASE_URL}/app/chat/search?shop=${encodeURIComponent(shop)}&query=${encodeURIComponent(query)}&type=all`);
+    const data = await res.json();
+
+    document.getElementById("search-loading-indicator").style.display = "none";
+
+    if (!data.success) {
+      document.getElementById("no-results-state").style.display     = "flex";
+      document.getElementById("search-results-wrapper").style.display = "none";
       return;
     }
-    if (lastSearchQuery && lastSearchResults && lastSearchQuery !== query) {
-      previousSearchQuery = lastSearchQuery; previousSearchResults = lastSearchResults;
-      renderPreviousSearchResults(previousSearchResults, previousSearchQuery);
+
+    document.getElementById("no-results-state").style.display = "none";
+    saveSearch(query, data.results);
+
+    // Render new results in the main section
+    renderSearchResultsNew(data.results);
+    scrollToSearchResults();
+
+  } catch (_) {
+    document.getElementById("search-loading-indicator").style.display = "none";
+    document.getElementById("no-results-state").style.display         = "flex";
+  }
+}
+
+// ── Build a single result card HTML ───────────────────────
+function buildResultCard(type, item, pc) {
+  if (type === "product") {
+    return `<div class="result-card" onclick="window.open('${item.url}','_blank')">
+      ${item.image ? `<img src="${item.image}" class="result-card-image" alt="${item.title}"/>` : '<div class="result-card-image"></div>'}
+      <div class="result-card-content">
+        <div class="result-card-title">${item.title}</div>
+        <div class="result-card-price" style="color:${pc}">${item.currency} ${parseFloat(item.price).toFixed(2)}</div>
+      </div>
+    </div>`;
+  }
+  if (type === "collection") {
+    return `<div class="result-card" onclick="window.open('${item.url}','_blank')">
+      ${item.image ? `<img src="${item.image}" class="result-card-image" alt="${item.title}"/>` : '<div class="result-card-image"></div>'}
+      <div class="result-card-content">
+        <div class="result-card-title">${item.title}</div>
+        <div class="result-card-meta">${item.productCount || 0} products</div>
+      </div>
+    </div>`;
+  }
+  if (type === "page") {
+    return `<div class="result-card" onclick="window.open('${item.url}','_blank')">
+      <div class="result-card-image"></div>
+      <div class="result-card-content">
+        <div class="result-card-type" style="background:${pc}">Page</div>
+        <div class="result-card-title">${item.title}</div>
+        ${item.description ? `<div class="result-card-meta">${item.description.substring(0, 55)}…</div>` : ""}
+      </div>
+    </div>`;
+  }
+  if (type === "order") {
+    return `<div class="result-card">
+      <div class="result-card-image"></div>
+      <div class="result-card-content">
+        <div class="result-card-type" style="background:${pc}">Order</div>
+        <div class="result-card-title">${item.orderNumber}</div>
+        <div class="result-card-price" style="color:${pc}">${item.currency} ${parseFloat(item.total).toFixed(2)}</div>
+        <div class="result-card-meta">${item.email}</div>
+      </div>
+    </div>`;
+  }
+  return "";
+}
+
+// ── Fill one section with result cards ────────────────────
+function fillSection(prefix, items, type, pc) {
+  const wrapper = document.getElementById(`${prefix}-results-section`);
+  const count   = document.getElementById(`${prefix}-count`);
+  const scroll  = document.getElementById(`${prefix}-scroll`);
+  if (!wrapper) return;
+  if (items && items.length) {
+    wrapper.style.display = "block";
+    if (count)  count.textContent = items.length;
+    if (scroll) scroll.innerHTML  = items.map(i => buildResultCard(type, i, pc)).join("");
+  } else {
+    wrapper.style.display = "none";
+  }
+}
+
+// ── Render current search results ─────────────────────────
+function renderSearchResultsNew(results) {
+  const has = (results.products    && results.products.length)    ||
+              (results.collections && results.collections.length) ||
+              (results.pages       && results.pages.length)       ||
+              (results.orders      && results.orders.length);
+
+  if (!has) {
+    document.getElementById("search-results-wrapper").style.display = "none";
+    document.getElementById("no-results-state").style.display       = "block";
+    return;
+  }
+
+  document.getElementById("search-results-wrapper").style.display = "block";
+  document.getElementById("search-empty-state").style.display     = "none";
+  document.getElementById("no-results-state").style.display       = "none";
+
+  const pc = currentConfig.primaryColor || "#F39C12";
+  fillSection("products",    results.products,    "product",    pc);
+  fillSection("collections", results.collections, "collection", pc);
+  fillSection("pages",       results.pages,       "page",       pc);
+  fillSection("orders",      results.orders,      "order",      pc);
+}
+
+// ── Render PREVIOUS search results with actual cards ──────
+function renderPreviousSearchResults(results, query) {
+  if (!results || !query) { clearPreviousSearchResults(); return; }
+
+  const has = (results.products    && results.products.length)    ||
+              (results.collections && results.collections.length) ||
+              (results.pages       && results.pages.length)       ||
+              (results.orders      && results.orders.length);
+
+  if (!has) { clearPreviousSearchResults(); return; }
+
+  // Show previous search wrapper
+  document.getElementById("previous-search-wrapper").style.display = "block";
+
+  // ✅ Show the previous query label
+  const queryEl = document.getElementById("previous-query-text");
+  if (queryEl) queryEl.textContent = `"${query}"`;
+
+  const pc = currentConfig.primaryColor || "#F39C12";
+
+  // ✅ Fill previous search result cards using prev- prefixed section IDs
+  // Your HTML needs: prev-products-results-section, prev-products-scroll, etc.
+  // If your HTML uses the same IDs for prev sections, use the mapping below:
+  const fill = (prefix, items, type) => {
+    const wrapper = document.getElementById(`prev-${prefix}-results-section`);
+    const count   = document.getElementById(`prev-${prefix}-count`);
+    const scroll  = document.getElementById(`prev-${prefix}-scroll`);
+    if (!wrapper) return;
+    if (items && items.length) {
+      wrapper.style.display = "block";
+      if (count)  count.textContent = items.length;
+      if (scroll) scroll.innerHTML  = items.map(i => buildResultCard(type, i, pc)).join("");
+    } else {
+      wrapper.style.display = "none";
     }
-    clearSearchResults();
-    document.getElementById("search-loading-indicator").style.display = "flex";
-    document.getElementById("search-empty-state").style.display       = "none";
-    document.getElementById("no-results-state").style.display         = "none";
-    try {
-      await fetch(`${BASE_URL}/app/chat/search-log`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ shop, query, searchType:"frontend", userEmail: localStorage.getItem(SK.EMAIL)||'anonymous', sessionId: localStorage.getItem(SK.SID)||'no-session', firstName: localStorage.getItem(SK.FNAME)||'', lastName: localStorage.getItem(SK.LNAME)||'', createdAt: new Date() }) });
-    } catch (_) {}
-    try {
-      const data = await (await fetch(`${BASE_URL}/app/chat/search?shop=${encodeURIComponent(shop)}&query=${encodeURIComponent(query)}&type=all`)).json();
-      document.getElementById("search-loading-indicator").style.display = "none";
-      if (!data.success) { document.getElementById("no-results-state").style.display = "flex"; document.getElementById("search-results-wrapper").style.display = "none"; return; }
-      document.getElementById("no-results-state").style.display = "none";
-      saveSearch(query, data.results);
-      renderSearchResultsNew(data.results);
-      scrollToSearchResults();
-    } catch (_) { document.getElementById("search-loading-indicator").style.display = "none"; document.getElementById("no-results-state").style.display = "flex"; }
-  }
+  };
 
-  function renderSearchResultsNew(results) {
-    const has = (results.products&&results.products.length)||(results.collections&&results.collections.length)||(results.pages&&results.pages.length)||(results.orders&&results.orders.length);
-    if (!has) { document.getElementById("search-results-wrapper").style.display="none"; document.getElementById("no-results-state").style.display="block"; return; }
-    document.getElementById("search-results-wrapper").style.display = "block";
-    document.getElementById("search-empty-state").style.display     = "none";
-    document.getElementById("no-results-state").style.display       = "none";
-    const pc = currentConfig.primaryColor || '#F39C12';
-    function fill(sec, items, fn) {
-      const w = document.getElementById(`${sec}-results-section`), c = document.getElementById(`${sec}-count`), s = document.getElementById(`${sec}-scroll`);
-      if (items && items.length) { w.style.display="block"; c.textContent=items.length; s.innerHTML=items.map(fn).join(''); } else { w.style.display="none"; }
-    }
-    fill('products',    results.products,    p  => `<div class="result-card" onclick="window.open('${p.url}','_blank')">${p.image?`<img src="${p.image}" class="result-card-image" alt="${p.title}"/>`:'<div class="result-card-image"></div>'}<div class="result-card-content"><div class="result-card-title">${p.title}</div><div class="result-card-price" style="color:${pc}">${p.currency} ${parseFloat(p.price).toFixed(2)}</div></div></div>`);
-    fill('collections', results.collections, c  => `<div class="result-card" onclick="window.open('${c.url}','_blank')">${c.image?`<img src="${c.image}" class="result-card-image" alt="${c.title}"/>`:'<div class="result-card-image"></div>'}<div class="result-card-content"><div class="result-card-title">${c.title}</div><div class="result-card-meta">${c.productCount||0} products</div></div></div>`);
-    fill('pages',       results.pages,       pg => `<div class="result-card" onclick="window.open('${pg.url}','_blank')"><div class="result-card-image"></div><div class="result-card-content"><div class="result-card-type" style="background:${pc}">Page</div><div class="result-card-title">${pg.title}</div>${pg.description?`<div class="result-card-meta">${pg.description.substring(0,55)}…</div>`:''}</div></div>`);
-    fill('orders',      results.orders,      o  => `<div class="result-card"><div class="result-card-image"></div><div class="result-card-content"><div class="result-card-type" style="background:${pc}">Order</div><div class="result-card-title">${o.orderNumber}</div><div class="result-card-price" style="color:${pc}">${o.currency} ${parseFloat(o.total).toFixed(2)}</div><div class="result-card-meta">${o.email}</div></div></div>`);
-  }
+  fill("products",    results.products,    "product");
+  fill("collections", results.collections, "collection");
+  fill("pages",       results.pages,       "page");
+  fill("orders",      results.orders,      "order");
+}
 
-  function renderPreviousSearchResults(results, query) {
-    if (!results || !query) { clearPreviousSearchResults(); return; }
-    const has = (results.products&&results.products.length)||(results.collections&&results.collections.length)||(results.pages&&results.pages.length)||(results.orders&&results.orders.length);
-    if (!has) { clearPreviousSearchResults(); return; }
-    document.getElementById("previous-search-wrapper").style.display = "block";
-    document.getElementById("previous-query-text").textContent = `"${query}"`;
-  }
-
-  window.scrollSection = function(sec, dir) { const el = document.getElementById(`${sec}-scroll`); if (el) el.scrollBy({ left: dir==='left'?-200:200, behavior:'smooth' }); };
+// ✅ Works for both current (products-scroll) and previous (prev-products-scroll)
+window.scrollSection = function(sec, dir) {
+  const el = document.getElementById(`${sec}-scroll`);
+  if (el) el.scrollBy({ left: dir === "left" ? -200 : 200, behavior: "smooth" });
+};
 
   /* ── FAQs ── */
   async function loadFAQs() {
