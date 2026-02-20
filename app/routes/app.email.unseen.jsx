@@ -36,7 +36,7 @@ async function sendViaResend({ to, subject, html, text }) {
   }
 
   // From address — use your verified domain or onboarding@resend.dev for testing
-  const from = process.env.RESEND_FROM_EMAIL || "Talksy Alerts <talksy.digittrix.com>";
+  const from = process.env.RESEND_FROM_EMAIL || "Talksy Alerts <talksy@digittrix.com>";
 
   const response = await fetch("https://api.resend.com/emails", {
     method : "POST",
