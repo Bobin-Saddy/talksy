@@ -1,16 +1,13 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.email.unseen.jsx
 //
-//  FIX: Railway blocks outbound SMTP port 587 → "Connection timeout"
-//  SOLUTION: Use Resend API (HTTP, no port issues) instead of nodemailer
+//  EMAIL PROVIDER: ZeptoMail (Zoho) — HTTP API, no SMTP ports
+//  Already configured with digittrix.com domain ✅
 //
-//  SETUP (2 minutes):
-//  1. Go to resend.com → Sign up free (3000 emails/month)
-//  2. Create API key → copy it
-//  3. Add to Railway env vars:
-//       RESEND_API_KEY = re_UFrELsab_Fy6pBBGNEUMbQqhr9Z4GjxKy
-//       ADMIN_EMAIL    = admin@yourstore.com
-//  4. Verify your domain in Resend (or use onboarding@resend.dev for testing)
+//  Railway env vars needed:
+//    ZEPTO_API_KEY  = wSsVR61/+Ub0Wqx1nz...  (your existing key)
+//    ZEPTO_FROM     = talksy@digittrix.com
+//    ADMIN_EMAIL    = harsh@digittrix.com
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -27,40 +24,46 @@ export const loader = () => json({}, { headers: corsHeaders });
 // ── Per-session email timer ────────────────────────────────
 const emailTimers = new Map();
 
-// ── Send via Resend HTTP API (no SMTP, no port issues) ────
-async function sendViaResend({ to, subject, html, text }) {
-  const apiKey = process.env.RESEND_API_KEY;
+// ── Send via ZeptoMail HTTP API ────────────────────────────
+async function sendViaZepto({ to, toName, subject, html, text }) {
+  const apiKey  = process.env.ZEPTO_API_KEY;
+  const fromAddr = process.env.ZEPTO_FROM || "talksy@digittrix.com";
+
   if (!apiKey) {
-    console.error("[Email] RESEND_API_KEY not set in Railway env vars");
+    console.error("[Email] ZEPTO_API_KEY not set in Railway env vars");
     return false;
   }
 
-  // From address — use your verified domain or onboarding@resend.dev for testing
-  const from = process.env.RESEND_FROM_EMAIL || "Talksy Alerts <talksy@digittrix.com>";
-
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetch("https://api.zeptomail.com/v1.1/email", {
     method : "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
+      "Accept"       : "application/json",
       "Content-Type" : "application/json",
+      "Authorization": `Zoho-enczapikey ${apiKey}`,
     },
-    body: JSON.stringify({ from, to, subject, html, text }),
+    body: JSON.stringify({
+      from: { address: fromAddr, name: "Talksy" },
+      to  : [{ email_address: { address: to, name: toName || "Admin" } }],
+      subject,
+      htmlbody: html,
+      textbody : text,
+    }),
   });
 
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`Resend API error ${response.status}: ${err}`);
+    throw new Error(`ZeptoMail error ${response.status}: ${err}`);
   }
 
   const result = await response.json();
-  console.log(`✅ Email sent via Resend — id: ${result.id}`);
+  console.log(`✅ Email sent via ZeptoMail to ${to}`);
   return true;
 }
 
 // ── Build email HTML ───────────────────────────────────────
 function buildEmailHtml({ displayName, email, messages, shop, shopUrl }) {
   const msgRows = messages.map(m => {
-    const time = new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const time    = new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const content = m.fileUrl
       ? `<div style="background:#f8f9fa;border-radius:10px;padding:12px;color:#666;">📷 <em>Image attachment</em></div>`
       : `<div style="background:#f8f9fa;border-radius:10px;padding:12px;color:#1e293b;font-size:15px;line-height:1.5;">${m.message}</div>`;
@@ -146,7 +149,7 @@ function buildEmailHtml({ displayName, email, messages, shop, shopUrl }) {
         <td style="background:#f8f9fa;padding:20px 40px;border-top:1px solid #eee;text-align:center;">
           <p style="margin:0;font-size:12px;color:#aaa;">
             Automated alert from <strong>Talksy</strong> — Shopify Live Chat<br>
-            You received this because a customer message was unseen for 1+ minute.
+            Customer message was unseen for 1+ minute.
           </p>
         </td>
       </tr>
@@ -158,7 +161,7 @@ function buildEmailHtml({ displayName, email, messages, shop, shopUrl }) {
 </html>`;
 }
 
-// ── Check unseen messages and send email ───────────────────
+// ── Check unseen and send email ────────────────────────────
 async function checkAndSendEmail({ shop, sessionId, adminEmail }) {
   try {
     const session = await prisma.chatSession.findUnique({
@@ -176,25 +179,25 @@ async function checkAndSendEmail({ shop, sessionId, adminEmail }) {
       },
     });
 
-    if (!session)                          { console.log(`[Email] Session not found: ${sessionId}`); return; }
-    if (session.isResolved)                { console.log(`[Email] Session resolved — skip`); return; }
-    if (!session.messages?.length)         { console.log(`[Email] No unseen messages for ${sessionId} — admin already read`); return; }
+    if (!session)              { console.log(`[Email] Session not found: ${sessionId}`); return; }
+    if (session.isResolved)    { console.log(`[Email] Session resolved — skip`); return; }
+    if (!session.messages?.length) { console.log(`[Email] No unseen messages — admin already read`); return; }
 
     const displayName = [session.firstName, session.lastName].filter(Boolean).join(" ") || "Customer";
     const shopDomain  = shop.replace(".myshopify.com", "");
     const shopUrl     = `https://admin.shopify.com/store/${shopDomain}/apps/talksy`;
+    const textLines   = session.messages.map(m => m.fileUrl ? "📷 [Image]" : m.message).join("\n");
 
-    const textLines = session.messages.map(m => m.fileUrl ? "📷 [Image]" : m.message).join("\n");
-
-    await sendViaResend({
+    await sendViaZepto({
       to     : adminEmail,
+      toName : "Admin",
       subject: `💬 ${displayName} is waiting — ${session.messages.length} unread message${session.messages.length > 1 ? "s" : ""}`,
       html   : buildEmailHtml({ displayName, email: session.email, messages: session.messages, shop, shopUrl }),
-      text   : `${displayName} (${session.email || shop}) sent a message that hasn't been replied to:\n\n${textLines}\n\nReply now: ${shopUrl}`,
+      text   : `${displayName} sent a message that hasn't been replied to:\n\n${textLines}\n\nReply: ${shopUrl}`,
     });
 
   } catch (err) {
-    console.error(`❌ Email send error for ${sessionId}:`, err.message);
+    console.error(`❌ Email error for ${sessionId}:`, err.message);
   }
 }
 
@@ -211,7 +214,7 @@ export const action = async ({ request }) => {
       return json({ success: false, error: "shop and sessionId required" }, { status: 400, headers: corsHeaders });
     }
 
-    // Get admin email — from ShopSettings or env var fallback
+    // Get admin email
     let adminEmail = process.env.ADMIN_EMAIL || null;
     try {
       const settings = await prisma.shopSettings.findUnique({
@@ -222,14 +225,12 @@ export const action = async ({ request }) => {
     } catch (_) {}
 
     if (!adminEmail) {
-      console.warn(`[Email] No adminEmail configured for ${shop}`);
+      console.warn(`[Email] No adminEmail for ${shop} — set ADMIN_EMAIL in Railway`);
       return json({ success: false, error: "No admin email configured" }, { headers: corsHeaders });
     }
 
-    // Debounce — reset timer on each new message, only 1 email per session
-    if (emailTimers.has(sessionId)) {
-      clearTimeout(emailTimers.get(sessionId));
-    }
+    // Debounce — reset timer on each new message
+    if (emailTimers.has(sessionId)) clearTimeout(emailTimers.get(sessionId));
 
     const timer = setTimeout(async () => {
       emailTimers.delete(sessionId);
