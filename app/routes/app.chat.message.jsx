@@ -1,13 +1,17 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.chat.message.jsx
-//  Same as before — no changes needed here for seen fix
-//  The seen marking happens in app.chat.seen.jsx
-//  which must be called from admin chat panel when chat opens
+//
+//  PLAN-BASED RULES:
+//  - Push notification: Standard + Premium only (not Free)
+//  - Email delay:
+//      FREE     → 30 minutes
+//      STANDARD → 5 minutes
+//      PREMIUM  → 1 minute
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
-import { canCreateChat } from "../planLimits.server";
+import { canCreateChat, getShopLimits } from "../planLimits.server";
 
 const BACKEND_URL = "https://talksy-production-5d43.up.railway.app";
 
@@ -19,12 +23,40 @@ const corsHeaders = {
 
 export const loader = () => json({}, { headers: corsHeaders });
 
+// ── Get current plan for shop ──────────────────────────────
+async function getShopPlan(shop) {
+  try {
+    const { plan } = await getShopLimits(shop);
+    return plan || "FREE";
+  } catch (_) {
+    return "FREE";
+  }
+}
+
+// ── Email delay per plan ───────────────────────────────────
+function getEmailDelayMs(plan) {
+  switch (plan) {
+    case "PREMIUM" : return 1  * 60 * 1000;  // 1 minute
+    case "STANDARD": return 5  * 60 * 1000;  // 5 minutes
+    default        : return 30 * 60 * 1000;  // 30 minutes (FREE)
+  }
+}
+
+// ── Send push notification ─────────────────────────────────
 async function sendPushToAdmin(shop, { title, body, url, imageUrl, fileUrl, sessionId }) {
   try {
     const response = await fetch(`${BACKEND_URL}/app/push/send`, {
       method : "POST",
       headers: { "Content-Type": "application/json" },
-      body   : JSON.stringify({ shop, title, body, url, imageUrl: imageUrl || "", fileUrl: fileUrl || "", sessionId: sessionId || "" }),
+      body   : JSON.stringify({
+        shop,
+        title,
+        body,
+        url,
+        imageUrl : imageUrl  || "",
+        fileUrl  : fileUrl   || "",
+        sessionId: sessionId || "",
+      }),
     });
     if (!response.ok) console.warn("⚠️ Push failed:", response.status);
     else console.log("🔔 Push sent to admin for shop:", shop);
@@ -33,15 +65,18 @@ async function sendPushToAdmin(shop, { title, body, url, imageUrl, fileUrl, sess
   }
 }
 
-async function triggerUnseenEmailTimer(shop, sessionId) {
+// ── Trigger email timer ────────────────────────────────────
+async function triggerUnseenEmailTimer(shop, sessionId, plan) {
   try {
+    const delayMs = getEmailDelayMs(plan);
     await fetch(`${BACKEND_URL}/app/email/unseen`, {
       method : "POST",
       headers: { "Content-Type": "application/json" },
-      body   : JSON.stringify({ shop, sessionId }),
+      body   : JSON.stringify({ shop, sessionId, delayMs }),
     });
+    console.log(`⏰ Email timer triggered — plan: ${plan}, delay: ${delayMs / 60000} min`);
   } catch (err) {
-    console.error("❌ Email timer trigger error (non-blocking):", err.message);
+    console.error("❌ Email timer error (non-blocking):", err.message);
   }
 }
 
@@ -97,7 +132,7 @@ export const action = async ({ request }) => {
           message    : message || "",
           sender,
           fileUrl    : fileUrl || null,
-          seenByAdmin: false,   // ← always false when user sends
+          seenByAdmin: false,
           session    : { connect: { sessionId: chatSession.sessionId } },
         },
       });
@@ -106,10 +141,14 @@ export const action = async ({ request }) => {
       return { chatSession, newMessage };
     });
 
-    // ── Push + email timer (only for user messages) ────────
+    // ── Notifications (only for user messages) ─────────────
     if (sender === "user") {
       const shopDomain  = shop.replace(".myshopify.com", "");
       const displayName = fname || (email ? email.split("@")[0] : "Customer");
+
+      // Get current plan
+      const plan = await getShopPlan(shop);
+      console.log(`📋 Shop plan: ${plan}`);
 
       const isHttpsImage = !!(fileUrl && fileUrl.startsWith("https://") && (/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(fileUrl) || fileUrl.includes("/app/chat/image/")));
       const isDataImage  = !!(fileUrl && fileUrl.startsWith("data:image"));
@@ -123,7 +162,9 @@ export const action = async ({ request }) => {
       else if (message && message.trim()) notifBody = message.length > 100 ? message.substring(0, 100) + "…" : message;
       else                                notifBody = null;
 
-      if (notifBody) {
+      // ✅ Push notification — ONLY Standard and Premium plans
+      if (notifBody && (plan === "STANDARD" || plan === "PREMIUM")) {
+        console.log(`🔔 Sending push — plan ${plan} qualifies`);
         sendPushToAdmin(shop, {
           title    : notifTitle,
           body     : notifBody,
@@ -132,12 +173,16 @@ export const action = async ({ request }) => {
           fileUrl  : (isFile && fileUrl?.startsWith("https://")) ? fileUrl : "",
           sessionId,
         });
+      } else if (plan === "FREE") {
+        console.log(`🔕 Push skipped — Free plan does not get push notifications`);
       }
 
-      // ✅ Start 1-min email timer — cancelled if admin marks seen
-      triggerUnseenEmailTimer(shop, sessionId);
+      // ✅ Email timer — ALL plans get email, but delay differs
+      // FREE: 30 min | STANDARD: 5 min | PREMIUM: 1 min
+      triggerUnseenEmailTimer(shop, sessionId, plan);
     }
 
+    // ── Limit reached — auto bot reply ─────────────────────
     if (limitReached) {
       const botReply = await prisma.chatMessage.create({
         data: {

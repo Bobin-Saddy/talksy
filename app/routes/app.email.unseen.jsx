@@ -1,15 +1,13 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.email.unseen.jsx
 //
-//  FIXES:
-//  1. Admin name fetched dynamically from ShopSettings DB
-//  2. Only messages with seenByAdmin: false come in email
-//     (messages admin already viewed are excluded)
+//  PLAN-BASED EMAIL DELAY:
+//    FREE     → 30 minutes (sent from app.chat.message)
+//    STANDARD → 5 minutes
+//    PREMIUM  → 1 minute
 //
-//  Railway env vars:
-//    ZEPTO_API_KEY = your-zepto-key
-//    ZEPTO_FROM    = talksy@digittrix.com
-//    ADMIN_EMAIL   = harsh@digittrix.com  (fallback if not in DB)
+//  The delay is passed as `delayMs` from app.chat.message.jsx
+//  so this route doesn't need to know the plan itself.
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -28,7 +26,7 @@ const emailTimers = new Map();
 
 // ── Send via ZeptoMail ─────────────────────────────────────
 async function sendViaZepto({ to, toName, subject, html, text }) {
-  const apiKey  = process.env.ZEPTO_API_KEY;
+  const apiKey   = process.env.ZEPTO_API_KEY;
   const fromAddr = process.env.ZEPTO_FROM || "talksy@digittrix.com";
 
   if (!apiKey) {
@@ -44,8 +42,8 @@ async function sendViaZepto({ to, toName, subject, html, text }) {
       "Authorization": `Zoho-enczapikey ${apiKey}`,
     },
     body: JSON.stringify({
-      from: { address: fromAddr, name: "Talksy" },
-      to  : [{ email_address: { address: to, name: toName || "Admin" } }],
+      from    : { address: fromAddr, name: "Talksy" },
+      to      : [{ email_address: { address: to, name: toName || "Admin" } }],
       subject,
       htmlbody: html,
       textbody: text,
@@ -61,7 +59,7 @@ async function sendViaZepto({ to, toName, subject, html, text }) {
   return true;
 }
 
-// ── Get admin info from DB ────────────────────────────────
+// ── Get admin info from DB ─────────────────────────────────
 async function getAdminInfo(shop) {
   let adminEmail = process.env.ADMIN_EMAIL || null;
   let adminName  = "Admin";
@@ -69,26 +67,18 @@ async function getAdminInfo(shop) {
   try {
     const settings = await prisma.shopSettings.findUnique({
       where : { shop },
-      select: {
-        adminEmail: true,
-        adminName : true,   // if this field exists
-        shopName  : true,   // fallback for name
-      },
+      select: { adminEmail: true, adminName: true, shopName: true },
     });
-
     if (settings?.adminEmail) adminEmail = settings.adminEmail;
     if (settings?.adminName)  adminName  = settings.adminName;
     else if (settings?.shopName) adminName = settings.shopName;
-
-  } catch (_) {
-    // ShopSettings may not have all fields — use env fallback
-  }
+  } catch (_) {}
 
   return { adminEmail, adminName };
 }
 
 // ── Build email HTML ───────────────────────────────────────
-function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop, shopUrl }) {
+function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop, shopUrl, delayLabel }) {
   const msgRows = messages.map(m => {
     const time    = new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const content = m.fileUrl
@@ -111,7 +101,6 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:600px;">
 
-      <!-- Header -->
       <tr>
         <td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px 40px;">
           <table width="100%" cellpadding="0" cellspacing="0">
@@ -129,18 +118,15 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
         </td>
       </tr>
 
-      <!-- Body -->
       <tr>
         <td style="padding:32px 40px;">
 
-          <!-- Alert -->
           <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:24px;">
             <div style="font-size:14px;color:#9a3412;">
-              ⏰ <strong>${customerName}</strong> sent a message over <strong>1 minute ago</strong> and is still waiting for your reply.
+              ⏰ <strong>${customerName}</strong> sent a message <strong>${delayLabel} ago</strong> and is still waiting for your reply.
             </div>
           </div>
 
-          <!-- Customer info -->
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;border-radius:10px;margin-bottom:24px;">
             <tr>
               <td style="padding:16px 20px;">
@@ -152,7 +138,6 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
             </tr>
           </table>
 
-          <!-- Unseen messages only -->
           <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">
             Unread Messages (${messages.length})
           </div>
@@ -160,7 +145,6 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
             ${msgRows}
           </table>
 
-          <!-- CTA -->
           <div style="text-align:center;margin-top:32px;">
             <a href="${shopUrl}"
                style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;padding:16px 40px;border-radius:10px;font-weight:700;font-size:16px;">
@@ -171,12 +155,11 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
         </td>
       </tr>
 
-      <!-- Footer -->
       <tr>
         <td style="background:#f8f9fa;padding:20px 40px;border-top:1px solid #eee;text-align:center;">
           <p style="margin:0;font-size:12px;color:#aaa;">
             Automated alert from <strong>Talksy</strong> — Shopify Live Chat<br>
-            Customer message was unseen for 1+ minute.
+            Customer message was unseen for ${delayLabel}.
           </p>
         </td>
       </tr>
@@ -188,8 +171,8 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
 </html>`;
 }
 
-// ── Core: fetch ONLY unseen messages and send email ────────
-async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName }) {
+// ── Core: check unseen and send email ─────────────────────
+async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delayMs }) {
   try {
     const session = await prisma.chatSession.findUnique({
       where : { sessionId },
@@ -199,48 +182,34 @@ async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName }) {
         lastName  : true,
         isResolved: true,
         messages  : {
-          where  : {
-            sender     : "user",
-            seenByAdmin: false,   // ✅ ONLY messages admin has NOT seen
-          },
+          where  : { sender: "user", seenByAdmin: false }, // ✅ only unseen
           orderBy: { createdAt: "asc" },
           select : { id: true, message: true, fileUrl: true, createdAt: true },
         },
       },
     });
 
-    if (!session) {
-      console.log(`[Email] Session not found: ${sessionId}`);
-      return;
-    }
-    if (session.isResolved) {
-      console.log(`[Email] Session resolved — skip email`);
-      return;
-    }
-    if (!session.messages?.length) {
-      // Admin already saw all messages before 1 minute was up
-      console.log(`[Email] All messages already seen by admin — no email sent ✅`);
-      return;
-    }
+    if (!session)                  { console.log(`[Email] Session not found: ${sessionId}`); return; }
+    if (session.isResolved)        { console.log(`[Email] Session resolved — skip`); return; }
+    if (!session.messages?.length) { console.log(`[Email] All messages already seen — no email sent ✅`); return; }
 
     const customerName = [session.firstName, session.lastName].filter(Boolean).join(" ") || "Customer";
     const shopDomain   = shop.replace(".myshopify.com", "");
     const shopUrl      = `https://admin.shopify.com/store/${shopDomain}/apps/talksy`;
     const textLines    = session.messages.map(m => m.fileUrl ? "📷 [Image]" : m.message).join("\n");
 
+    // Human-readable delay label for email body
+    const delayMin   = Math.round(delayMs / 60000);
+    const delayLabel = delayMin >= 60
+      ? `${Math.round(delayMin / 60)} hour${delayMin >= 120 ? "s" : ""}`
+      : `${delayMin} minute${delayMin > 1 ? "s" : ""}`;
+
     await sendViaZepto({
       to     : adminEmail,
       toName : adminName,
       subject: `💬 Hi ${adminName}, ${customerName} is waiting — ${session.messages.length} unread message${session.messages.length > 1 ? "s" : ""}`,
-      html   : buildEmailHtml({
-        adminName,
-        customerName,
-        customerEmail: session.email,
-        messages     : session.messages,
-        shop,
-        shopUrl,
-      }),
-      text: `Hi ${adminName},\n\n${customerName} sent a message that hasn't been replied to:\n\n${textLines}\n\nReply now: ${shopUrl}`,
+      html   : buildEmailHtml({ adminName, customerName, customerEmail: session.email, messages: session.messages, shop, shopUrl, delayLabel }),
+      text   : `Hi ${adminName},\n\n${customerName} sent a message ${delayLabel} ago with no reply:\n\n${textLines}\n\nReply: ${shopUrl}`,
     });
 
   } catch (err) {
@@ -255,32 +224,36 @@ export const action = async ({ request }) => {
   }
 
   try {
-    const { shop, sessionId } = await request.json();
+    const { shop, sessionId, delayMs } = await request.json();
 
     if (!shop || !sessionId) {
       return json({ success: false, error: "shop and sessionId required" }, { status: 400, headers: corsHeaders });
     }
 
-    // ✅ Get admin name + email dynamically from DB
-    const { adminEmail, adminName } = await getAdminInfo(shop);
+    // Validate delay — default to 30 min if missing
+    const resolvedDelay = (typeof delayMs === "number" && delayMs > 0)
+      ? delayMs
+      : 30 * 60 * 1000;
 
+    const { adminEmail, adminName } = await getAdminInfo(shop);
     if (!adminEmail) {
-      console.warn(`[Email] No adminEmail for ${shop} — set ADMIN_EMAIL in Railway env vars`);
+      console.warn(`[Email] No adminEmail for ${shop}`);
       return json({ success: false, error: "No admin email configured" }, { headers: corsHeaders });
     }
 
-    // Debounce — reset timer on each new message from same session
+    // Debounce — reset timer on rapid messages
     if (emailTimers.has(sessionId)) clearTimeout(emailTimers.get(sessionId));
 
+    const delayMin = Math.round(resolvedDelay / 60000);
     const timer = setTimeout(async () => {
       emailTimers.delete(sessionId);
-      await checkAndSendEmail({ shop, sessionId, adminEmail, adminName });
-    }, 60 * 1000); // 1 minute
+      await checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delayMs: resolvedDelay });
+    }, resolvedDelay);
 
     emailTimers.set(sessionId, timer);
-    console.log(`[Email] 1-min timer started for session ${sessionId} → will email ${adminEmail} if unseen`);
+    console.log(`[Email] Timer set — session: ${sessionId}, delay: ${delayMin} min, admin: ${adminEmail}`);
 
-    return json({ success: true, scheduled: true }, { headers: corsHeaders });
+    return json({ success: true, scheduled: true, delayMin }, { headers: corsHeaders });
 
   } catch (error) {
     console.error("❌ app.email.unseen error:", error);
