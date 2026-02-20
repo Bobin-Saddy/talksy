@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.chat.message.jsx
-//  ADDED: After saving user message, triggers 1-minute email
-//         timer via /app/email/unseen route
+//  Same as before — no changes needed here for seen fix
+//  The seen marking happens in app.chat.seen.jsx
+//  which must be called from admin chat panel when chat opens
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -18,7 +19,6 @@ const corsHeaders = {
 
 export const loader = () => json({}, { headers: corsHeaders });
 
-// ── Send push notification ─────────────────────────────────
 async function sendPushToAdmin(shop, { title, body, url, imageUrl, fileUrl, sessionId }) {
   try {
     const response = await fetch(`${BACKEND_URL}/app/push/send`, {
@@ -26,24 +26,21 @@ async function sendPushToAdmin(shop, { title, body, url, imageUrl, fileUrl, sess
       headers: { "Content-Type": "application/json" },
       body   : JSON.stringify({ shop, title, body, url, imageUrl: imageUrl || "", fileUrl: fileUrl || "", sessionId: sessionId || "" }),
     });
-    if (!response.ok) console.warn("⚠️ Push notification failed:", response.status);
+    if (!response.ok) console.warn("⚠️ Push failed:", response.status);
     else console.log("🔔 Push sent to admin for shop:", shop);
   } catch (err) {
-    console.error("❌ Push notification error (non-blocking):", err.message);
+    console.error("❌ Push error (non-blocking):", err.message);
   }
 }
 
-// ── Trigger 1-minute unseen email timer ───────────────────
-async function triggerUnseenEmailTimer(shop, sessionId, displayName, userMessage) {
+async function triggerUnseenEmailTimer(shop, sessionId) {
   try {
     await fetch(`${BACKEND_URL}/app/email/unseen`, {
       method : "POST",
       headers: { "Content-Type": "application/json" },
-      body   : JSON.stringify({ shop, sessionId, displayName, userMessage }),
+      body   : JSON.stringify({ shop, sessionId }),
     });
-    console.log(`⏰ Email timer triggered for session ${sessionId}`);
   } catch (err) {
-    // Non-blocking — email failure must never affect message delivery
     console.error("❌ Email timer trigger error (non-blocking):", err.message);
   }
 }
@@ -97,10 +94,11 @@ export const action = async ({ request }) => {
 
       const newMessage = await tx.chatMessage.create({
         data: {
-          message: message || "",
+          message    : message || "",
           sender,
-          fileUrl: fileUrl || null,
-          session: { connect: { sessionId: chatSession.sessionId } },
+          fileUrl    : fileUrl || null,
+          seenByAdmin: false,   // ← always false when user sends
+          session    : { connect: { sessionId: chatSession.sessionId } },
         },
       });
 
@@ -108,7 +106,7 @@ export const action = async ({ request }) => {
       return { chatSession, newMessage };
     });
 
-    // ── Push + Email (only for user messages) ─────────────
+    // ── Push + email timer (only for user messages) ────────
     if (sender === "user") {
       const shopDomain  = shop.replace(".myshopify.com", "");
       const displayName = fname || (email ? email.split("@")[0] : "Customer");
@@ -125,28 +123,21 @@ export const action = async ({ request }) => {
       else if (message && message.trim()) notifBody = message.length > 100 ? message.substring(0, 100) + "…" : message;
       else                                notifBody = null;
 
-      const pushImageUrl = isHttpsImage ? fileUrl : "";
-      const pushFileUrl  = (isFile && fileUrl && fileUrl.startsWith("https://")) ? fileUrl : "";
-
       if (notifBody) {
-        // Fire push notification (non-blocking)
         sendPushToAdmin(shop, {
           title    : notifTitle,
           body     : notifBody,
           url      : `https://admin.shopify.com/store/${shopDomain}/apps/talksy`,
-          imageUrl : pushImageUrl,
-          fileUrl  : pushFileUrl,
+          imageUrl : isHttpsImage ? fileUrl : "",
+          fileUrl  : (isFile && fileUrl?.startsWith("https://")) ? fileUrl : "",
           sessionId,
         });
       }
 
-      // ✅ Trigger 1-minute email timer (non-blocking)
-      // If admin reads the message within 1 min → email cancelled
-      // If admin does NOT read within 1 min → email sent
-      triggerUnseenEmailTimer(shop, sessionId, displayName, notifBody || message || "");
+      // ✅ Start 1-min email timer — cancelled if admin marks seen
+      triggerUnseenEmailTimer(shop, sessionId);
     }
 
-    // ── Limit reached — auto bot reply ─────────────────────
     if (limitReached) {
       const botReply = await prisma.chatMessage.create({
         data: {
@@ -155,10 +146,8 @@ export const action = async ({ request }) => {
           session: { connect: { sessionId: result.chatSession.sessionId } },
         },
       });
-
       await prisma.chatSession.update({ where: { sessionId }, data: { updatedAt: new Date() } });
-      console.log(`⚠️ LIMIT REACHED for ${shop}: ${chatLimit.current + 1}/${chatLimit.max} — auto-reply sent`);
-
+      console.log(`⚠️ LIMIT REACHED for ${shop}: ${chatLimit.current + 1}/${chatLimit.max}`);
       return json(
         { success:true, newMessage:result.newMessage, botReply, limitReached:true, usage:{ current:chatLimit.current+1, max:chatLimit.max, remaining:0 } },
         { headers: corsHeaders }
