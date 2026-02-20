@@ -15,14 +15,13 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey           : "AIzaSyAkp3v6YWY4HexFQ7Z0BYPGMeG18IXXqWg",
-  authDomain       : "shopify-talksy.firebaseapp.com",
-  projectId        : "shopify-talksy",
-  storageBucket    : "shopify-talksy.firebasestorage.app",
-  messagingSenderId: "547076667229",
-  appId            : "1:547076667229:web:e65ed249fe33f7724e9ab4",
+  apiKey           : "AIzaSyDOVZ95b_MZ7Ba5TVvpluX2Jz5h-7FXNNA",
+  authDomain       : "talksy-b24e4.firebaseapp.com",
+  projectId        : "talksy-b24e4",
+  storageBucket    : "talksy-b24e4.firebasestorage.app",
+  messagingSenderId: "19294207700",
+  appId            : "1:19294207700:web:b4cd33123321f8eb784541",
 });
-
 // Required for token generation — but we do NOT use onBackgroundMessage
 // (it causes duplicate/different-styled notifications)
 const messaging = firebase.messaging();
