@@ -28,20 +28,21 @@ const PLANS = {
     price   : 0,
     interval: "forever",
     features: [
-      { text: "100 chat sessions included",          included: true  },
-      { text: "30-day chat history",                 included: true  },
-      { text: "Email alerts (30 min delay)",         included: true  },
-      { text: "Product & order search in widget",    included: false  },
-      { text: "Push notifications",                  included: false },
-      { text: "FAQ management",                      included: false },
-      { text: "Widget customization",                included: false },
-      { text: "Custom FAQ page",                     included: false },
+      { text: "100 chat sessions included",                included: true  },
+      { text: "30-day chat history",                       included: true  },
+      { text: "Email alerts (30 min delay)",               included: true  },
+      { text: "Product & order search in widget",          included: false },
+      { text: "Push notifications",                        included: false },
+      { text: "FAQ management",                            included: false },
+      { text: "Widget customization",                      included: false },
+      { text: "Custom FAQ page",                           included: false },
+      { text: "Hide \"Powered by Talksy\" branding",      included: false },
     ],
     limits: {
-      maxChats        : 100,
-      maxSearchUsers  : 100,
-      chatHistoryDays : 30,
-      canManageFAQs   : false,
+      maxChats          : 100,
+      maxSearchUsers    : 100,
+      chatHistoryDays   : 30,
+      canManageFAQs     : false,
       canCustomizeWidget: false,
     },
   },
@@ -52,21 +53,22 @@ const PLANS = {
     trialDays: 14,
     badge   : "Popular",
     features: [
-      { text: "500 chat sessions included",          included: true  },
-      { text: "6-month chat history",                included: true  },
-      { text: "Push notifications (instant)",        included: true  },
-      { text: "Email alerts (5 min delay)",          included: true  },
-      { text: "Search up to 500 users",              included: true  },
-      { text: "FAQ management",                      included: true  },
-      { text: "Widget customization",                included: true  },
-      { text: "Custom FAQ page",                     included: false },
-      { text: "14-day free trial",                   included: true  },
+      { text: "500 chat sessions included",                included: true  },
+      { text: "6-month chat history",                      included: true  },
+      { text: "Push notifications (instant)",              included: true  },
+      { text: "Email alerts (5 min delay)",                included: true  },
+      { text: "Search up to 500 users",                    included: true  },
+      { text: "FAQ management",                            included: true  },
+      { text: "Widget customization",                      included: true  },
+      { text: "Custom FAQ page",                           included: false },
+      { text: "Hide \"Powered by Talksy\" branding",      included: false },
+      { text: "14-day free trial",                         included: true  },
     ],
     limits: {
-      maxChats        : 500,
-      maxSearchUsers  : 500,
-      chatHistoryDays : 180,
-      canManageFAQs   : true,
+      maxChats          : 500,
+      maxSearchUsers    : 500,
+      chatHistoryDays   : 180,
+      canManageFAQs     : true,
       canCustomizeWidget: true,
     },
   },
@@ -77,22 +79,23 @@ const PLANS = {
     trialDays: 14,
     badge   : "Best Value",
     features: [
-      { text: "Unlimited chat sessions",             included: true  },
-      { text: "Unlimited chat history",              included: true  },
-      { text: "Push notifications (instant)",        included: true  },
-      { text: "Email alerts (1 min delay)",          included: true  },
-      { text: "Unlimited user search",               included: true  },
-      { text: "FAQ management",                      included: true  },
-      { text: "Widget customization",                included: true  },
-      { text: "Custom FAQ page",                     included: true  },
-      { text: "14-day free trial",                   included: true  },
+      { text: "Unlimited chat sessions",                   included: true  },
+      { text: "Unlimited chat history",                    included: true  },
+      { text: "Push notifications (instant)",              included: true  },
+      { text: "Email alerts (1 min delay)",                included: true  },
+      { text: "Unlimited user search",                     included: true  },
+      { text: "FAQ management",                            included: true  },
+      { text: "Widget customization",                      included: true  },
+      { text: "Custom FAQ page",                           included: true  },
+      { text: "Hide \"Powered by Talksy\" branding",      included: true  }, // ✅ Premium only
+      { text: "14-day free trial",                         included: true  },
     ],
     limits: {
-      maxChats          : -1,
-      maxSearchUsers    : -1,
-      chatHistoryDays   : -1,
-      canManageFAQs     : true,
-      canCustomizeWidget: true,
+      maxChats              : -1,
+      maxSearchUsers        : -1,
+      chatHistoryDays       : -1,
+      canManageFAQs         : true,
+      canCustomizeWidget    : true,
       canCreateCustomFAQPage: true,
     },
   },
@@ -102,7 +105,7 @@ export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  const url          = new URL(request.url);
+  const url           = new URL(request.url);
   const billingStatus = url.searchParams.get("billing");
 
   const subscription = await prisma.subscription.upsert({
@@ -126,8 +129,8 @@ export const loader = async ({ request }) => {
     return json({ shop, currentPlan: "FREE", actualPlan: "FREE", subscription: updatedSubscription, chatCount, plans: PLANS, testMode: TEST_MODE });
   }
 
-  const chatCount   = await prisma.chatSession.count({ where: { shop } }).catch(() => 0);
-  let displayPlan   = subscription.plan;
+  const chatCount = await prisma.chatSession.count({ where: { shop } }).catch(() => 0);
+  let displayPlan = subscription.plan;
   if (subscription.status === "pending_approval") displayPlan = "FREE";
 
   return json({ shop, currentPlan: displayPlan, actualPlan: subscription.plan, subscription, chatCount, plans: PLANS, testMode: TEST_MODE });
@@ -135,8 +138,8 @@ export const loader = async ({ request }) => {
 
 export const action = async ({ request }) => {
   const { session, admin } = await authenticate.admin(request);
-  const shop       = session.shop;
-  const formData   = await request.formData();
+  const shop        = session.shop;
+  const formData    = await request.formData();
   const selectedPlan = formData.get("plan");
 
   if (selectedPlan === "FREE") {
@@ -186,7 +189,8 @@ export const action = async ({ request }) => {
     );
 
     const result = await response.json();
-    if (result.data?.appSubscriptionCreate?.userErrors?.length > 0) throw new Error(result.data.appSubscriptionCreate.userErrors[0].message);
+    if (result.data?.appSubscriptionCreate?.userErrors?.length > 0)
+      throw new Error(result.data.appSubscriptionCreate.userErrors[0].message);
 
     const subscriptionData = result.data?.appSubscriptionCreate;
     if (!subscriptionData?.appSubscription?.id) throw new Error("No subscription ID returned");
@@ -221,13 +225,13 @@ function FeatureRow({ text, included }) {
 
 export default function Subscription() {
   const { currentPlan, actualPlan, subscription, chatCount, plans, testMode } = useLoaderData();
-  const actionData   = useActionData();
-  const navigate     = useNavigate();
+  const actionData     = useActionData();
+  const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const success      = searchParams.get("success");
-  const error        = searchParams.get("error");
-  const upgradedPlan = searchParams.get("plan");
+  const success       = searchParams.get("success");
+  const error         = searchParams.get("error");
+  const upgradedPlan  = searchParams.get("plan");
   const billingStatus = searchParams.get("billing");
 
   useEffect(() => {
@@ -295,10 +299,10 @@ export default function Subscription() {
         {error && (
           <Layout.Section>
             <Banner title="Something went wrong" tone="critical" onDismiss={() => navigate("/app/subscription")}>
-              {error === "no-plan"              && "No plan was specified."}
-              {error === "no-subscription"      && "No pending subscription found."}
-              {error === "verification-failed"  && "Could not verify your subscription with Shopify."}
-              {error === "confirmation-failed"  && "Failed to confirm your subscription."}
+              {error === "no-plan"             && "No plan was specified."}
+              {error === "no-subscription"     && "No pending subscription found."}
+              {error === "verification-failed" && "Could not verify your subscription with Shopify."}
+              {error === "confirmation-failed" && "Failed to confirm your subscription."}
               {!["no-plan","no-subscription","verification-failed","confirmation-failed"].includes(error) && "An unexpected error occurred. Please try again."}
             </Banner>
           </Layout.Section>
@@ -375,7 +379,7 @@ export default function Subscription() {
 
                     <Divider />
 
-                    {/* Features — checkmarks + X marks */}
+                    {/* Features */}
                     <BlockStack gap="300">
                       {plan.features.map((f, i) => (
                         <FeatureRow key={i} text={f.text} included={f.included} />
@@ -430,6 +434,10 @@ export default function Subscription() {
                 <BlockStack gap="200">
                   <Text variant="headingSm" as="h3">What happens if I exceed my chat limit?</Text>
                   <Text variant="bodyMd" tone="subdued">Your widget continues working but new chats may be restricted. We recommend upgrading before reaching your limit.</Text>
+                </BlockStack>
+                <BlockStack gap="200">
+                  <Text variant="headingSm" as="h3">Can I hide the "Powered by Talksy" branding?</Text>
+                  <Text variant="bodyMd" tone="subdued">Yes — removing the Talksy branding from your chat widget is available exclusively on the Premium plan. Upgrade to Premium and toggle the setting in your widget settings page.</Text>
                 </BlockStack>
               </BlockStack>
             </BlockStack>
