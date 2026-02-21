@@ -7,7 +7,8 @@
 //    3. Added notifBlocked state + UI banner for denied permission
 //    4. Fixed SW scope conflict between /sw.js and firebase-messaging-sw.js
 //    5. ✅ NEW: "Enable Notifications" button for default/not-yet-granted state
-//  SEARCH: "🔥 FCM" to find all FCM additions
+//    6. ✅ UPDATED: VAPID banner text converted to English
+//    7. ✅ UPDATED: Permission guide now shows Chrome URL setup steps
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -45,12 +46,12 @@ function urlBase64ToUint8Array(base64String) {
 
 async function subscribeToPush(shop) {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    alert('❌ Yeh browser push notifications support nahi karta.\nChrome ya Edge use karo.');
+    alert('❌ This browser does not support push notifications.\nPlease use Chrome or Edge.');
     return null;
   }
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
-    alert('❌ Notification permission deny ki gayi.\nBrowser settings mein jaake allow karo.');
+    alert('❌ Notification permission was denied.\nPlease allow notifications in your browser settings.');
     return null;
   }
   try {
@@ -78,7 +79,7 @@ async function subscribeToPush(shop) {
     return subscription;
   } catch (err) {
     console.error('[Push] Subscribe error:', err);
-    alert('❌ Notification setup fail hua:\n' + err.message);
+    alert('❌ Notification setup failed:\n' + err.message);
     return null;
   }
 }
@@ -230,10 +231,10 @@ export default function NeuralChatAdmin() {
 
   // 🔥 FCM — state
   const [fcmReady, setFcmReady]             = useState(false);
-  const [showPermissionGuide, setShowPermissionGuide] = useState(false); // ✅ step-by-step permission modal
-  const [adminToasts, setAdminToasts]       = useState([]); // ✅ array — supports multiple simultaneous toasts
-  const [notifBlocked, setNotifBlocked]     = useState(false);   // always false on SSR
-  const [notifPermission, setNotifPermission] = useState("default"); // always "default" on SSR — real value set in useEffect
+  const [showPermissionGuide, setShowPermissionGuide] = useState(false);
+  const [adminToasts, setAdminToasts]       = useState([]);
+  const [notifBlocked, setNotifBlocked]     = useState(false);
+  const [notifPermission, setNotifPermission] = useState("default");
 
   const fetcher            = useFetcher();
   const scrollRef          = useRef(null);
@@ -247,8 +248,6 @@ export default function NeuralChatAdmin() {
   const emojis = ["😊","👍","❤️","🙌","✨","🔥","✅","🤔","💡","🚀","👋","🙏","🎉"];
   const goToSubscription = () => navigate("/app/subscription");
 
-  // ✅ Shared helper — pushes each message into the toasts array (supports rapid-fire messages)
-  // ✅ Helper: push a toast from any source (FCM or polling)
   const pushToast = (title, body, sessionId, imageUrl = null) => {
     const toastId = Date.now() + Math.random();
     const newToast = {
@@ -256,7 +255,7 @@ export default function NeuralChatAdmin() {
       title,
       body,
       sessionId,
-      imageUrl,                            // ✅ image support
+      imageUrl,
       isImage  : !!(imageUrl),
       time     : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
     };
@@ -272,7 +271,6 @@ export default function NeuralChatAdmin() {
       console.log("🔔 FCM foreground message:", payload);
       if (audioRef.current) audioRef.current.play().catch(() => {});
 
-      // Extract image URL — check both notification.image and data fields
       const imageUrl = payload.notification?.image
         || payload.data?.imageUrl
         || payload.data?.fileUrl
@@ -284,14 +282,12 @@ export default function NeuralChatAdmin() {
         : (payload.notification?.body || payload.data?.message || "Customer sent a message");
 
       if (document.hidden) {
-        // Tab hidden → native browser notification
         new Notification(payload.notification?.title || "💬 New Message", {
           body : bodyText,
           icon : imageUrl || "/favicon.ico",
           image: imageUrl || undefined,
         });
       } else {
-        // Tab visible → push into toast stack
         pushToast(
           payload.notification?.title || "💬 New Message",
           bodyText,
@@ -302,7 +298,6 @@ export default function NeuralChatAdmin() {
     });
   };
 
-  // ✅ NEW: Shared FCM init function (reusable by both useEffect and Enable button)
   const initFCM = async () => {
     try {
       const app = getApps().length > 0 ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
@@ -323,7 +318,7 @@ export default function NeuralChatAdmin() {
       });
 
       if (!token) {
-        console.warn("⚠️ FCM token nahi mila");
+        console.warn("⚠️ FCM token not received");
         return false;
       }
 
@@ -339,7 +334,7 @@ export default function NeuralChatAdmin() {
         }),
       });
 
-      console.log("✅ Admin FCM token backend mein save ho gaya");
+      console.log("✅ Admin FCM token saved to backend");
       setFcmReady(true);
       setNotifBlocked(false);
       setNotifPermission("granted");
@@ -357,12 +352,12 @@ export default function NeuralChatAdmin() {
     try {
       if (pushEnabled) {
         const ok = await unsubscribeFromPush(currentShop);
-        if (ok) { setPushEnabled(false); alert('🔕 Push notifications band kar di gayi.'); }
+        if (ok) { setPushEnabled(false); alert('🔕 Push notifications have been turned off.'); }
       } else {
         const sub = await subscribeToPush(currentShop);
         if (sub) {
           setPushEnabled(true);
-          alert('✅ Push notifications chalu ho gayi!\n\nAb jab bhi koi customer message karega, tumhare browser mein notification aayega.');
+          alert('✅ Push notifications are now enabled!\n\nYou will receive a browser notification whenever a customer sends a message.');
         }
       }
     } finally {
@@ -370,17 +365,16 @@ export default function NeuralChatAdmin() {
     }
   };
 
-  // ✅ NEW: Handle "Enable Notifications" button click
   const handleEnableNotifications = async () => {
     if (!("Notification" in window)) {
-      alert("❌ Yeh browser notifications support nahi karta.");
+      alert("❌ This browser does not support notifications.");
       return;
     }
     const perm = await Notification.requestPermission();
     setNotifPermission(perm);
     if (perm === "granted") {
       setNotifBlocked(false);
-      fcmInitRef.current = false; // reset guard so initFCM can run
+      fcmInitRef.current = false;
       await initFCM();
     } else if (perm === "denied") {
       setNotifBlocked(true);
@@ -392,7 +386,6 @@ export default function NeuralChatAdmin() {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
     checkPushStatus().then(setPushEnabled);
 
-    // ✅ FIX: Load Google Fonts client-side only (avoids SSR 404 and hydration mismatch #418)
     if (!document.getElementById("inter-font")) {
       const link = document.createElement("link");
       link.id   = "inter-font";
@@ -401,17 +394,14 @@ export default function NeuralChatAdmin() {
       document.head.appendChild(link);
     }
 
-    // ✅ FIX: Read real browser permission on load — never set notifBlocked when granted
     if ("Notification" in window) {
       const perm = Notification.permission;
       setNotifPermission(perm);
-      // Only show blocked banner when truly denied — clear it if granted
       if (perm === "granted") {
         setNotifBlocked(false);
       } else if (perm === "denied") {
         setNotifBlocked(true);
       }
-      // "default" = not yet asked — shows "Enable Now" button instead
     }
   }, []);
 
@@ -436,10 +426,8 @@ export default function NeuralChatAdmin() {
           return;
         }
 
-        // Check existing permission — only prompt if "default"
         let perm = Notification.permission;
         if (perm === "default") {
-          // ✅ Do NOT auto-prompt here — let the user click "Enable Now" button instead
           console.log("🔔 Notification permission not yet granted — showing Enable button");
           setNotifPermission("default");
           return;
@@ -456,7 +444,7 @@ export default function NeuralChatAdmin() {
         });
 
         if (!token) {
-          console.warn("⚠️ FCM token nahi mila");
+          console.warn("⚠️ FCM token not received");
           return;
         }
 
@@ -472,16 +460,13 @@ export default function NeuralChatAdmin() {
           }),
         });
 
-        console.log("✅ Admin FCM token backend mein save ho gaya");
+        console.log("✅ Admin FCM token saved to backend");
         setFcmReady(true);
         setNotifPermission("granted");
         attachFcmMessageHandler(messaging);
 
       } catch (err) {
         console.error("❌ FCM setup failed:", err.message);
-        // ✅ FIX: SW registration failure or getToken failure is NOT a permission denial.
-        // Do NOT set notifBlocked here — only set it when Notification.permission === "denied"
-        // Re-read the real permission so UI reflects truth
         if ("Notification" in window) {
           const realPerm = Notification.permission;
           setNotifPermission(realPerm);
@@ -500,11 +485,10 @@ export default function NeuralChatAdmin() {
     const MAX_FAILS = 5;
 
     const interval = setInterval(async () => {
-      // ✅ FIX: Skip poll if too many consecutive failures (avoids log spam)
       if (pollFailCount >= MAX_FAILS) return;
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000); // 8s timeout
+      const timeout = setTimeout(() => controller.abort(), 8000);
 
       try {
         const res = await fetch("/app/chat/poll", {
@@ -514,17 +498,14 @@ export default function NeuralChatAdmin() {
         });
         clearTimeout(timeout);
 
-        if (!res.ok) {
-          pollFailCount++;
-          return;
-        }
+        if (!res.ok) { pollFailCount++; return; }
         const ct = res.headers.get("content-type");
         if (!ct || !ct.includes("application/json")) { pollFailCount++; return; }
 
         const data = await res.json();
         if (!data.sessions || !data.planLimit) return;
 
-        pollFailCount = 0; // reset on success
+        pollFailCount = 0;
 
         const currentSessionIds = sessions.map(s => s.sessionId);
         const newSessions = data.sessions.filter(s => !currentSessionIds.includes(s.sessionId));
@@ -555,11 +536,11 @@ export default function NeuralChatAdmin() {
         lastSessionCountRef.current = data.sessions.length;
       } catch (e) {
         clearTimeout(timeout);
-        if (e.name === "AbortError") return; // timeout — silent
+        if (e.name === "AbortError") return;
         pollFailCount++;
         if (pollFailCount <= 2) console.warn("Session poll error:", e.message);
       }
-    }, 3000); // ✅ FIX: Slowed from 1500ms to 3000ms to reduce rate-limit issues
+    }, 3000);
     return () => clearInterval(interval);
   }, [sessions, activeSession]);
 
@@ -603,7 +584,6 @@ export default function NeuralChatAdmin() {
         image: imageUrl || undefined,
       });
     } else {
-      // Show in-app toast for every new message (even when tab is visible)
       pushToast("💬 " + senderName, bodyText, session.sessionId, imageUrl);
     }
   };
@@ -634,12 +614,11 @@ export default function NeuralChatAdmin() {
         const data = await res.json();
         if (!Array.isArray(data)) return;
 
-        msgFailCount = 0; // reset on success
+        msgFailCount = 0;
 
         const hasNew     = data.length !== messages.length;
         const hasUpdated = data.length > 0 && messages.length > 0 && data[data.length - 1].id !== lastMessageIdRef.current;
         if (hasNew || hasUpdated) {
-          // ✅ FIX: find ALL new messages since last known ID — not just the latest one
           const lastKnownId = lastMessageIdRef.current;
           const newMessages = lastKnownId
             ? data.filter(m => m.sender === "user" && m.id > lastKnownId)
@@ -657,7 +636,7 @@ export default function NeuralChatAdmin() {
         msgFailCount++;
         if (msgFailCount <= 2) console.warn("Message poll error:", err.message);
       }
-    }, 1200); // ✅ FIX: 1.2s for near-instant message detection
+    }, 1200);
     return () => clearInterval(interval);
   }, [activeSession?.sessionId, messages.length]);
 
@@ -731,7 +710,7 @@ export default function NeuralChatAdmin() {
   return (
     <div style={{ display:"flex", height:"100vh", backgroundColor:"#f9fafb", color:"#111827", fontFamily:'"Inter", system-ui, sans-serif' }}>
 
-      {/* 🔥 FCM TOAST STACK — multiple messages stack upward, each auto-dismisses */}
+      {/* 🔥 FCM TOAST STACK */}
       {adminToasts.length > 0 && (
         <div style={{
           position      : "fixed",
@@ -739,13 +718,12 @@ export default function NeuralChatAdmin() {
           right         : "32px",
           zIndex        : 99999,
           display       : "flex",
-          flexDirection : "column-reverse", // newest at bottom
+          flexDirection : "column-reverse",
           gap           : "10px",
           maxWidth      : "360px",
           width         : "360px",
-          pointerEvents : "none", // container itself not clickable
+          pointerEvents : "none",
         }}>
-          {/* "Dismiss all" button — only shown when 2+ toasts */}
           {adminToasts.length >= 2 && (
             <div style={{ pointerEvents:"auto", display:"flex", justifyContent:"flex-end" }}>
               <button
@@ -788,7 +766,6 @@ export default function NeuralChatAdmin() {
                 overflow      : "hidden",
               }}
             >
-              {/* Progress bar — auto-dismiss timer visual */}
               <div style={{
                 position  : "absolute",
                 bottom    : 0,
@@ -800,7 +777,6 @@ export default function NeuralChatAdmin() {
                 width     : "100%",
               }} />
 
-              {/* Icon with message count badge if multiple */}
               <div style={{ position:"relative", flexShrink:0 }}>
                 <div style={{ width:"38px", height:"38px", background:"rgba(255,255,255,0.2)", borderRadius:"10px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px" }}>
                   💬
@@ -819,7 +795,6 @@ export default function NeuralChatAdmin() {
               </div>
 
               <div style={{ flex:1, minWidth:0 }}>
-                {/* Header row: title + timestamp */}
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"4px" }}>
                   <div style={{ fontWeight:"700", fontSize:"13px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"200px" }}>
                     {toast.title}
@@ -827,7 +802,6 @@ export default function NeuralChatAdmin() {
                   <div style={{ fontSize:"10px", opacity:0.6, flexShrink:0, marginLeft:"8px" }}>{toast.time}</div>
                 </div>
 
-                {/* Image preview — shown when message contains an image */}
                 {toast.imageUrl && (
                   <div style={{ marginBottom:"6px", borderRadius:"8px", overflow:"hidden", maxHeight:"120px", background:"rgba(0,0,0,0.2)" }}>
                     <img
@@ -839,7 +813,6 @@ export default function NeuralChatAdmin() {
                   </div>
                 )}
 
-                {/* Body text */}
                 <div style={{ fontSize:"12px", opacity:0.9, lineHeight:"1.45", wordBreak:"break-word" }}>
                   {toast.body}
                 </div>
@@ -851,7 +824,6 @@ export default function NeuralChatAdmin() {
                 )}
               </div>
 
-              {/* Close button */}
               <button
                 onClick={e => {
                   e.stopPropagation();
@@ -908,23 +880,22 @@ export default function NeuralChatAdmin() {
           <button
             onClick={handlePushToggle}
             disabled={pushLoading}
-            title={pushEnabled ? "Push notifications band karo" : "Push notifications chalu karo"}
+            title={pushEnabled ? "Turn off push notifications" : "Turn on push notifications"}
             style={{ marginTop:"4px", padding:"8px 12px", borderRadius:"10px", border:pushEnabled?"2px solid #10b981":"2px solid #e5e7eb", background:pushEnabled?"linear-gradient(135deg, #d1fae5, #a7f3d0)":"#f9fafb", color:pushEnabled?"#065f46":"#6b7280", fontWeight:"700", fontSize:"12px", cursor:pushLoading?"not-allowed":"pointer", display:"flex", alignItems:"center", gap:"6px", transition:"all 0.2s", opacity:pushLoading?0.6:1, whiteSpace:"nowrap", flexShrink:0, boxShadow:pushEnabled?"0 2px 8px rgba(16,185,129,0.2)":"none" }}
           >
             {pushLoading ? <span style={{ fontSize:"14px" }}>⏳</span> : pushEnabled ? <Icons.Bell /> : <Icons.BellOff />}
-            {pushLoading ? "Wait..." : pushEnabled ? "Notif ON" : "Notif OFF"}
+            {pushLoading ? "Please wait..." : pushEnabled ? "Notif ON" : "Notif OFF"}
           </button>
         </div>
 
-        {/* VAPID push enabled banner */}
+        {/* ── VAPID push enabled banner (English) ── */}
         {pushEnabled && (
           <div style={{ margin:"0 16px 8px", padding:"8px 12px", background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:"8px", fontSize:"11px", color:"#166534", display:"flex", alignItems:"center", gap:"6px" }}>
             <span>🔔</span>
-            <span><strong>Push ON</strong> — Customer message kare toh browser notification aayega</span>
+            <span><strong>Push ON</strong> — You will receive a browser notification whenever a customer sends a message.</span>
           </div>
         )}
 
-        {/* ✅ NEW: "Enable Notifications" banner — shown when permission is default (not yet asked) */}
         {/* ════ PERMISSION MODAL — Mode A: not asked yet | Mode B: blocked ════ */}
         {showPermissionGuide && (
           <div
@@ -939,30 +910,48 @@ export default function NeuralChatAdmin() {
               onClick={e => e.stopPropagation()}
               style={{
                 background:"white", borderRadius:"20px", padding:"28px 32px",
-                maxWidth:"440px", width:"92%", boxShadow:"0 24px 64px rgba(0,0,0,0.3)",
-                position:"relative",
+                maxWidth:"480px", width:"92%", boxShadow:"0 24px 64px rgba(0,0,0,0.3)",
+                position:"relative", maxHeight:"90vh", overflowY:"auto",
               }}
             >
               <button
                 onClick={() => setShowPermissionGuide(false)}
                 style={{ position:"absolute", top:"14px", right:"14px", background:"#f3f4f6", border:"none", borderRadius:"8px", width:"30px", height:"30px", cursor:"pointer", fontSize:"16px", display:"flex", alignItems:"center", justifyContent:"center", color:"#6b7280" }}
-              >x</button>
+              >✕</button>
 
               {notifPermission !== "denied" ? (
+                /* ── Mode A: Not yet asked ── */
                 <div>
                   <div style={{ textAlign:"center", marginBottom:"20px" }}>
                     <div style={{ fontSize:"44px", marginBottom:"10px" }}>🔔</div>
                     <h2 style={{ margin:0, fontSize:"19px", fontWeight:"800", color:"#111827" }}>Enable Notifications</h2>
                     <p style={{ margin:"8px 0 0", fontSize:"13px", color:"#6b7280", lineHeight:"1.6" }}>
-                      Click Allow when your browser asks. That is all — done in one click!
+                      Click <strong>Allow</strong> when your browser asks — done in one click!
                     </p>
                   </div>
-                  <div style={{ background:"#f0f9ff", border:"1px solid #bae6fd", borderRadius:"12px", padding:"14px 16px", marginBottom:"20px", display:"flex", gap:"12px", alignItems:"flex-start" }}>
-                    <span style={{ fontSize:"22px", flexShrink:0 }}>💡</span>
-                    <div style={{ fontSize:"12px", color:"#0369a1", lineHeight:"1.6" }}>
-                      A popup will appear asking permission for <strong>talksy-production-5d43.up.railway.app</strong> — click <strong>Allow</strong> and notifications will be active instantly.
+
+                  {/* Step-by-step visual guide */}
+                  <div style={{ marginBottom:"20px", display:"flex", flexDirection:"column", gap:"10px" }}>
+                    <div style={{ background:"#f0f9ff", border:"1px solid #bae6fd", borderRadius:"12px", padding:"14px 16px", display:"flex", gap:"12px", alignItems:"flex-start" }}>
+                      <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:"#0ea5e9", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>1</div>
+                      <div style={{ fontSize:"12px", color:"#0369a1", lineHeight:"1.6" }}>
+                        Click the <strong>"🔔 Allow Notifications"</strong> button below. A browser popup will appear at the top of your screen.
+                      </div>
+                    </div>
+                    <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:"12px", padding:"14px 16px", display:"flex", gap:"12px", alignItems:"flex-start" }}>
+                      <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:"#10b981", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>2</div>
+                      <div style={{ fontSize:"12px", color:"#065f46", lineHeight:"1.6" }}>
+                        In the popup, click <strong>"Allow"</strong> to grant notification permission for this site.
+                      </div>
+                    </div>
+                    <div style={{ background:"#f5f3ff", border:"1px solid #ddd6fe", borderRadius:"12px", padding:"14px 16px", display:"flex", gap:"12px", alignItems:"flex-start" }}>
+                      <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:"#6366f1", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>3</div>
+                      <div style={{ fontSize:"12px", color:"#4338ca", lineHeight:"1.6" }}>
+                        That's it! You'll get instant alerts every time a customer sends you a message — even when this tab is in the background.
+                      </div>
                     </div>
                   </div>
+
                   <button
                     onClick={async () => {
                       setShowPermissionGuide(false);
@@ -983,51 +972,79 @@ export default function NeuralChatAdmin() {
                   </p>
                 </div>
               ) : (
+                /* ── Mode B: Blocked — full Chrome URL guide ── */
                 <div>
                   <div style={{ textAlign:"center", marginBottom:"20px" }}>
                     <div style={{ fontSize:"44px", marginBottom:"10px" }}>🚫</div>
                     <h2 style={{ margin:0, fontSize:"19px", fontWeight:"800", color:"#dc2626" }}>Notifications Blocked</h2>
                     <p style={{ margin:"8px 0 0", fontSize:"13px", color:"#6b7280", lineHeight:"1.6" }}>
-                      You previously blocked notifications. Follow 3 steps to fix:
+                      You previously blocked notifications. Follow these 3 steps to fix it in Chrome:
                     </p>
                   </div>
+
                   <div style={{ display:"flex", flexDirection:"column", gap:"10px", marginBottom:"20px" }}>
-                    <div style={{ background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:"10px", padding:"12px 14px", display:"flex", gap:"12px" }}>
-                      <div style={{ width:"24px", height:"24px", borderRadius:"50%", background:"#6366f1", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>1</div>
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontWeight:"700", fontSize:"12px", color:"#111827", marginBottom:"4px" }}>🌐 Open Chrome Notification Settings</div>
-                        <div style={{ fontSize:"11px", color:"#6b7280", marginBottom:"8px" }}>Open a new Chrome tab, paste this URL and press Enter:</div>
-                        <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
-                          <code style={{ flex:1, background:"#f3f4f6", padding:"5px 8px", borderRadius:"5px", fontSize:"10px", color:"#111827", fontFamily:"monospace" }}>chrome://settings/content/notifications</code>
-                          <button
-                            onClick={() => { navigator.clipboard.writeText("chrome://settings/content/notifications").catch(() => {}); }}
-                            style={{ flexShrink:0, padding:"5px 8px", background:"#6366f1", color:"white", border:"none", borderRadius:"5px", fontSize:"10px", fontWeight:"700", cursor:"pointer" }}
-                          >Copy</button>
+
+                    {/* Step 1 */}
+                    <div style={{ background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:"12px", padding:"14px 16px" }}>
+                      <div style={{ display:"flex", gap:"12px", alignItems:"flex-start" }}>
+                        <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:"#6366f1", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>1</div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontWeight:"700", fontSize:"13px", color:"#111827", marginBottom:"6px" }}>🌐 Open Chrome Notification Settings</div>
+                          <div style={{ fontSize:"12px", color:"#6b7280", marginBottom:"10px", lineHeight:"1.5" }}>
+                            Open a <strong>new Chrome tab</strong>, paste the URL below into the address bar and press <kbd style={{ background:"#e5e7eb", padding:"1px 5px", borderRadius:"4px", fontSize:"11px", fontFamily:"monospace" }}>Enter</kbd>:
+                          </div>
+                          <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+                            <code style={{ flex:1, background:"#1e1e2e", color:"#a5f3fc", padding:"8px 10px", borderRadius:"8px", fontSize:"11px", fontFamily:"monospace", wordBreak:"break-all" }}>
+                              chrome://settings/content/notifications
+                            </code>
+                            <button
+                              onClick={() => { navigator.clipboard.writeText("chrome://settings/content/notifications").catch(() => {}); }}
+                              style={{ flexShrink:0, padding:"7px 10px", background:"#6366f1", color:"white", border:"none", borderRadius:"7px", fontSize:"11px", fontWeight:"700", cursor:"pointer" }}
+                            >Copy</button>
+                          </div>
+                          <div style={{ marginTop:"8px", fontSize:"11px", color:"#9ca3af", fontStyle:"italic" }}>
+                            💡 Note: Chrome blocks direct links to chrome:// URLs — you must paste it manually.
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div style={{ background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:"10px", padding:"12px 14px", display:"flex", gap:"12px" }}>
-                      <div style={{ width:"24px", height:"24px", borderRadius:"50%", background:"#6366f1", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>2</div>
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontWeight:"700", fontSize:"12px", color:"#111827", marginBottom:"4px" }}>🗑️ Delete the block for Talksy</div>
-                        <div style={{ fontSize:"11px", color:"#6b7280", marginBottom:"8px" }}>Under "Not allowed", find this site and click the trash icon:</div>
-                        <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
-                          <code style={{ flex:1, background:"#fee2e2", padding:"5px 8px", borderRadius:"5px", fontSize:"10px", color:"#991b1b", fontFamily:"monospace", wordBreak:"break-all" }}>talksy-production-5d43.up.railway.app</code>
-                          <button
-                            onClick={() => { navigator.clipboard.writeText("talksy-production-5d43.up.railway.app").catch(() => {}); }}
-                            style={{ flexShrink:0, padding:"5px 8px", background:"#ef4444", color:"white", border:"none", borderRadius:"5px", fontSize:"10px", fontWeight:"700", cursor:"pointer" }}
-                          >Copy</button>
+
+                    {/* Step 2 */}
+                    <div style={{ background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:"12px", padding:"14px 16px" }}>
+                      <div style={{ display:"flex", gap:"12px", alignItems:"flex-start" }}>
+                        <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:"#6366f1", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>2</div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontWeight:"700", fontSize:"13px", color:"#111827", marginBottom:"6px" }}>🗑️ Remove the block for Talksy</div>
+                          <div style={{ fontSize:"12px", color:"#6b7280", marginBottom:"10px", lineHeight:"1.5" }}>
+                            Scroll down to the <strong>"Not allowed to send notifications"</strong> section. Find the entry below and click the <strong>trash 🗑️ icon</strong> next to it:
+                          </div>
+                          <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+                            <code style={{ flex:1, background:"#fef2f2", color:"#991b1b", padding:"8px 10px", borderRadius:"8px", fontSize:"11px", fontFamily:"monospace", wordBreak:"break-all", border:"1px solid #fca5a5" }}>
+                              talksy-production-5d43.up.railway.app
+                            </code>
+                            <button
+                              onClick={() => { navigator.clipboard.writeText("talksy-production-5d43.up.railway.app").catch(() => {}); }}
+                              style={{ flexShrink:0, padding:"7px 10px", background:"#ef4444", color:"white", border:"none", borderRadius:"7px", fontSize:"11px", fontWeight:"700", cursor:"pointer" }}
+                            >Copy</button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:"10px", padding:"12px 14px", display:"flex", gap:"12px" }}>
-                      <div style={{ width:"24px", height:"24px", borderRadius:"50%", background:"#10b981", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>3</div>
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontWeight:"700", fontSize:"12px", color:"#065f46", marginBottom:"4px" }}>✅ Return here and click Retry</div>
-                        <div style={{ fontSize:"11px", color:"#6b7280" }}>After deleting the block, come back to this tab and click the button below.</div>
+
+                    {/* Step 3 */}
+                    <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:"12px", padding:"14px 16px" }}>
+                      <div style={{ display:"flex", gap:"12px", alignItems:"flex-start" }}>
+                        <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:"#10b981", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>3</div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontWeight:"700", fontSize:"13px", color:"#065f46", marginBottom:"4px" }}>✅ Come back here and click Retry</div>
+                          <div style={{ fontSize:"12px", color:"#6b7280", lineHeight:"1.5" }}>
+                            After removing the block, return to this tab and click the <strong>"I removed the block — Retry"</strong> button below. The browser will ask for permission again — click <strong>Allow</strong>.
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
+
                   <button
                     onClick={async () => {
                       setShowPermissionGuide(false);
@@ -1049,7 +1066,7 @@ export default function NeuralChatAdmin() {
                       fontSize:"14px", cursor:"pointer", boxShadow:"0 4px 14px rgba(220,38,38,0.35)",
                     }}
                   >
-                    I removed the block — Retry
+                    ✅ I removed the block — Retry
                   </button>
                 </div>
               )}
@@ -1057,7 +1074,7 @@ export default function NeuralChatAdmin() {
           </div>
         )}
 
-        {/* ✅ Unified notification banner — one for all states */}
+        {/* ✅ Unified notification banner */}
         {!fcmReady && notifPermission !== "granted" && (
           <div style={{
             margin      : "0 16px 8px",
@@ -1070,7 +1087,7 @@ export default function NeuralChatAdmin() {
               <span style={{ fontSize:"20px" }}>{notifPermission === "denied" ? "🚫" : "🔔"}</span>
               <div style={{ flex:1 }}>
                 <div style={{ fontWeight:"700", fontSize:"12px", color: notifPermission === "denied" ? "#991b1b" : "#3730a3", marginBottom:"2px" }}>
-                  {notifPermission === "denied" ? "Notifications Blocked" : "Notifications not enabled"}
+                  {notifPermission === "denied" ? "Notifications Blocked" : "Notifications Not Enabled"}
                 </div>
                 <div style={{ fontSize:"11px", color:"#6b7280", lineHeight:"1.4" }}>
                   {notifPermission === "denied" ? "You previously blocked alerts. Tap below to fix." : "Get instant alerts when customers message you."}
