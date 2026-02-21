@@ -60,7 +60,7 @@ const PLANS = {
       { text: "Search up to 500 users",                    included: true  },
       { text: "FAQ management",                            included: true  },
       { text: "Widget customization",                      included: true  },
-      { text: "Custom FAQ page",                           included: false },
+      { text: "Custom FAQ page",                           included: true },
       { text: "Hide \"Powered by Talksy\" branding",      included: false },
       { text: "14-day free trial",                         included: true  },
     ],
