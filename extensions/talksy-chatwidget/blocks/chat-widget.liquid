@@ -25,6 +25,7 @@
   flex-direction: column;
   gap: 0;
   scroll-behavior: smooth;
+  background: #fdf8f0; /* ✅ warm orange tint — matches primary */
 }
 
 /* User query bubble — RIGHT side */
@@ -60,9 +61,10 @@
 .search-result-card-wrap {
   background: #fff;
   border: 1px solid #e5e7eb;
+  border-left: 3px solid var(--tw-primary, #F39C12); /* ✅ orange left accent */
   border-radius: 4px 18px 18px 18px;
   padding: 12px 12px 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(243,156,18,0.08);
 }
 
 /* Section label inside result block */
@@ -172,8 +174,9 @@
   margin-bottom: 14px;
 }
 .search-loading-bubble .dot-row {
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
+  background: #fff8ee;
+  border: 1px solid rgba(243,156,18,0.2);
+  border-left: 3px solid var(--tw-primary, #F39C12);
   border-radius: 4px 14px 14px 14px;
   padding: 12px 16px;
   display: flex;
@@ -184,7 +187,8 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #d1d5db;
+  background: var(--tw-primary, #F39C12);
+  opacity: 0.6;
   animation: dotPulse 1.2s infinite ease-in-out;
 }
 .search-loading-bubble .dot:nth-child(2) { animation-delay: 0.2s; }
@@ -202,13 +206,13 @@
   color: #9ca3af;
 }
 .search-chat-empty .icon { font-size: 38px; }
-.search-chat-empty h3 { font-size: 15px; font-weight: 700; color: #374151; margin: 0; }
-.search-chat-empty p  { font-size: 12px; margin: 0; text-align: center; line-height: 1.5; }
+.search-chat-empty h3 { font-size: 15px; font-weight: 700; color: var(--tw-primary, #F39C12); margin: 0; }
+.search-chat-empty p  { font-size: 12px; margin: 0; text-align: center; line-height: 1.5; color: #6b7280; }
 
 /* Fixed bottom search bar */
 .search-input-bar {
   padding: 10px 12px 12px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 2px solid rgba(243,156,18,0.15); /* ✅ subtle orange border */
   background: #fff;
   display: flex;
   align-items: flex-end;
@@ -715,16 +719,15 @@
   }
 
   function saveSearchHistory() {
-    if (!isAnonymousUser()) return; // registered users: no persistence
+    // ✅ ALL users (registered + anonymous) get search history saved
     try {
-      // Keep max 20 searches to stay within localStorage limits
       const trimmed = searchHistory.slice(-20);
       localStorage.setItem(SK.SEARCH_HIST, JSON.stringify(trimmed));
     } catch (_) {}
   }
 
   function loadSearchHistory() {
-    if (!isAnonymousUser()) return; // registered users: don't restore
+    // ✅ Restore for ALL users — registered and anonymous
     try {
       const raw = localStorage.getItem(SK.SEARCH_HIST);
       if (!raw) return;
@@ -1058,7 +1061,6 @@
       const res = await fetch(`${BASE_URL}/app/chat/register`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ shop, firstName:f, lastName:l, email:e, sessionId:sid }) });
       if (res.ok) {
         localStorage.setItem(SK.SID,sid); localStorage.setItem(SK.FNAME,f); localStorage.setItem(SK.LNAME,l||''); localStorage.setItem(SK.EMAIL,e);
-        clearSearchHistoryForRegisteredUser(); // ✅ clear anon search history on registration
         showChatInterface(); startPolling();
         await updateTokenAfterLogin();
       } else alert("Registration failed.");
