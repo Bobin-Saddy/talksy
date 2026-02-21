@@ -50,7 +50,7 @@ const DEFAULTS = {
   launcherIcon          : "bubble",
   fontFamily            : "'Montserrat', sans-serif",
   baseFontSize          : "14px",
-  showPoweredBy         : "true",
+  showPoweredBy         : true,
 };
 
 /* ═══════════════════ LOADER ═══════════════════ */
@@ -64,7 +64,13 @@ export const loader = async ({ request }) => {
 export const action = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const formData    = await request.formData();
-  const data        = Object.fromEntries(formData);
+  const raw         = Object.fromEntries(formData);
+
+  // FormData sends everything as strings — convert Boolean fields before saving
+  const data = {
+    ...raw,
+    showPoweredBy: raw.showPoweredBy === "true",
+  };
 
   await prisma.chatSettings.upsert({
     where  : { shop: session.shop },
@@ -113,7 +119,7 @@ export default function UltimateSettings() {
     reader.readAsDataURL(file);
   };
 
-  const isPoweredByVisible = form.showPoweredBy === "true" || form.showPoweredBy === true;
+  const isPoweredByVisible = form.showPoweredBy === true || form.showPoweredBy === "true";
 
   /* ────────────────── RENDER ────────────────── */
   return (
