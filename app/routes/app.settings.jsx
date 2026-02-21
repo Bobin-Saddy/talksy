@@ -56,26 +56,38 @@ const DEFAULTS = {
 /* ═══════════════════ LOADER ═══════════════════ */
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
-  const settings    = await prisma.chatSettings.findUnique({ where: { shop: session.shop } });
-  return json(settings ? { ...DEFAULTS, ...settings } : DEFAULTS);
+  const shop        = session.shop;
+  const settings    = await prisma.chatSettings.findUnique({ where: { shop } });
+  // ✅ Fetch subscription plan to gate Premium-only features
+  const subscription = await prisma.subscription.findUnique({ where: { shop } });
+  const plan = subscription?.plan || "FREE";
+  return json({
+    ...(settings ? { ...DEFAULTS, ...settings } : DEFAULTS),
+    _plan: plan,
+  });
 };
 
 /* ═══════════════════ ACTION ═══════════════════ */
 export const action = async ({ request }) => {
   const { session } = await authenticate.admin(request);
+  const shop        = session.shop;
   const formData    = await request.formData();
   const raw         = Object.fromEntries(formData);
 
-  // FormData sends everything as strings — convert Boolean fields before saving
+  // ✅ Server-side guard: only Premium can hide "Powered by Talksy"
+  const subscription = await prisma.subscription.findUnique({ where: { shop } });
+  const isPremium    = subscription?.plan === "PREMIUM" && subscription?.status === "active";
+
   const data = {
     ...raw,
-    showPoweredBy: raw.showPoweredBy === "true",
+    // If not Premium, always force showPoweredBy = true regardless of what was submitted
+    showPoweredBy: isPremium ? raw.showPoweredBy === "true" : true,
   };
 
   await prisma.chatSettings.upsert({
-    where  : { shop: session.shop },
+    where  : { shop },
     update : data,
-    create : { ...data, shop: session.shop },
+    create : { ...data, shop },
   });
 
   return json({ success: true });
@@ -83,17 +95,21 @@ export const action = async ({ request }) => {
 
 /* ═══════════════════ PAGE ═══════════════════ */
 export default function UltimateSettings() {
-  const settings   = useLoaderData();
+  const loaderData = useLoaderData();
   const actionData = useActionData();
   const submit     = useSubmit();
   const navigation = useNavigation();
+
+  // Separate _plan from settings so it doesn't get saved to DB
+  const { _plan, ...settings } = loaderData;
+  const isPremiumPlan = _plan === "PREMIUM";
 
   const [form, setForm]         = useState(settings);
   const [activeTab, setTab]     = useState("style");
   const [toast, setToast]       = useState(false);
   const [previewOnline, setPreviewOnline] = useState(true);
 
-  useEffect(() => { if (settings) setForm(settings); }, [settings]);
+  useEffect(() => { if (settings) setForm(settings); }, [loaderData]);
   useEffect(() => { if (actionData?.success) { setToast(true); setTimeout(() => setToast(false), 3000); } }, [actionData]);
 
   const set = (key, val) => setForm(p => ({ ...p, [key]: val }));
@@ -170,18 +186,72 @@ export default function UltimateSettings() {
                 </div>
               </Card>
 
-              <Card title="Settings">
-                <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
-                  <input
-                    type="checkbox"
-                    id="showPoweredBy"
-                    checked={isPoweredByVisible}
-                    onChange={e => set("showPoweredBy", e.target.checked ? "true" : "false")}
-                    style={{ width:"18px", height:"18px", cursor:"pointer" }}
-                  />
-                  <label htmlFor="showPoweredBy" style={{ fontSize:"14px", fontWeight:"600", cursor:"pointer" }}>
-                    Show "Powered by Talksy" branding
-                  </label>
+              <Card title="Branding">
+                {/* ── showPoweredBy — Premium only ── */}
+                <div style={{ borderRadius:"12px", border: isPremiumPlan ? "1px solid #d1fae5" : "1px solid #e5e7eb", background: isPremiumPlan ? "#f0fdf4" : "#fafafa", padding:"16px" }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:"12px" }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"4px" }}>
+                        <span style={{ fontSize:"14px", fontWeight:"700", color: isPremiumPlan ? "#065f46" : "#6b7280" }}>
+                          Hide "Powered by Talksy" branding
+                        </span>
+                        {/* Premium badge */}
+                        <span style={{
+                          display:"inline-flex", alignItems:"center", gap:"3px",
+                          background: isPremiumPlan ? "linear-gradient(135deg,#a855f7,#6366f1)" : "#e5e7eb",
+                          color: isPremiumPlan ? "#fff" : "#9ca3af",
+                          fontSize:"9px", fontWeight:"800", padding:"2px 7px",
+                          borderRadius:"20px", letterSpacing:"0.05em", textTransform:"uppercase",
+                        }}>
+                          {isPremiumPlan ? "✓ Premium" : "🔒 Premium Only"}
+                        </span>
+                      </div>
+                      <p style={{ margin:0, fontSize:"12px", color:"#9ca3af", lineHeight:"1.5" }}>
+                        {isPremiumPlan
+                          ? "Toggle the Talksy branding shown at the bottom of your chat widget."
+                          : "Upgrade to Premium to remove the Talksy branding from your chat widget."}
+                      </p>
+                    </div>
+
+                    {/* Toggle switch — disabled for non-Premium */}
+                    <div
+                      onClick={() => {
+                        if (!isPremiumPlan) return; // block click for non-premium
+                        set("showPoweredBy", isPoweredByVisible ? "false" : "true");
+                      }}
+                      title={isPremiumPlan ? "" : "Upgrade to Premium to use this feature"}
+                      style={{
+                        position:"relative", width:"44px", height:"24px", borderRadius:"12px", flexShrink:0,
+                        background: !isPremiumPlan ? "#e5e7eb" : isPoweredByVisible ? "#10b981" : "#d1d5db",
+                        cursor: isPremiumPlan ? "pointer" : "not-allowed",
+                        transition:"background 0.2s",
+                        opacity: isPremiumPlan ? 1 : 0.55,
+                      }}
+                    >
+                      <div style={{
+                        position:"absolute", top:"3px",
+                        left: isPoweredByVisible ? "23px" : "3px",
+                        width:"18px", height:"18px", borderRadius:"50%",
+                        background:"#fff",
+                        boxShadow:"0 1px 4px rgba(0,0,0,0.2)",
+                        transition:"left 0.2s",
+                      }} />
+                    </div>
+                  </div>
+
+                  {/* Lock overlay hint for non-Premium */}
+                  {!isPremiumPlan && (
+                    <div style={{ marginTop:"12px", display:"flex", alignItems:"center", gap:"8px", padding:"10px 12px", background:"#fff", borderRadius:"8px", border:"1px solid #e5e7eb" }}>
+                      <span style={{ fontSize:"14px" }}>🔒</span>
+                      <span style={{ fontSize:"12px", color:"#6b7280", flex:1 }}>Available on <strong>Premium plan</strong> only.</span>
+                      <a
+                        href="/app/subscription"
+                        style={{ fontSize:"11px", fontWeight:"700", color:"#6366f1", textDecoration:"none", background:"#eff6ff", padding:"4px 10px", borderRadius:"6px", whiteSpace:"nowrap" }}
+                      >
+                        Upgrade →
+                      </a>
+                    </div>
+                  )}
                 </div>
               </Card>
 

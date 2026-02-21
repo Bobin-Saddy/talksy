@@ -102,11 +102,11 @@ a.powered-by-talksy {
   -ms-overflow-style: none;
 }
 
-:root {
+/* :root {
   --tw-primary : #F39C12;
   --tw-grad-s  : #F39C12;
   --tw-grad-e  : #E67E22;
-}
+} */
 
 /* ── launcher ── */
 #chat-launcher {

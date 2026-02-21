@@ -16,213 +16,495 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 
 <style>
-/* ── Chat-style Search ─────────────────────────────────── */
+/* ════════════════════════════════════════════
+   TALKSY SEARCH — Premium Redesign v3.0
+   Aesthetic: Clean luxury, warm orange, depth
+   ════════════════════════════════════════════ */
+
+/* ── Search Tab Shell ── */
+#tab-search {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #fff;
+  position: relative;
+}
+
+/* ── Scrollable Chat Conversation Area ── */
 .search-chat-area {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 14px 8px;
+  overflow-x: hidden;
+  padding: 0 0 8px;
   display: flex;
   flex-direction: column;
-  gap: 0;
   scroll-behavior: smooth;
-  background: #fdf8f0; /* ✅ warm orange tint — matches primary */
+  background: #fafaf9;
 }
+.search-chat-area::-webkit-scrollbar { width: 3px; }
+.search-chat-area::-webkit-scrollbar-track { background: transparent; }
+.search-chat-area::-webkit-scrollbar-thumb { background: rgba(243,156,18,0.3); border-radius: 10px; }
 
-/* User query bubble — RIGHT side */
-.search-query-bubble {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 6px;
-  animation: bubbleIn 0.25s ease;
-}
-.search-query-bubble span {
-  background: var(--tw-primary, #F39C12);
-  color: #fff;
-  padding: 10px 15px;
-  border-radius: 18px 18px 4px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  max-width: 72%;
-  word-break: break-word;
-  box-shadow: 0 2px 8px rgba(243,156,18,0.25);
-}
-
-/* Bot result block — LEFT side */
-.search-result-block {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 18px;
-  animation: bubbleIn 0.3s ease 0.1s both;
-}
-.search-result-inner {
-  max-width: 92%;
-  width: 100%;
-}
-.search-result-card-wrap {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-left: 3px solid var(--tw-primary, #F39C12); /* ✅ orange left accent */
-  border-radius: 4px 18px 18px 18px;
-  padding: 12px 12px 8px;
-  box-shadow: 0 2px 8px rgba(243,156,18,0.08);
-}
-
-/* Section label inside result block */
-.sr-section-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: #9ca3af;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin: 10px 0 6px;
+/* ── Date/Session Divider ── */
+.search-session-divider {
   display: flex;
   align-items: center;
-  gap: 5px;
-}
-.sr-section-label:first-child { margin-top: 0; }
-
-/* Horizontal scroll row of result cards */
-.sr-scroll-row {
-  display: flex;
   gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  scrollbar-width: none;
+  padding: 16px 16px 8px;
+  opacity: 0.5;
 }
-.sr-scroll-row::-webkit-scrollbar { display: none; }
-
-/* Individual result card */
-.sr-card {
-  flex-shrink: 0;
-  width: 110px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
+.search-session-divider::before,
+.search-session-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #d1d5db, transparent);
 }
-.sr-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.1);
-}
-.sr-card-img {
-  width: 100%;
-  height: 72px;
-  object-fit: cover;
-  background: #e5e7eb;
-  display: block;
-}
-.sr-card-img-placeholder {
-  width: 100%;
-  height: 72px;
-  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-}
-.sr-card-body {
-  padding: 6px 7px 7px;
-}
-.sr-card-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: #111827;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.35;
-  margin-bottom: 3px;
-}
-.sr-card-price {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--tw-primary, #F39C12);
-}
-.sr-card-meta {
+.search-session-divider span {
   font-size: 10px;
+  font-weight: 600;
   color: #9ca3af;
-  margin-top: 2px;
-}
-.sr-card-badge {
-  display: inline-block;
-  font-size: 9px;
-  font-weight: 700;
-  padding: 2px 5px;
-  border-radius: 4px;
-  color: #fff;
-  background: var(--tw-primary, #F39C12);
-  margin-bottom: 3px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-/* No results inside a result block */
-.sr-no-results {
-  font-size: 12px;
-  color: #9ca3af;
-  padding: 6px 2px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* Loading bubble */
-.search-loading-bubble {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 14px;
-}
-.search-loading-bubble .dot-row {
-  background: #fff8ee;
-  border: 1px solid rgba(243,156,18,0.2);
-  border-left: 3px solid var(--tw-primary, #F39C12);
-  border-radius: 4px 14px 14px 14px;
-  padding: 12px 16px;
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
-.search-loading-bubble .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--tw-primary, #F39C12);
-  opacity: 0.6;
-  animation: dotPulse 1.2s infinite ease-in-out;
-}
-.search-loading-bubble .dot:nth-child(2) { animation-delay: 0.2s; }
-.search-loading-bubble .dot:nth-child(3) { animation-delay: 0.4s; }
-
-/* Empty state */
+/* ── Empty State ── */
 .search-chat-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 40px 20px;
-  color: #9ca3af;
+  gap: 0;
+  padding: 20px 24px 40px;
+  text-align: center;
 }
-.search-chat-empty .icon { font-size: 38px; }
-.search-chat-empty h3 { font-size: 15px; font-weight: 700; color: var(--tw-primary, #F39C12); margin: 0; }
-.search-chat-empty p  { font-size: 12px; margin: 0; text-align: center; line-height: 1.5; color: #6b7280; }
+.search-empty-icon-wrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(243,156,18,0.12), rgba(243,156,18,0.06));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  border: 2px solid rgba(243,156,18,0.15);
+  position: relative;
+}
+.search-empty-icon-wrap::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px dashed rgba(243,156,18,0.2);
+  animation: spinSlow 12s linear infinite;
+}
+.search-empty-icon-wrap svg {
+  width: 30px;
+  height: 30px;
+  stroke: var(--tw-primary, #F39C12);
+  stroke-width: 2;
+}
+.search-chat-empty h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #111827;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+}
+.search-chat-empty p {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0 0 24px;
+  line-height: 1.6;
+}
+.search-empty-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.search-empty-chip {
+  background: #fff;
+  border: 1.5px solid rgba(243,156,18,0.25);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tw-primary, #F39C12);
+  cursor: pointer;
+  transition: all 0.18s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.search-empty-chip:hover {
+  background: var(--tw-primary, #F39C12);
+  color: #fff;
+  border-color: var(--tw-primary, #F39C12);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(243,156,18,0.3);
+}
 
-/* Fixed bottom search bar */
+/* ── User Query Bubble — RIGHT ── */
+.search-query-bubble {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 14px 2px;
+  animation: slideInRight 0.22s cubic-bezier(0.34,1.56,0.64,1);
+}
+.search-query-bubble-inner {
+  background: var(--tw-primary, #F39C12);
+  color: #fff;
+  padding: 9px 14px 9px 16px;
+  border-radius: 20px 20px 4px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  max-width: 75%;
+  word-break: break-word;
+  box-shadow: 0 4px 14px rgba(243,156,18,0.35);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.4;
+  position: relative;
+}
+.search-query-bubble-inner svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* ── Result Block — LEFT ── */
+.search-result-block {
+  display: flex;
+  justify-content: flex-start;
+  padding: 2px 14px 10px;
+  animation: slideInLeft 0.28s cubic-bezier(0.34,1.56,0.64,1);
+}
+.search-result-inner {
+  max-width: 88%;
+  width: auto;
+  min-width: 200px;
+}
+
+/* Result card wrapper */
+.search-result-card-wrap {
+  background: #fff;
+  border-radius: 4px 16px 16px 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
+  display: inline-block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Result header row */
+.sr-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 13px 8px;
+  border-bottom: 1px solid #f3f4f6;
+  background: linear-gradient(135deg, rgba(243,156,18,0.04), rgba(243,156,18,0.01));
+}
+.sr-result-header-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.sr-bot-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--tw-primary, #F39C12), #E67E22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.sr-bot-avatar svg {
+  width: 13px;
+  height: 13px;
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+.sr-result-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #374151;
+  letter-spacing: -0.01em;
+}
+.sr-result-count-pill {
+  background: rgba(243,156,18,0.1);
+  color: var(--tw-primary, #F39C12);
+  border-radius: 20px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Section inside result */
+.sr-section {
+  padding: 10px 13px 6px;
+  border-bottom: 1px solid #f9fafb;
+}
+.sr-section:last-child { border-bottom: none; padding-bottom: 10px; }
+
+.sr-section-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.sr-section-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+.sr-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  flex: 1;
+}
+.sr-section-badge {
+  background: var(--tw-primary, #F39C12);
+  color: #fff;
+  border-radius: 20px;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+/* Horizontal scroll row */
+.sr-scroll-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.sr-scroll-row::-webkit-scrollbar { display: none; }
+
+/* ── Product Card ── */
+.sr-card {
+  flex-shrink: 0;
+  width: 105px;
+  background: #fff;
+  border: 1.5px solid #f0f0f0;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  position: relative;
+}
+.sr-card:hover {
+  border-color: var(--tw-primary, #F39C12);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(243,156,18,0.2);
+}
+.sr-card:active { transform: scale(0.97); }
+
+.sr-card-img {
+  width: 100%;
+  height: 76px;
+  object-fit: cover;
+  display: block;
+  background: #f9fafb;
+}
+.sr-card-img-placeholder {
+  width: 100%;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  background: linear-gradient(135deg, #fef9f0, #fdf3e0);
+}
+
+.sr-card-body { padding: 7px 8px 8px; }
+.sr-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #111827;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.3;
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+.sr-card-price {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--tw-primary, #F39C12);
+  letter-spacing: -0.01em;
+}
+.sr-card-meta {
+  font-size: 10px;
+  color: #9ca3af;
+  margin-top: 2px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sr-card-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: #fff;
+  background: var(--tw-primary, #F39C12);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Page/Order List style (instead of card) ── */
+.sr-list-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 0;
+  border-bottom: 1px solid #f9fafb;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 8px;
+}
+.sr-list-item:last-child { border-bottom: none; }
+.sr-list-item:hover { background: rgba(243,156,18,0.04); padding-left: 4px; }
+
+.sr-list-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(243,156,18,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.sr-list-info { flex: 1; min-width: 0; }
+.sr-list-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+.sr-list-sub {
+  font-size: 10px;
+  color: #9ca3af;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sr-list-arrow {
+  color: #d1d5db;
+  flex-shrink: 0;
+}
+
+/* ── No Results ── */
+.sr-no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 12px;
+  text-align: center;
+}
+.sr-no-results-icon { font-size: 28px; }
+.sr-no-results-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+}
+.sr-no-results-sub { font-size: 11px; color: #9ca3af; }
+
+/* ── Loading Bubble ── */
+.search-loading-bubble {
+  display: flex;
+  justify-content: flex-start;
+  padding: 2px 14px 10px;
+  animation: fadeIn 0.2s ease;
+}
+.search-loading-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border-radius: 4px 16px 16px 16px;
+  padding: 11px 16px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
+}
+.search-loading-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--tw-primary, #F39C12), #E67E22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.search-loading-avatar svg {
+  width: 11px; height: 11px;
+  stroke: #fff; stroke-width: 2.5;
+}
+.search-loading-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.search-loading-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tw-primary, #F39C12);
+  animation: dotBounce 1.2s infinite ease-in-out;
+}
+.search-loading-dot:nth-child(1) { animation-delay: 0s; }
+.search-loading-dot:nth-child(2) { animation-delay: 0.18s; }
+.search-loading-dot:nth-child(3) { animation-delay: 0.36s; }
+.search-loading-text {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* ── Search Input Bar ── */
 .search-input-bar {
   padding: 10px 12px 12px;
-  border-top: 2px solid rgba(243,156,18,0.15); /* ✅ subtle orange border */
   background: #fff;
+  border-top: 1px solid #f0f0f0;
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.04);
+}
+.search-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
 }
 .search-input-bar textarea {
-  flex: 1;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 10px 12px;
+  width: 100%;
+  border: 1.5px solid #e8e8e8;
+  border-radius: 22px;
+  padding: 10px 44px 10px 16px;
   font-size: 13px;
   resize: none;
   outline: none;
@@ -230,14 +512,21 @@
   max-height: 80px;
   line-height: 1.4;
   color: #111827;
-  background: #f9fafb;
-  transition: border-color 0.2s;
+  background: #f8f8f8;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  display: block;
 }
-.search-input-bar textarea:focus { border-color: var(--tw-primary, #F39C12); background: #fff; }
-.search-input-bar textarea::placeholder { color: #9ca3af; }
+.search-input-bar textarea:focus {
+  border-color: var(--tw-primary, #F39C12) !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 3px rgba(243,156,18,0.12) !important;
+}
+.search-input-bar textarea::placeholder { color: #b0b0b0; font-size: 12.5px; }
+
 .search-send-btn {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: var(--tw-primary, #F39C12);
   border: none;
@@ -247,20 +536,44 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: transform 0.15s, opacity 0.15s;
-  box-shadow: 0 2px 8px rgba(243,156,18,0.3);
+  transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 3px 12px rgba(243,156,18,0.4);
+  margin-bottom: 1px;
 }
-.search-send-btn:hover  { transform: scale(1.08); }
-.search-send-btn:active { transform: scale(0.95); }
-.search-send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.search-send-btn:hover  { transform: scale(1.1); box-shadow: 0 5px 18px rgba(243,156,18,0.5); }
+.search-send-btn:active { transform: scale(0.93); }
+.search-send-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
 
-@keyframes bubbleIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* ── Nav override — force orange ── */
+.nav-item[data-tab="search"].active {
+  color: var(--tw-primary, #F39C12) !important;
+  border-bottom-color: var(--tw-primary, #F39C12) !important;
 }
-@keyframes dotPulse {
-  0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
-  40%           { transform: scale(1);   opacity: 1; }
+.nav-item[data-tab="search"].active svg {
+  stroke: var(--tw-primary, #F39C12) !important;
+}
+#tab-search a { color: var(--tw-primary, #F39C12) !important; }
+
+/* ── Animations ── */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes dotBounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1.1); opacity: 1; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 </style>
 
@@ -391,31 +704,42 @@
       </div>
     </div>
 
-    <!-- ══ SEARCH TAB — Chat-style ══ -->
+    <!-- ══ SEARCH TAB — Premium v3.0 ══ -->
     <div id="tab-search" class="tab-content" style="display:none; flex-direction:column; height:100%;">
 
       <!-- scrollable conversation area -->
       <div class="search-chat-area" id="search-chat-area">
-        <!-- empty state shown by default -->
+
+        <!-- Empty state -->
         <div class="search-chat-empty" id="search-chat-empty">
-          <div class="icon">🔍</div>
+          <div class="search-empty-icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg>
+          </div>
           <h3>What are you looking for?</h3>
-          <p>Search products, collections,<br>pages &amp; orders</p>
+          <p>Search products, collections,<br>pages &amp; orders instantly</p>
+          <div class="search-empty-chips">
+            <div class="search-empty-chip" onclick="document.getElementById('store-search-input-new').value='shoes';document.getElementById('search-icon-btn').click()">👟 Shoes</div>
+            <div class="search-empty-chip" onclick="document.getElementById('store-search-input-new').value='sale';document.getElementById('search-icon-btn').click()">🏷️ Sale</div>
+            <div class="search-empty-chip" onclick="document.getElementById('store-search-input-new').value='new arrivals';document.getElementById('search-icon-btn').click()">✨ New</div>
+          </div>
         </div>
+
       </div>
 
-      <!-- fixed input bar at bottom -->
+      <!-- Fixed search input bar -->
       <div class="search-input-bar">
-        <textarea
-          id="store-search-input-new"
-          placeholder="Search anything…"
-          rows="1"
-          autocomplete="off"
-        ></textarea>
+        <div class="search-input-wrap">
+          <textarea
+            id="store-search-input-new"
+            placeholder="Search products, orders, pages…"
+            rows="1"
+            autocomplete="off"
+          ></textarea>
+        </div>
         <button class="search-send-btn" id="search-icon-btn" title="Search">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <circle cx="11" cy="11" r="8"/>
-            <path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
+            <path d="M21 21l-4.35-4.35"/>
           </svg>
         </button>
       </div>
@@ -735,12 +1059,21 @@
       if (!Array.isArray(saved) || !saved.length) return;
       // Restore each entry into the DOM (no animation — instant restore)
       if (searchEmpty) searchEmpty.style.display = 'none';
+      // Show a subtle session divider
+      const divider = document.createElement('div');
+      divider.className = 'search-session-divider';
+      divider.innerHTML = `<span>Previous searches</span>`;
+      searchArea.appendChild(divider);
       saved.forEach(entry => {
         // Re-append query bubble (no animation on restore)
         const qEl = document.createElement('div');
         qEl.className = 'search-query-bubble';
-        qEl.style.animation = 'none'; // skip animation on restore
-        qEl.innerHTML = `<span>${escapeHtml(entry.query)}</span>`;
+        qEl.style.animation = 'none';
+        qEl.innerHTML = `
+          <div class="search-query-bubble-inner">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            ${escapeHtml(entry.query)}
+          </div>`;
         searchArea.appendChild(qEl);
         // Re-append result block
         if (entry.error) {
@@ -768,12 +1101,14 @@
 
   // Append the user query bubble (RIGHT side)
   function appendQueryBubble(query) {
-    // Hide empty state on first search
     if (searchEmpty) searchEmpty.style.display = 'none';
-
     const el = document.createElement('div');
     el.className = 'search-query-bubble';
-    el.innerHTML = `<span>${escapeHtml(query)}</span>`;
+    el.innerHTML = `
+      <div class="search-query-bubble-inner">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        ${escapeHtml(query)}
+      </div>`;
     searchArea.appendChild(el);
     scrollSearchToBottom();
   }
@@ -783,7 +1118,18 @@
     const el = document.createElement('div');
     el.className = 'search-loading-bubble';
     el.id = 'search-loading-' + Date.now();
-    el.innerHTML = `<div class="dot-row"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+    el.innerHTML = `
+      <div class="search-loading-inner">
+        <div class="search-loading-avatar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg>
+        </div>
+        <div class="search-loading-dots">
+          <div class="search-loading-dot"></div>
+          <div class="search-loading-dot"></div>
+          <div class="search-loading-dot"></div>
+        </div>
+        <span class="search-loading-text">Searching…</span>
+      </div>`;
     searchArea.appendChild(el);
     scrollSearchToBottom();
     return el.id;
@@ -795,7 +1141,7 @@
     if (el) el.remove();
   }
 
-  // Build a single result card HTML
+  // Build a product/collection card (horizontal scroll)
   function buildSrCard(type, item) {
     const pc = currentConfig.primaryColor || '#F39C12';
     if (type === 'product') {
@@ -805,7 +1151,7 @@
           : `<div class="sr-card-img-placeholder">🛍️</div>`}
         <div class="sr-card-body">
           <div class="sr-card-title">${escapeHtml(item.title)}</div>
-          <div class="sr-card-price" style="color:${pc}">${item.currency} ${parseFloat(item.price).toFixed(2)}</div>
+          <div class="sr-card-price">${item.currency} ${parseFloat(item.price).toFixed(2)}</div>
         </div>
       </div>`;
     }
@@ -820,41 +1166,59 @@
         </div>
       </div>`;
     }
+    return '';
+  }
+
+  // Build a page/order list item (vertical list style)
+  function buildSrListItem(type, item) {
     if (type === 'page') {
-      return `<div class="sr-card" onclick="window.open('${item.url}','_blank')">
-        <div class="sr-card-img-placeholder">📄</div>
-        <div class="sr-card-body">
-          <div class="sr-card-badge" style="background:${pc}">Page</div>
-          <div class="sr-card-title">${escapeHtml(item.title)}</div>
-          ${item.description ? `<div class="sr-card-meta">${escapeHtml(item.description.substring(0,45))}…</div>` : ''}
+      return `<div class="sr-list-item" onclick="window.open('${item.url}','_blank')">
+        <div class="sr-list-icon">📄</div>
+        <div class="sr-list-info">
+          <div class="sr-list-title">${escapeHtml(item.title)}</div>
+          ${item.description ? `<div class="sr-list-sub">${escapeHtml(item.description.substring(0,55))}</div>` : '<div class="sr-list-sub">View page</div>'}
         </div>
+        <svg class="sr-list-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
       </div>`;
     }
     if (type === 'order') {
-      return `<div class="sr-card">
-        <div class="sr-card-img-placeholder">📦</div>
-        <div class="sr-card-body">
-          <div class="sr-card-badge" style="background:${pc}">Order</div>
-          <div class="sr-card-title">${escapeHtml(item.orderNumber)}</div>
-          <div class="sr-card-price" style="color:${pc}">${item.currency} ${parseFloat(item.total).toFixed(2)}</div>
-          <div class="sr-card-meta">${escapeHtml(item.email)}</div>
+      return `<div class="sr-list-item">
+        <div class="sr-list-icon">📦</div>
+        <div class="sr-list-info">
+          <div class="sr-list-title">${escapeHtml(item.orderNumber)}</div>
+          <div class="sr-list-sub">${item.currency} ${parseFloat(item.total).toFixed(2)} · ${escapeHtml(item.email)}</div>
         </div>
+        <span class="sr-card-badge" style="font-size:9px;">Order</span>
       </div>`;
     }
     return '';
   }
 
-  // Build one section (Products / Collections / etc.)
+  // Build a section block HTML string
   function buildSection(label, icon, items, type) {
     if (!items || !items.length) return '';
+    const isCard = (type === 'product' || type === 'collection');
+    const itemsHtml = isCard
+      ? `<div class="sr-scroll-row">${items.map(i => buildSrCard(type, i)).join('')}</div>`
+      : items.map(i => buildSrListItem(type, i)).join('');
     return `
-      <div class="sr-section-label">${icon} ${label} <span style="background:var(--tw-primary,#F39C12);color:#fff;font-size:9px;padding:1px 5px;border-radius:10px;font-weight:700;">${items.length}</span></div>
-      <div class="sr-scroll-row">${items.map(i => buildSrCard(type, i)).join('')}</div>
-    `;
+      <div class="sr-section">
+        <div class="sr-section-label">
+          <span class="sr-section-icon">${icon}</span>
+          <span class="sr-section-title">${label}</span>
+          <span class="sr-section-badge">${items.length}</span>
+        </div>
+        ${itemsHtml}
+      </div>`;
   }
 
-  // Append the result block (LEFT side)
-  // restore=true means we're re-rendering from saved history (skip animation)
+  // Count total results
+  function countResults(results) {
+    return (results.products?.length||0) + (results.collections?.length||0) +
+           (results.pages?.length||0) + (results.orders?.length||0);
+  }
+
+  // Append result block (LEFT side)
   function appendResultBlock(results, restore = false) {
     const sections =
       buildSection('Products',    '🛍️', results.products,    'product')    +
@@ -862,6 +1226,7 @@
       buildSection('Pages',       '📄', results.pages,       'page')       +
       buildSection('Orders',      '📦', results.orders,      'order');
 
+    const total = countResults(results);
     const el = document.createElement('div');
     el.className = 'search-result-block';
     if (restore) el.style.animation = 'none';
@@ -869,12 +1234,27 @@
     if (!sections.trim()) {
       el.innerHTML = `<div class="search-result-inner">
         <div class="search-result-card-wrap">
-          <div class="sr-no-results">😕 No results found for this query.</div>
+          <div class="sr-no-results">
+            <div class="sr-no-results-icon">🔍</div>
+            <div class="sr-no-results-text">No results found</div>
+            <div class="sr-no-results-sub">Try different keywords</div>
+          </div>
         </div>
       </div>`;
     } else {
       el.innerHTML = `<div class="search-result-inner">
-        <div class="search-result-card-wrap">${sections}</div>
+        <div class="search-result-card-wrap">
+          <div class="sr-result-header">
+            <div class="sr-result-header-left">
+              <div class="sr-bot-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg>
+              </div>
+              <span class="sr-result-label">Search Results</span>
+            </div>
+            <span class="sr-result-count-pill">${total} found</span>
+          </div>
+          ${sections}
+        </div>
       </div>`;
     }
 
@@ -882,14 +1262,18 @@
     scrollSearchToBottom();
   }
 
-  // Append an error block (LEFT side)
+  // Append error block (LEFT side)
   function appendErrorBlock(restore = false) {
     const el = document.createElement('div');
     el.className = 'search-result-block';
     if (restore) el.style.animation = 'none';
     el.innerHTML = `<div class="search-result-inner">
       <div class="search-result-card-wrap">
-        <div class="sr-no-results">❌ Something went wrong. Please try again.</div>
+        <div class="sr-no-results">
+          <div class="sr-no-results-icon">⚠️</div>
+          <div class="sr-no-results-text">Something went wrong</div>
+          <div class="sr-no-results-sub">Please try again</div>
+        </div>
       </div>
     </div>`;
     searchArea.appendChild(el);
