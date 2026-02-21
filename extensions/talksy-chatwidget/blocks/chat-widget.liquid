@@ -1,5 +1,5 @@
 {% comment %}
-  Talksy Chat Widget v2.8 - CHAT-STYLE SEARCH
+  Talksy Chat Widget v2.9 - CHAT-STYLE SEARCH + ANON PERSISTENCE
 {% endcomment %}
 
 {%- assign primary_color = section.settings.primary_color | default: '#F39C12' -%}
@@ -485,13 +485,14 @@
 
   /* ── localStorage keys ── */
   const SK = {
-    SID      : `chat_session_${shop}`,
-    EMAIL    : `chat_email_${shop}`,
-    FNAME    : `chat_fname_${shop}`,
-    LNAME    : `chat_lname_${shop}`,
-    FCM_TOKEN: `chat_fcm_token_${shop}`
+    SID          : `chat_session_${shop}`,
+    EMAIL        : `chat_email_${shop}`,
+    FNAME        : `chat_fname_${shop}`,
+    LNAME        : `chat_lname_${shop}`,
+    FCM_TOKEN    : `chat_fcm_token_${shop}`,
+    SEARCH_HIST  : `chat_search_history_${shop}`  // ✅ anon users only
   };
-  // ✅ NO search keys in localStorage — results only live in memory/DOM
+  // ✅ Search history saved for anonymous users, cleared on login/registration
 
   /* ══════════════════════════════════════════
      🔥 FIREBASE PUSH NOTIFICATION SETUP
@@ -694,7 +695,8 @@
        • Query goes in as RIGHT bubble
        • Results come back as LEFT bubble
        • Each search APPENDS — old ones stay above
-       • On page refresh: area is empty (no localStorage)
+       • Anonymous users: history saved in localStorage, restored on refresh
+       • Registered users: results gone on refresh (session-based)
        • Empty state shown only when no searches yet
   ══════════════════════════════════════════ */
 
@@ -702,6 +704,58 @@
   const searchEmpty = document.getElementById('search-chat-empty');
   const searchInput = document.getElementById('store-search-input-new');
   const searchBtn   = document.getElementById('search-icon-btn');
+
+  // ── Anonymous search history (in-memory + localStorage for anon users) ──
+  // Each entry: { query: string, results: object|null, error: boolean }
+  let searchHistory = [];
+
+  function isAnonymousUser() {
+    const email = localStorage.getItem(SK.EMAIL);
+    return !email || email === 'null' || email === 'undefined' || email === '';
+  }
+
+  function saveSearchHistory() {
+    if (!isAnonymousUser()) return; // registered users: no persistence
+    try {
+      // Keep max 20 searches to stay within localStorage limits
+      const trimmed = searchHistory.slice(-20);
+      localStorage.setItem(SK.SEARCH_HIST, JSON.stringify(trimmed));
+    } catch (_) {}
+  }
+
+  function loadSearchHistory() {
+    if (!isAnonymousUser()) return; // registered users: don't restore
+    try {
+      const raw = localStorage.getItem(SK.SEARCH_HIST);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (!Array.isArray(saved) || !saved.length) return;
+      // Restore each entry into the DOM (no animation — instant restore)
+      if (searchEmpty) searchEmpty.style.display = 'none';
+      saved.forEach(entry => {
+        // Re-append query bubble (no animation on restore)
+        const qEl = document.createElement('div');
+        qEl.className = 'search-query-bubble';
+        qEl.style.animation = 'none'; // skip animation on restore
+        qEl.innerHTML = `<span>${escapeHtml(entry.query)}</span>`;
+        searchArea.appendChild(qEl);
+        // Re-append result block
+        if (entry.error) {
+          appendErrorBlock(true);
+        } else {
+          appendResultBlock(entry.results || {}, true);
+        }
+      });
+      searchHistory = saved;
+      scrollSearchToBottom();
+    } catch (_) {}
+  }
+
+  // Clear search history when user registers/logs in
+  function clearSearchHistoryForRegisteredUser() {
+    localStorage.removeItem(SK.SEARCH_HIST);
+    searchHistory = [];
+  }
 
   function scrollSearchToBottom() {
     requestAnimationFrame(() => {
@@ -797,8 +851,8 @@
   }
 
   // Append the result block (LEFT side)
-  function appendResultBlock(results) {
-    const pc = currentConfig.primaryColor || '#F39C12';
+  // restore=true means we're re-rendering from saved history (skip animation)
+  function appendResultBlock(results, restore = false) {
     const sections =
       buildSection('Products',    '🛍️', results.products,    'product')    +
       buildSection('Collections', '📁', results.collections, 'collection') +
@@ -807,6 +861,7 @@
 
     const el = document.createElement('div');
     el.className = 'search-result-block';
+    if (restore) el.style.animation = 'none';
 
     if (!sections.trim()) {
       el.innerHTML = `<div class="search-result-inner">
@@ -825,9 +880,10 @@
   }
 
   // Append an error block (LEFT side)
-  function appendErrorBlock() {
+  function appendErrorBlock(restore = false) {
     const el = document.createElement('div');
     el.className = 'search-result-block';
+    if (restore) el.style.animation = 'none';
     el.innerHTML = `<div class="search-result-inner">
       <div class="search-result-card-wrap">
         <div class="sr-no-results">❌ Something went wrong. Please try again.</div>
@@ -862,14 +918,17 @@
       const data = await res.json();
       removeLoadingBubble(loadingId);
       // 5. Append result block on LEFT
-      if (data.success) {
-        appendResultBlock(data.results || {});
-      } else {
-        appendResultBlock({});
-      }
+      const results = (data.success ? data.results : null) || {};
+      appendResultBlock(results);
+      // ✅ Save to history for anonymous users
+      searchHistory.push({ query, results, error: false });
+      saveSearchHistory();
     } catch (_) {
       removeLoadingBubble(loadingId);
       appendErrorBlock();
+      // ✅ Save error entry too so conversation shape is restored correctly
+      searchHistory.push({ query, results: {}, error: true });
+      saveSearchHistory();
     }
 
     searchBusy = false;
@@ -980,7 +1039,6 @@
       if (tab === 'chat') { fetchMessages(); setTimeout(() => msgBox.scrollTop = msgBox.scrollHeight, 80); }
       if (tab === 'faq' && !faqData.length) loadFAQs();
       if (tab === 'search') {
-        // ✅ No localStorage load — just scroll to bottom of whatever is already in the DOM
         setTimeout(scrollSearchToBottom, 80);
         setTimeout(() => searchInput && searchInput.focus(), 120);
       }
@@ -1000,6 +1058,7 @@
       const res = await fetch(`${BASE_URL}/app/chat/register`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ shop, firstName:f, lastName:l, email:e, sessionId:sid }) });
       if (res.ok) {
         localStorage.setItem(SK.SID,sid); localStorage.setItem(SK.FNAME,f); localStorage.setItem(SK.LNAME,l||''); localStorage.setItem(SK.EMAIL,e);
+        clearSearchHistoryForRegisteredUser(); // ✅ clear anon search history on registration
         showChatInterface(); startPolling();
         await updateTokenAfterLogin();
       } else alert("Registration failed.");
@@ -1052,6 +1111,9 @@
     await loadFAQs();
     await checkExistingSession();
     startStatusPolling();
+    // ✅ Restore anonymous user's search history into DOM immediately on page load
+    // Must run AFTER checkExistingSession() so isAnonymousUser() returns correct value
+    loadSearchHistory();
     if ('serviceWorker' in navigator && 'Notification' in window) {
       initFirebasePush().catch(e => console.warn('Push unavailable:', e));
     }
