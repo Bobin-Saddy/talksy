@@ -1,9 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.email.unseen.jsx
 //
-//  CHANGE: getAdminInfo() ab Shopify Admin API se store ka
-//  owner email dynamically fetch karta hai.
-//  DB mein adminEmail save bhi karta hai future calls ke liye.
+//  FIX: Email mein "Customer" hardcoded label ki jagah
+//  ab customer ka actual naam dikhega
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -18,18 +17,13 @@ const corsHeaders = {
 
 export const loader = () => json({}, { headers: corsHeaders });
 
-// ── Per-session email timer ────────────────────────────────
 const emailTimers = new Map();
 
-// ── Send via ZeptoMail ─────────────────────────────────────
 async function sendViaZepto({ to, toName, subject, html, text }) {
   const apiKey   = process.env.ZEPTO_API_KEY;
   const fromAddr = process.env.ZEPTO_FROM || "talksy@digittrix.com";
 
-  if (!apiKey) {
-    console.error("[Email] ZEPTO_API_KEY not set");
-    return false;
-  }
+  if (!apiKey) { console.error("[Email] ZEPTO_API_KEY not set"); return false; }
 
   const response = await fetch("https://api.zeptomail.com/v1.1/email", {
     method : "POST",
@@ -56,19 +50,10 @@ async function sendViaZepto({ to, toName, subject, html, text }) {
   return true;
 }
 
-// ══════════════════════════════════════════════════════════
-//  GET ADMIN INFO — Dynamic Shopify API fetch
-//
-//  Priority order:
-//  1. DB mein shopSettings.adminEmail hai → use karo (fastest)
-//  2. Shopify Admin API se fetch karo → DB mein save karo
-//  3. Fallback: process.env.ADMIN_EMAIL
-// ══════════════════════════════════════════════════════════
 async function getAdminInfo(shop) {
   let adminEmail = null;
   let adminName  = "Admin";
 
-  // ── Step 1: DB check ──────────────────────────────────
   try {
     const settings = await prisma.shopSettings.findUnique({
       where : { shop },
@@ -84,40 +69,28 @@ async function getAdminInfo(shop) {
     console.warn("[Email] DB settings read error:", e.message);
   }
 
-  // ── Step 2: Shopify Admin API se fetch ────────────────
   try {
     const { admin } = await unauthenticated.admin(shop);
-
-    // Shop owner email + name fetch karo
-    const response = await admin.graphql(`
+    const response  = await admin.graphql(`
       query {
         shop {
           name
           email
           contactEmail
-          billingAddress {
-            firstName
-            lastName
-          }
+          billingAddress { firstName lastName }
         }
       }
     `);
-
     const data     = await response.json();
     const shopData = data?.data?.shop;
 
     if (shopData) {
-      // contactEmail preferred (store admin email)
-      // email is the billing/owner email
       adminEmail = shopData.contactEmail || shopData.email || null;
-
-      const firstName = shopData.billingAddress?.firstName || "";
-      const lastName  = shopData.billingAddress?.lastName  || "";
-      adminName = [firstName, lastName].filter(Boolean).join(" ") || shopData.name || "Admin";
-
+      const fn   = shopData.billingAddress?.firstName || "";
+      const ln   = shopData.billingAddress?.lastName  || "";
+      adminName  = [fn, ln].filter(Boolean).join(" ") || shopData.name || "Admin";
       console.log(`[Email] Shopify API email for ${shop}: ${adminEmail}, name: ${adminName}`);
 
-      // ── Step 3: DB mein save karo future calls ke liye ──
       if (adminEmail) {
         try {
           await prisma.shopSettings.upsert({
@@ -125,7 +98,6 @@ async function getAdminInfo(shop) {
             update: { adminEmail, adminName },
             create: { shop, adminEmail, adminName },
           });
-          console.log(`[Email] Admin info saved to DB for ${shop}`);
         } catch (e) {
           console.warn("[Email] DB save error (non-blocking):", e.message);
         }
@@ -135,7 +107,6 @@ async function getAdminInfo(shop) {
     console.warn("[Email] Shopify API fetch error:", e.message);
   }
 
-  // ── Fallback: env variable ─────────────────────────────
   if (!adminEmail) {
     adminEmail = process.env.ADMIN_EMAIL || null;
     console.warn(`[Email] Using fallback env email for ${shop}: ${adminEmail}`);
@@ -197,9 +168,12 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;border-radius:10px;margin-bottom:24px;">
             <tr>
               <td style="padding:16px 20px;">
-                <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Customer</div>
+                <!-- ✅ FIX: "Customer" label ki jagah actual naam -->
+                <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">From</div>
                 <div style="font-size:17px;font-weight:700;color:#1e293b;">${customerName}</div>
-                ${customerEmail ? `<div style="font-size:13px;color:#6366f1;margin-top:2px;">${customerEmail}</div>` : ""}
+                ${customerEmail && customerEmail !== "customer@email.com"
+                  ? `<div style="font-size:13px;color:#6366f1;margin-top:2px;">${customerEmail}</div>`
+                  : ""}
                 <div style="font-size:12px;color:#aaa;margin-top:4px;">${shop}</div>
               </td>
             </tr>
@@ -215,7 +189,7 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
           <div style="text-align:center;margin-top:32px;">
             <a href="${shopUrl}"
                style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;padding:16px 40px;border-radius:10px;font-weight:700;font-size:16px;">
-              💬 Reply Now
+              💬 Reply to ${customerName}
             </a>
           </div>
 
@@ -226,7 +200,8 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
         <td style="background:#f8f9fa;padding:20px 40px;border-top:1px solid #eee;text-align:center;">
           <p style="margin:0;font-size:12px;color:#aaa;">
             Automated alert from <strong>Talksy</strong> — Shopify Live Chat<br>
-            Customer message was unseen for ${delayLabel}.
+            <!-- ✅ FIX: "Customer" ki jagah actual naam -->
+            ${customerName}'s message was unseen for ${delayLabel}.
           </p>
         </td>
       </tr>
@@ -238,7 +213,6 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
 </html>`;
 }
 
-// ── Core: check unseen and send email ─────────────────────
 async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delayMs }) {
   try {
     const session = await prisma.chatSession.findUnique({
@@ -260,10 +234,13 @@ async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delay
     if (session.isResolved)        { console.log(`[Email] Session resolved — skip`); return; }
     if (!session.messages?.length) { console.log(`[Email] All messages seen — no email ✅`); return; }
 
-    const customerName = [session.firstName, session.lastName].filter(Boolean).join(" ") || "Customer";
-    const shopDomain   = shop.replace(".myshopify.com", "");
-    const shopUrl      = `https://admin.shopify.com/store/${shopDomain}/apps/talksy`;
-    const textLines    = session.messages.map(m => m.fileUrl ? "📷 [Image]" : m.message).join("\n");
+    // ✅ FIX: email bhi check karo — "customer@email.com" default ko hide karo
+    const customerName  = [session.firstName, session.lastName].filter(Boolean).join(" ") || "Customer";
+    const customerEmail = (session.email && session.email !== "customer@email.com") ? session.email : null;
+
+    const shopDomain = shop.replace(".myshopify.com", "");
+    const shopUrl    = `https://admin.shopify.com/store/${shopDomain}/apps/talksy`;
+    const textLines  = session.messages.map(m => m.fileUrl ? "📷 [Image]" : m.message).join("\n");
 
     const delayMin   = Math.round(delayMs / 60000);
     const delayLabel = delayMin >= 60
@@ -273,8 +250,9 @@ async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delay
     await sendViaZepto({
       to     : adminEmail,
       toName : adminName,
+      // ✅ FIX: subject mein bhi naam
       subject: `💬 Hi ${adminName}, ${customerName} is waiting — ${session.messages.length} unread message${session.messages.length > 1 ? "s" : ""}`,
-      html   : buildEmailHtml({ adminName, customerName, customerEmail: session.email, messages: session.messages, shop, shopUrl, delayLabel }),
+      html   : buildEmailHtml({ adminName, customerName, customerEmail, messages: session.messages, shop, shopUrl, delayLabel }),
       text   : `Hi ${adminName},\n\n${customerName} sent a message ${delayLabel} ago with no reply:\n\n${textLines}\n\nReply: ${shopUrl}`,
     });
 
@@ -283,7 +261,6 @@ async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delay
   }
 }
 
-// ── Action ─────────────────────────────────────────────────
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -296,11 +273,8 @@ export const action = async ({ request }) => {
       return json({ success: false, error: "shop and sessionId required" }, { status: 400, headers: corsHeaders });
     }
 
-    const resolvedDelay = (typeof delayMs === "number" && delayMs > 0)
-      ? delayMs
-      : 30 * 60 * 1000;
+    const resolvedDelay = (typeof delayMs === "number" && delayMs > 0) ? delayMs : 30 * 60 * 1000;
 
-    // ✅ Dynamic admin email fetch
     const { adminEmail, adminName } = await getAdminInfo(shop);
 
     if (!adminEmail) {
@@ -308,7 +282,6 @@ export const action = async ({ request }) => {
       return json({ success: false, error: "No admin email found" }, { headers: corsHeaders });
     }
 
-    // Debounce — reset timer on rapid messages
     if (emailTimers.has(sessionId)) clearTimeout(emailTimers.get(sessionId));
 
     const delayMin = Math.round(resolvedDelay / 60000);
