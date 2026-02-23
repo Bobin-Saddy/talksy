@@ -1,16 +1,27 @@
-// ═══════════════════════════════════════════════════════════
-//  FILE: public/firebase-messaging-sw.js
+// ============================================================
+// firebase-messaging-sw.js — v8 — MAC IFRAME FIX
+// LOCATION: /public/firebase-messaging-sw.js
 //
-//  FIXES:
-//  1. Always shows OS notification even when app is in foreground
-//     (Chrome/Mac suppresses FCM default notification when focused)
-//  2. Immediately claims all clients so postMessage works on
-//     every page, not just the chat page
-//  3. Correctly reads imageUrl from data payload
-// ═══════════════════════════════════════════════════════════
+// ROOT CAUSE OF MAC BUG:
+// Shopify embeds the admin app in an <iframe>. On Mac+Chrome,
+// SW registered inside an iframe context has its
+// showNotification() calls silently dropped by the OS — the
+// SW executes fine but no OS notification appears.
+//
+// THE FIX:
+// Do NOT call showNotification() in the push event handler.
+// Instead, let FCM show the OS notification automatically
+// from the webpush.notification block in the FCM payload
+// (already set correctly in app.push.send.jsx). That path
+// goes through Chrome's browser-level notification system,
+// NOT through our iframe-registered SW context, so it works.
+//
+// We ONLY use the push event to postMessage open windows
+// for the in-app toast. That's it.
+// ============================================================
 
-importScripts("https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js");
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
 firebase.initializeApp({
   apiKey           : "AIzaSyDOVZ95b_MZ7Ba5TVvpluX2Jz5h-7FXNNA",
@@ -23,117 +34,109 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// ── Activate SW immediately, claim all open tabs/iframes ──
-self.addEventListener("install",  () => self.skipWaiting());
-self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
+// ── Activate immediately — replace old SW without page reload ─
+self.addEventListener("install", (e) => {
+  console.log("[SW v8] install");
+  e.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener("activate", (e) => {
+  console.log("[SW v8] activate — claiming clients");
+  e.waitUntil(clients.claim());
+});
+
+// ── postMessage all open windows for in-app toast ──────────
+function pingClients(title, body, imageUrl, sessionId, shopUrl) {
+  return clients
+    .matchAll({ type: "window", includeUncontrolled: true })
+    .then((list) => {
+      console.log(`[SW v8] pinging ${list.length} client(s) for in-app toast`);
+      list.forEach((c) =>
+        c.postMessage({
+          type    : "TALKSY_PUSH",
+          title,
+          body,
+          imageUrl: imageUrl || null,
+          sessionId,
+          shopUrl,
+        })
+      );
+    });
+}
 
 // ══════════════════════════════════════════════════════════
-//  CORE FIX: Handle raw push event BEFORE Firebase does.
+//  PUSH EVENT — ONLY postMessages clients for in-app toast.
 //
-//  Why: Firebase messaging SDK suppresses showNotification()
-//  when the app window is focused (foreground). On Mac, this
-//  means no OS notification when admin is on any app page.
+//  ❌ DO NOT call showNotification() here.
 //
-//  Solution: Intercept the push event ourselves, ALWAYS show
-//  the OS notification, then also postMessage all clients
-//  so the in-app toast fires too.
+//  REASON: On Mac+Chrome, Shopify loads your admin app
+//  inside an <iframe>. Service Workers registered in an
+//  iframe origin can EXECUTE but their showNotification()
+//  calls are silently blocked by macOS/Chrome at the OS
+//  level — you see the SW log but no notification appears.
+//
+//  FCM's webpush.notification payload (set in push.send.jsx)
+//  is handled by Chrome's OWN notification system BEFORE
+//  the SW push event fires. That path is NOT affected by
+//  the iframe restriction and shows the OS notification
+//  correctly on Mac.
+//
+//  If you add showNotification() back:
+//  ✅ Mac: still broken (iframe block)
+//  ❌ Android/Windows: DUPLICATE notifications
 // ══════════════════════════════════════════════════════════
 self.addEventListener("push", (event) => {
-  if (!event.data) return;
+  console.log("[SW v8] push received");
 
-  let d = {};
-  try { d = event.data.json(); } catch (_) { return; }
+  let data = {};
+  try { data = event.data?.json() || {}; } catch (_) {}
 
-  // FCM wraps payload under notification + data keys
-  const notif     = d.notification     || {};
-  const data      = d.data             || {};
-  // Also handle when Firebase puts it under webpush.notification
-  const webpushN  = (d.webpush || {}).notification || {};
+  const n         = data.notification || {};
+  const d         = data.data         || {};
+  const title     = n.title           || "💬 New Message — Talksy";
+  const body      = n.body            || "A customer sent a message";
+  const sessionId = d.sessionId       || null;
+  const shopUrl   = d.shopUrl         || "/";
+  const imageUrl  = d.imageUrl        || d.fileUrl || n.image || null;
 
-  const title     = notif.title     || webpushN.title     || data.title     || "💬 New Message";
-  const body      = notif.body      || webpushN.body      || data.body      || "Customer sent a message";
-  const shopUrl   = data.shopUrl    || webpushN.link      || "/";
-  const sessionId = data.sessionId  || "";
-  const tag       = data.tag        || notif.tag          || webpushN.tag   || "talksy-push";
+  // ONLY postMessage for the in-app toast overlay.
+  // FCM automatically shows the OS notification from the
+  // webpush.notification block — we don't need to do it.
+  event.waitUntil(pingClients(title, body, imageUrl, sessionId, shopUrl));
+});
 
-  // ✅ Image: check all 3 locations (see app.push.send.jsx comment)
-  const rawImage  = data.imageUrl   || notif.image        || webpushN.image || data.fileUrl || null;
-  const imageUrl  = (rawImage && rawImage.startsWith("https://")) ? rawImage : null;
-
-  const ICON = "https://cdn.shopify.com/app-store/listing_images/177dd497355fe743fa747f74896d9015/icon/CJmW96zmq5IDEAE=.png";
-
-  const notifOptions = {
-    body,
-    icon              : ICON,
-    badge             : ICON,
-    tag,
-    renotify          : true,
-    requireInteraction: true,
-    data              : { shopUrl, sessionId, tag },
-    actions: [
-      { action: "open",    title: "Open Chat" },
-      { action: "dismiss", title: "Dismiss"   },
-    ],
-    // ✅ Image shown in OS notification
-    ...(imageUrl ? { image: imageUrl } : {}),
-  };
-
-  event.waitUntil(
-    Promise.all([
-      // ── 1. ALWAYS show OS notification (even if app is focused) ──
-      // This is the key fix — we don't check if clients are focused.
-      self.registration.showNotification(title, notifOptions),
-
-      // ── 2. postMessage ALL clients (every open page/iframe) ──
-      // This drives the in-app toast in app.jsx on whichever page
-      // the admin currently has open.
-      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({
-            type    : "TALKSY_PUSH",
-            title,
-            body,
-            imageUrl: imageUrl || null,
-            shopUrl,
-            sessionId,
-          });
-        });
-      }),
-    ])
-  );
+// ══════════════════════════════════════════════════════════
+//  BACKGROUND MESSAGE — fires when app is fully closed.
+//  Firebase auto-shows OS notification from payload here.
+//  We just log — do NOT call showNotification().
+// ══════════════════════════════════════════════════════════
+messaging.onBackgroundMessage((payload) => {
+  console.log("[SW v8] onBackgroundMessage:", payload?.notification?.title);
+  // Firebase handles OS notification display automatically.
 });
 
 // ── Notification click ─────────────────────────────────────
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-
   if (event.action === "dismiss") return;
 
   const shopUrl   = event.notification.data?.shopUrl || "/";
   const sessionId = event.notification.data?.sessionId;
-  const targetUrl = sessionId ? `${shopUrl}?session=${sessionId}` : shopUrl;
 
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      // Focus existing window if open
-      for (const client of clients) {
-        if (client.url.includes(shopUrl) && "focus" in client) {
-          client.focus();
-          client.postMessage({ type: "TALKSY_OPEN_SESSION", sessionId });
-          return;
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((list) => {
+        for (const c of list) {
+          if (c.url.includes(self.location.origin) && "focus" in c) {
+            c.focus();
+            if (sessionId) {
+              c.postMessage({ type: "TALKSY_OPEN_SESSION", sessionId });
+            }
+            return;
+          }
         }
-      }
-      // Otherwise open new window
-      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
-    })
+        if (clients.openWindow) return clients.openWindow(shopUrl);
+      })
   );
-});
-
-// ── Background message handler (Firebase default) ─────────
-// Only fires for messages when NO push event listener above
-// catches it — kept as fallback but our push handler above
-// takes priority.
-messaging.onBackgroundMessage((payload) => {
-  // Already handled above — this is a safety net only.
-  console.log("[SW] onBackgroundMessage (fallback):", payload);
 });
