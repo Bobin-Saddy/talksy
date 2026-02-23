@@ -50,7 +50,7 @@ const PLANS = {
     name    : "Standard",
     price   : 9.49,
     interval: "month",
-    trialDays: 14,
+    trialDays: 7,
     badge   : "Popular",
     features: [
       { text: "500 chat sessions included",                included: true  },
@@ -76,7 +76,7 @@ const PLANS = {
     name    : "Premium",
     price   : 24.99,
     interval: "month",
-    trialDays: 14,
+    trialDays: 7,
     badge   : "Best Value",
     features: [
       { text: "Unlimited chat sessions",                   included: true  },
