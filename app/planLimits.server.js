@@ -4,8 +4,8 @@ import prisma from "./db.server";
 // Plan definitions with production chat retention periods
 export const PLAN_LIMITS = {
   FREE: {
-    maxChats: 100,
-    maxSearchUsers: 100,
+    maxChats: 2,
+    maxSearchUsers: 2,
     chatHistoryDays: 30, // ✅ 30 days for production
     canManageFAQs: false,
     canCustomizeWidget: false,
@@ -13,13 +13,13 @@ export const PLAN_LIMITS = {
     maxVisibleSearchLogs: -1, // ✅ FREE: no search blur restriction
   },
   STANDARD: {
-    maxChats: 500,
-    maxSearchUsers: 500, // ✅ 500 users for Standard
+    maxChats: 3,
+    maxSearchUsers: 3, // ✅ 500 users for Standard
     chatHistoryDays: 180, // ✅ 6 months (180 days)
     canManageFAQs: true,
     canCustomizeWidget: true,
     canCreateCustomFAQPage: false,
-    maxVisibleSearchLogs: 500, // ✅ STANDARD: 500 search users visible
+    maxVisibleSearchLogs: 3, // ✅ STANDARD: 500 search users visible
   },
   PREMIUM: {
     maxChats: -1, // Unlimited
