@@ -1,18 +1,16 @@
-// ============================================================
-// firebase-messaging-sw.js — v7 — FORCE CACHE BUST
-// LOCATION: /public/firebase-messaging-sw.js
+// ═══════════════════════════════════════════════════════════
+//  FILE: public/firebase-messaging-sw.js
 //
-// CRITICAL: After uploading this file, you MUST force the
-// browser to load the new SW. Old cached SW won't read
-// data.imageUrl and will show no image in notification.
-//
-// HOW TO FORCE UPDATE (do this once after deploy):
-// Chrome DevTools → Application → Service Workers
-// → Click "Update" → Then refresh the page
-// ============================================================
+//  FIXES:
+//  1. Always shows OS notification even when app is in foreground
+//     (Chrome/Mac suppresses FCM default notification when focused)
+//  2. Immediately claims all clients so postMessage works on
+//     every page, not just the chat page
+//  3. Correctly reads imageUrl from data payload
+// ═══════════════════════════════════════════════════════════
 
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+importScripts("https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js");
 
 firebase.initializeApp({
   apiKey           : "AIzaSyDOVZ95b_MZ7Ba5TVvpluX2Jz5h-7FXNNA",
@@ -22,101 +20,85 @@ firebase.initializeApp({
   messagingSenderId: "19294207700",
   appId            : "1:19294207700:web:b4cd33123321f8eb784541",
 });
-// Required for token generation — but we do NOT use onBackgroundMessage
-// (it causes duplicate/different-styled notifications)
+
 const messaging = firebase.messaging();
 
-const TALKSY_ICON = "https://cdn.shopify.com/app-store/listing_images/177dd497355fe743fa747f74896d9015/icon/CJmW96zmq5IDEAE=.png";
-
-// ── Activate immediately — replace old SW without page reload ─
-self.addEventListener("install", (e) => {
-  console.log("[SW v7] install");
-  e.waitUntil(self.skipWaiting());
-});
-
-self.addEventListener("activate", (e) => {
-  console.log("[SW v7] activate — claiming clients");
-  e.waitUntil(clients.claim());
-});
-
-// ── Image resolver ─────────────────────────────────────────
-function resolveImage(rawImage, isImageMsg) {
-  // Only HTTPS URLs work — Chrome silently ignores data: URLs
-  if (rawImage && rawImage.startsWith("https://")) return rawImage;
-  // Image message but no valid URL → use Talksy icon as placeholder
-  if (isImageMsg) return TALKSY_ICON;
-  return null;
-}
-
-// ── Show OS notification ───────────────────────────────────
-function showNotif(title, body, rawImage, sessionId, shopUrl) {
-  const isImageMsg = !!(rawImage) || body.includes("📷");
-  const image = resolveImage(rawImage, isImageMsg);
-
-  console.log("[SW v7] showNotif — image:", image || "none");
-
-  return self.registration.showNotification(title, {
-    body,
-    icon             : TALKSY_ICON,
-    badge            : TALKSY_ICON,
-    image            : image || undefined,
-    tag              : "talksy-" + (sessionId || Date.now()),
-    renotify         : true,
-    requireInteraction: true,
-    vibrate          : [200, 100, 200],
-    data             : { shopUrl, sessionId, rawImage },
-    actions          : [
-      { action: "open",    title: "💬 Open Chat" },
-      { action: "dismiss", title: "Dismiss"      },
-    ],
-  });
-}
-
-// ── postMessage open app windows for in-app toast ──────────
-function pingClients(title, body, imageUrl, sessionId, shopUrl) {
-  return clients
-    .matchAll({ type: "window", includeUncontrolled: true })
-    .then((list) => list.forEach((c) =>
-      c.postMessage({ type: "TALKSY_PUSH", title, body, imageUrl, sessionId, shopUrl })
-    ));
-}
+// ── Activate SW immediately, claim all open tabs/iframes ──
+self.addEventListener("install",  () => self.skipWaiting());
+self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 
 // ══════════════════════════════════════════════════════════
-//  RAW PUSH EVENT — only handler, no onBackgroundMessage
+//  CORE FIX: Handle raw push event BEFORE Firebase does.
 //
-//  Reads image from ALL possible locations in the payload:
-//  - data.imageUrl  ← set by app.push.send.jsx ✅
-//  - data.fileUrl   ← fallback
-//  - notification.image ← FCM notification image field
+//  Why: Firebase messaging SDK suppresses showNotification()
+//  when the app window is focused (foreground). On Mac, this
+//  means no OS notification when admin is on any app page.
+//
+//  Solution: Intercept the push event ourselves, ALWAYS show
+//  the OS notification, then also postMessage all clients
+//  so the in-app toast fires too.
 // ══════════════════════════════════════════════════════════
 self.addEventListener("push", (event) => {
-  console.log("[SW v7] push received");
+  if (!event.data) return;
 
-  let data = {};
-  try {
-    data = event.data?.json() || {};
-  } catch (_) {
-    console.warn("[SW v7] Failed to parse push data");
-  }
+  let d = {};
+  try { d = event.data.json(); } catch (_) { return; }
 
-  const n = data.notification || {};
-  const d = data.data         || {};
+  // FCM wraps payload under notification + data keys
+  const notif     = d.notification     || {};
+  const data      = d.data             || {};
+  // Also handle when Firebase puts it under webpush.notification
+  const webpushN  = (d.webpush || {}).notification || {};
 
-  const title     = n.title     || "💬 New Message — Talksy";
-  const body      = n.body      || "A customer sent a message";
-  const sessionId = d.sessionId || null;
-  const shopUrl   = d.shopUrl   || "/";
+  const title     = notif.title     || webpushN.title     || data.title     || "💬 New Message";
+  const body      = notif.body      || webpushN.body      || data.body      || "Customer sent a message";
+  const shopUrl   = data.shopUrl    || webpushN.link      || "/";
+  const sessionId = data.sessionId  || "";
+  const tag       = data.tag        || notif.tag          || webpushN.tag   || "talksy-push";
 
-  // ✅ Read image from data fields (set by push.send.jsx)
-  // data.imageUrl is the HTTPS URL from our upload route
-  const rawImage = d.imageUrl || d.fileUrl || n.image || null;
+  // ✅ Image: check all 3 locations (see app.push.send.jsx comment)
+  const rawImage  = data.imageUrl   || notif.image        || webpushN.image || data.fileUrl || null;
+  const imageUrl  = (rawImage && rawImage.startsWith("https://")) ? rawImage : null;
 
-  console.log("[SW v7] payload imageUrl:", d.imageUrl, "| fileUrl:", d.fileUrl);
+  const ICON = "https://cdn.shopify.com/app-store/listing_images/177dd497355fe743fa747f74896d9015/icon/CJmW96zmq5IDEAE=.png";
+
+  const notifOptions = {
+    body,
+    icon              : ICON,
+    badge             : ICON,
+    tag,
+    renotify          : true,
+    requireInteraction: true,
+    data              : { shopUrl, sessionId, tag },
+    actions: [
+      { action: "open",    title: "Open Chat" },
+      { action: "dismiss", title: "Dismiss"   },
+    ],
+    // ✅ Image shown in OS notification
+    ...(imageUrl ? { image: imageUrl } : {}),
+  };
 
   event.waitUntil(
     Promise.all([
-      showNotif(title, body, rawImage, sessionId, shopUrl),
-      pingClients(title, body, rawImage, sessionId, shopUrl),
+      // ── 1. ALWAYS show OS notification (even if app is focused) ──
+      // This is the key fix — we don't check if clients are focused.
+      self.registration.showNotification(title, notifOptions),
+
+      // ── 2. postMessage ALL clients (every open page/iframe) ──
+      // This drives the in-app toast in app.jsx on whichever page
+      // the admin currently has open.
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type    : "TALKSY_PUSH",
+            title,
+            body,
+            imageUrl: imageUrl || null,
+            shopUrl,
+            sessionId,
+          });
+        });
+      }),
     ])
   );
 });
@@ -124,18 +106,34 @@ self.addEventListener("push", (event) => {
 // ── Notification click ─────────────────────────────────────
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+
   if (event.action === "dismiss") return;
 
-  const shopUrl = event.notification.data?.shopUrl || "/";
+  const shopUrl   = event.notification.data?.shopUrl || "/";
+  const sessionId = event.notification.data?.sessionId;
+  const targetUrl = sessionId ? `${shopUrl}?session=${sessionId}` : shopUrl;
 
   event.waitUntil(
-    clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((list) => {
-        for (const c of list) {
-          if (c.url.includes(self.location.origin) && "focus" in c) return c.focus();
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      // Focus existing window if open
+      for (const client of clients) {
+        if (client.url.includes(shopUrl) && "focus" in client) {
+          client.focus();
+          client.postMessage({ type: "TALKSY_OPEN_SESSION", sessionId });
+          return;
         }
-        if (clients.openWindow) return clients.openWindow(shopUrl);
-      })
+      }
+      // Otherwise open new window
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+    })
   );
+});
+
+// ── Background message handler (Firebase default) ─────────
+// Only fires for messages when NO push event listener above
+// catches it — kept as fallback but our push handler above
+// takes priority.
+messaging.onBackgroundMessage((payload) => {
+  // Already handled above — this is a safety net only.
+  console.log("[SW] onBackgroundMessage (fallback):", payload);
 });

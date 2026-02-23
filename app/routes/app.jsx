@@ -13,6 +13,11 @@
 //  3. SW "push" event always fires and shows OS notification
 //  4. SW postMessages open clients → in-app toast shown
 //  5. No dependency on which page admin is on
+//
+//  MAC FIX (push not working when on another page):
+//  6. SW message listener added BEFORE SW registration (no race)
+//  7. SW always calls showNotification() — bypasses Chrome's
+//     foreground suppression on Mac
 // ═══════════════════════════════════════════════════════════
 import { Outlet, useLoaderData, useRouteError, useLocation, useNavigate, useRevalidator } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -28,13 +33,13 @@ import { initializeApp, getApps } from "firebase/app";
 import { getMessaging, getToken } from "firebase/messaging";
 
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDOVZ95b_MZ7Ba5TVvpluX2Jz5h-7FXNNA",
-  authDomain: "talksy-b24e4.firebaseapp.com",
-  projectId: "talksy-b24e4",
-  storageBucket: "talksy-b24e4.firebasestorage.app",
+  apiKey           : "AIzaSyDOVZ95b_MZ7Ba5TVvpluX2Jz5h-7FXNNA",
+  authDomain       : "talksy-b24e4.firebaseapp.com",
+  projectId        : "talksy-b24e4",
+  storageBucket    : "talksy-b24e4.firebasestorage.app",
   messagingSenderId: "19294207700",
-  appId: "1:19294207700:web:b4cd33123321f8eb784541",
-  measurementId: "G-Q7BYVQGTEP"
+  appId            : "1:19294207700:web:b4cd33123321f8eb784541",
+  measurementId    : "G-Q7BYVQGTEP",
 };
 const FIREBASE_VAPID_KEY = "BByGfcXLNVQBVZdVUvPgsdK3lP6Avvw6FD_OcTauED_QyCUfqjyqvGDTxdgNhuh8YffyTdWuoQBFDnmiPfRHAU8";
 
@@ -103,7 +108,7 @@ function GlobalToast({ toasts, onDismiss }) {
       position     : "fixed",
       bottom       : "32px",
       right        : "32px",
-      zIndex       : 2147483647, // max possible — always on top
+      zIndex       : 2147483647,
       display      : "flex",
       flexDirection: "column-reverse",
       gap          : "10px",
@@ -155,8 +160,8 @@ export default function App() {
   const revalidator = useRevalidator();
 
   const [globalToasts, setGlobalToasts] = useState([]);
-  const audioRef        = useRef(null);
-  const tokenSavedRef   = useRef(false); // prevent duplicate saves
+  const audioRef      = useRef(null);
+  const tokenSavedRef = useRef(false);
 
   const pushGlobalToast = (title, body, imageUrl = null) => {
     const id = Date.now() + Math.random();
@@ -169,8 +174,15 @@ export default function App() {
 
   // ════════════════════════════════════════════════════════
   //  FCM SETUP — runs on every page load in the root layout
-  //  Registers SW + saves token to DB so push is always
-  //  deliverable regardless of which page admin is on.
+  //
+  //  MAC FIX: SW message listener is added FIRST before the
+  //  async SW registration call, eliminating the race condition
+  //  where a push arrives during registration and is missed.
+  //
+  //  The actual OS notification is now always shown by the SW
+  //  itself (see firebase-messaging-sw.js) — it calls
+  //  showNotification() unconditionally, bypassing Chrome's
+  //  foreground suppression on Mac.
   // ════════════════════════════════════════════════════════
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -179,13 +191,27 @@ export default function App() {
 
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
 
-    // ── Step 1: Register SW immediately (even before permission check)
-    // SW must be registered so it can receive background pushes.
-    // Token registration only happens after permission is granted.
+    // ── STEP 1: Add SW message listener FIRST (eliminates race condition) ──
+    // Registered before SW setup so we never miss a push that arrives
+    // during the async registration window.
+    function onSwMessage(event) {
+      if (!event.data || event.data.type !== "TALKSY_PUSH") return;
+      console.log("[FCM] SW message received:", event.data);
+      if (audioRef.current) audioRef.current.play().catch(() => {});
+      pushGlobalToast(
+        event.data.title    || "💬 New Message",
+        event.data.body     || "Customer sent a message",
+        event.data.imageUrl || null,
+      );
+    }
+
+    navigator.serviceWorker.addEventListener("message", onSwMessage);
+
+    // ── STEP 2: Register SW ────────────────────────────────
     async function registerSW() {
       try {
         const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
-        // skipWaiting is handled in the SW itself
+        // skipWaiting + clients.claim handled inside the SW itself
         await navigator.serviceWorker.ready;
         console.log("[FCM] SW registered and ready");
         return swReg;
@@ -195,7 +221,7 @@ export default function App() {
       }
     }
 
-    // ── Step 2: Save token to DB (only if permission granted)
+    // ── STEP 3: Save FCM token to DB ───────────────────────
     async function saveToken(swReg) {
       if (Notification.permission !== "granted") return;
       if (tokenSavedRef.current) return;
@@ -209,7 +235,7 @@ export default function App() {
           serviceWorkerRegistration: swReg,
         });
 
-        if (!token) { console.warn("[FCM] No token"); return; }
+        if (!token) { console.warn("[FCM] No token returned"); return; }
 
         const res = await fetch(`${BACKEND_URL}/app/admin/register-fcm-token`, {
           method : "POST",
@@ -230,27 +256,12 @@ export default function App() {
       }
     }
 
-    // ── Step 3: Listen for SW → page postMessages (in-app toast)
-    // SW sends TALKSY_PUSH on every push received.
-    // This works inside Shopify iframe on any page.
-    function onSwMessage(event) {
-      if (!event.data || event.data.type !== "TALKSY_PUSH") return;
-      console.log("[FCM] SW message received:", event.data);
-      if (audioRef.current) audioRef.current.play().catch(() => {});
-      pushGlobalToast(
-        event.data.title || "💬 New Message",
-        event.data.body  || "Customer sent a message",
-        event.data.imageUrl || null,
-      );
-    }
-
-    // ── Step 4: Listen for permission-granted event from chat admin page
+    // ── STEP 4: Re-register token when permission granted ──
     function onPermissionGranted() {
       tokenSavedRef.current = false; // reset so token is re-saved
       registerSW().then(swReg => { if (swReg) saveToken(swReg); });
     }
 
-    navigator.serviceWorker.addEventListener("message", onSwMessage);
     window.addEventListener("talksy:permission-granted", onPermissionGranted);
 
     // Run setup
