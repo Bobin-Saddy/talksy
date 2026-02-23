@@ -19,7 +19,7 @@ import { CheckIcon, XIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
-const TEST_MODE = true; // ⚠️ CHANGE TO false FOR PRODUCTION OK
+const TEST_MODE = true; // ⚠️ CHANGE TO false FOR PRODUCTION O
 
 // ✅ Updated plan features based on all implemented modules
 const PLANS = {
