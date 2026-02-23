@@ -1,13 +1,15 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.email.unseen.jsx
 //
-//  FIX: Email mein "Customer" hardcoded label ki jagah
-//  ab customer ka actual naam dikhega
+//  FIX 1: customerName — email se naam nikalo agar
+//          firstName/lastName nahi hai
+//  FIX 2: Chat history retention functions wapas add kiye
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { unauthenticated } from "../shopify.server";
+import { markExpiredChatsAsBlurred, deleteExpiredChats } from "../planLimits.server";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin" : "*",
@@ -18,6 +20,9 @@ const corsHeaders = {
 export const loader = () => json({}, { headers: corsHeaders });
 
 const emailTimers = new Map();
+
+// ── In-memory admin email cache ────────────────────────────
+const adminEmailCache = new Map();
 
 async function sendViaZepto({ to, toName, subject, html, text }) {
   const apiKey   = process.env.ZEPTO_API_KEY;
@@ -50,69 +55,107 @@ async function sendViaZepto({ to, toName, subject, html, text }) {
   return true;
 }
 
+// ══════════════════════════════════════════════════════════
+//  GET ADMIN INFO
+//  Priority: in-memory cache → Shopify Session REST → GraphQL → env
+// ══════════════════════════════════════════════════════════
 async function getAdminInfo(shop) {
+  if (adminEmailCache.has(shop)) {
+    return adminEmailCache.get(shop);
+  }
+
   let adminEmail = null;
   let adminName  = "Admin";
 
+  // Step 1: Shopify Session table se offline token → REST API
   try {
-    const settings = await prisma.shopSettings.findUnique({
-      where : { shop },
-      select: { adminEmail: true, adminName: true, shopName: true },
+    const session = await prisma.session.findFirst({
+      where  : { shop, isOnline: false },
+      select : { accessToken: true },
+      orderBy: { id: "desc" },
     });
-    if (settings?.adminEmail) {
-      adminEmail = settings.adminEmail;
-      adminName  = settings.adminName || settings.shopName || "Admin";
-      console.log(`[Email] Using DB email for ${shop}: ${adminEmail}`);
-      return { adminEmail, adminName };
-    }
-  } catch (e) {
-    console.warn("[Email] DB settings read error:", e.message);
-  }
 
-  try {
-    const { admin } = await unauthenticated.admin(shop);
-    const response  = await admin.graphql(`
-      query {
-        shop {
-          name
-          email
-          contactEmail
-          billingAddress { firstName lastName }
-        }
-      }
-    `);
-    const data     = await response.json();
-    const shopData = data?.data?.shop;
+    if (session?.accessToken) {
+      const res = await fetch(`https://${shop}/admin/api/2024-01/shop.json`, {
+        headers: {
+          "X-Shopify-Access-Token": session.accessToken,
+          "Content-Type"          : "application/json",
+        },
+      });
 
-    if (shopData) {
-      adminEmail = shopData.contactEmail || shopData.email || null;
-      const fn   = shopData.billingAddress?.firstName || "";
-      const ln   = shopData.billingAddress?.lastName  || "";
-      adminName  = [fn, ln].filter(Boolean).join(" ") || shopData.name || "Admin";
-      console.log(`[Email] Shopify API email for ${shop}: ${adminEmail}, name: ${adminName}`);
-
-      if (adminEmail) {
-        try {
-          await prisma.shopSettings.upsert({
-            where : { shop },
-            update: { adminEmail, adminName },
-            create: { shop, adminEmail, adminName },
-          });
-        } catch (e) {
-          console.warn("[Email] DB save error (non-blocking):", e.message);
+      if (res.ok) {
+        const data     = await res.json();
+        const shopData = data?.shop;
+        if (shopData) {
+          adminEmail = shopData.customer_email || shopData.email || null;
+          adminName  = shopData.shop_owner     || shopData.name  || "Admin";
+          console.log(`[Email] REST API → ${shop}: ${adminEmail}`);
         }
       }
     }
   } catch (e) {
-    console.warn("[Email] Shopify API fetch error:", e.message);
+    console.warn("[Email] REST fetch error:", e.message);
   }
 
+  // Step 2: unauthenticated.admin GraphQL fallback
+  if (!adminEmail) {
+    try {
+      const { admin } = await unauthenticated.admin(shop);
+      const response  = await admin.graphql(`
+        query { shop { name email contactEmail billingAddress { firstName lastName } } }
+      `);
+      const data     = await response.json();
+      const shopData = data?.data?.shop;
+      if (shopData) {
+        adminEmail = shopData.contactEmail || shopData.email || null;
+        const fn   = shopData.billingAddress?.firstName || "";
+        const ln   = shopData.billingAddress?.lastName  || "";
+        adminName  = [fn, ln].filter(Boolean).join(" ") || shopData.name || "Admin";
+        console.log(`[Email] GraphQL fallback → ${shop}: ${adminEmail}`);
+      }
+    } catch (e) {
+      console.warn("[Email] GraphQL error:", e.message);
+    }
+  }
+
+  // Step 3: env fallback
   if (!adminEmail) {
     adminEmail = process.env.ADMIN_EMAIL || null;
-    console.warn(`[Email] Using fallback env email for ${shop}: ${adminEmail}`);
+  }
+
+  if (adminEmail) {
+    adminEmailCache.set(shop, { adminEmail, adminName });
+    setTimeout(() => adminEmailCache.delete(shop), 60 * 60 * 1000); // 1hr cache
   }
 
   return { adminEmail, adminName };
+}
+
+// ══════════════════════════════════════════════════════════
+//  CUSTOMER NAME RESOLVER
+//  firstName/lastName → email prefix → "Visitor"
+//  "Customer" kabhi nahi aayega
+// ══════════════════════════════════════════════════════════
+function resolveCustomerName(firstName, lastName, email) {
+  // 1. firstName + lastName available hai
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  if (fullName) return fullName;
+
+  // 2. Email se naam nikalo (part before @)
+  // e.g. kartik.sharma@gmail.com → Kartik Sharma
+  // e.g. john123@gmail.com → John123
+  if (email && email !== "customer@email.com" && email.includes("@")) {
+    const emailPrefix = email.split("@")[0];
+    // Dots aur underscores ko space se replace karo, capitalize karo
+    const nameFromEmail = emailPrefix
+      .replace(/[._]/g, " ")
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .trim();
+    if (nameFromEmail) return nameFromEmail;
+  }
+
+  // 3. Last resort
+  return "Visitor";
 }
 
 // ── Build email HTML ───────────────────────────────────────
@@ -158,7 +201,6 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
 
       <tr>
         <td style="padding:32px 40px;">
-
           <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:24px;">
             <div style="font-size:14px;color:#9a3412;">
               ⏰ <strong>${customerName}</strong> sent a message <strong>${delayLabel} ago</strong> and is still waiting for your reply.
@@ -168,12 +210,9 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;border-radius:10px;margin-bottom:24px;">
             <tr>
               <td style="padding:16px 20px;">
-                <!-- ✅ FIX: "Customer" label ki jagah actual naam -->
                 <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">From</div>
                 <div style="font-size:17px;font-weight:700;color:#1e293b;">${customerName}</div>
-                ${customerEmail && customerEmail !== "customer@email.com"
-                  ? `<div style="font-size:13px;color:#6366f1;margin-top:2px;">${customerEmail}</div>`
-                  : ""}
+                ${customerEmail ? `<div style="font-size:13px;color:#6366f1;margin-top:2px;">${customerEmail}</div>` : ""}
                 <div style="font-size:12px;color:#aaa;margin-top:4px;">${shop}</div>
               </td>
             </tr>
@@ -192,7 +231,6 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
               💬 Reply to ${customerName}
             </a>
           </div>
-
         </td>
       </tr>
 
@@ -200,7 +238,6 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
         <td style="background:#f8f9fa;padding:20px 40px;border-top:1px solid #eee;text-align:center;">
           <p style="margin:0;font-size:12px;color:#aaa;">
             Automated alert from <strong>Talksy</strong> — Shopify Live Chat<br>
-            <!-- ✅ FIX: "Customer" ki jagah actual naam -->
             ${customerName}'s message was unseen for ${delayLabel}.
           </p>
         </td>
@@ -213,6 +250,7 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
 </html>`;
 }
 
+// ── Core: check unseen and send email ─────────────────────
 async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delayMs }) {
   try {
     const session = await prisma.chatSession.findUnique({
@@ -234,8 +272,8 @@ async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delay
     if (session.isResolved)        { console.log(`[Email] Session resolved — skip`); return; }
     if (!session.messages?.length) { console.log(`[Email] All messages seen — no email ✅`); return; }
 
-    // ✅ FIX: email bhi check karo — "customer@email.com" default ko hide karo
-    const customerName  = [session.firstName, session.lastName].filter(Boolean).join(" ") || "Customer";
+    // ✅ FIX: email se naam nikalo agar firstName/lastName nahi
+    const customerName  = resolveCustomerName(session.firstName, session.lastName, session.email);
     const customerEmail = (session.email && session.email !== "customer@email.com") ? session.email : null;
 
     const shopDomain = shop.replace(".myshopify.com", "");
@@ -247,10 +285,11 @@ async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delay
       ? `${Math.round(delayMin / 60)} hour${delayMin >= 120 ? "s" : ""}`
       : `${delayMin} minute${delayMin > 1 ? "s" : ""}`;
 
+    console.log(`[Email] Sending to ${adminEmail} — customer: ${customerName}`);
+
     await sendViaZepto({
       to     : adminEmail,
       toName : adminName,
-      // ✅ FIX: subject mein bhi naam
       subject: `💬 Hi ${adminName}, ${customerName} is waiting — ${session.messages.length} unread message${session.messages.length > 1 ? "s" : ""}`,
       html   : buildEmailHtml({ adminName, customerName, customerEmail, messages: session.messages, shop, shopUrl, delayLabel }),
       text   : `Hi ${adminName},\n\n${customerName} sent a message ${delayLabel} ago with no reply:\n\n${textLines}\n\nReply: ${shopUrl}`,
@@ -261,6 +300,24 @@ async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delay
   }
 }
 
+// ══════════════════════════════════════════════════════════
+//  CHAT HISTORY CLEANUP — plan ke hisaab se expire karo
+//  Yeh function har baar email timer fire hone pe bhi
+//  run hota hai taaki expired chats blur ho jaayein
+// ══════════════════════════════════════════════════════════
+async function runChatHistoryCleanup(shop) {
+  try {
+    const blurResult   = await markExpiredChatsAsBlurred(shop);
+    const deleteResult = await deleteExpiredChats(shop, 7);
+    if (blurResult.blurred > 0 || deleteResult.deleted > 0) {
+      console.log(`[Cleanup] ${shop}: blurred=${blurResult.blurred}, deleted=${deleteResult.deleted}`);
+    }
+  } catch (e) {
+    console.warn("[Cleanup] Error (non-blocking):", e.message);
+  }
+}
+
+// ── Action ─────────────────────────────────────────────────
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -287,6 +344,8 @@ export const action = async ({ request }) => {
     const delayMin = Math.round(resolvedDelay / 60000);
     const timer = setTimeout(async () => {
       emailTimers.delete(sessionId);
+      // ✅ Chat history cleanup bhi saath mein chalao
+      await runChatHistoryCleanup(shop);
       await checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delayMs: resolvedDelay });
     }, resolvedDelay);
 

@@ -4,7 +4,7 @@ import prisma from "./db.server";
 // Plan definitions
 export const PLAN_LIMITS = {
   FREE: {
-    maxChats           : 2,
+    maxChats           : 100,
     maxSearchUsers     : 2,       // ✅ FREE: sirf 2 unique users visible
     chatHistoryDays    : 30,
     canManageFAQs      : false,
@@ -13,8 +13,8 @@ export const PLAN_LIMITS = {
     maxVisibleSearchLogs: 2,      // ✅ FIX: 2 unique users (pehle -1 tha jo galat tha)
   },
   STANDARD: {
-    maxChats           : 3,
-    maxSearchUsers     : 3,       // ✅ STANDARD: 3 unique users visible
+    maxChats           : 500,
+    maxSearchUsers     : 500,       // ✅ STANDARD: 3 unique users visible
     chatHistoryDays    : 180,
     canManageFAQs      : true,
     canCustomizeWidget : true,
