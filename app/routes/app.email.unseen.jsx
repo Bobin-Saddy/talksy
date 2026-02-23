@@ -1,17 +1,14 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.email.unseen.jsx
 //
-//  PLAN-BASED EMAIL DELAY:
-//    FREE     → 30 minutes (sent from app.chat.message)
-//    STANDARD → 5 minutes
-//    PREMIUM  → 1 minute
-//
-//  The delay is passed as `delayMs` from app.chat.message.jsx
-//  so this route doesn't need to know the plan itself.
+//  CHANGE: getAdminInfo() ab Shopify Admin API se store ka
+//  owner email dynamically fetch karta hai.
+//  DB mein adminEmail save bhi karta hai future calls ke liye.
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
+import { unauthenticated } from "../shopify.server";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin" : "*",
@@ -59,20 +56,90 @@ async function sendViaZepto({ to, toName, subject, html, text }) {
   return true;
 }
 
-// ── Get admin info from DB ─────────────────────────────────
+// ══════════════════════════════════════════════════════════
+//  GET ADMIN INFO — Dynamic Shopify API fetch
+//
+//  Priority order:
+//  1. DB mein shopSettings.adminEmail hai → use karo (fastest)
+//  2. Shopify Admin API se fetch karo → DB mein save karo
+//  3. Fallback: process.env.ADMIN_EMAIL
+// ══════════════════════════════════════════════════════════
 async function getAdminInfo(shop) {
-  let adminEmail = process.env.ADMIN_EMAIL || null;
+  let adminEmail = null;
   let adminName  = "Admin";
 
+  // ── Step 1: DB check ──────────────────────────────────
   try {
     const settings = await prisma.shopSettings.findUnique({
       where : { shop },
       select: { adminEmail: true, adminName: true, shopName: true },
     });
-    if (settings?.adminEmail) adminEmail = settings.adminEmail;
-    if (settings?.adminName)  adminName  = settings.adminName;
-    else if (settings?.shopName) adminName = settings.shopName;
-  } catch (_) {}
+    if (settings?.adminEmail) {
+      adminEmail = settings.adminEmail;
+      adminName  = settings.adminName || settings.shopName || "Admin";
+      console.log(`[Email] Using DB email for ${shop}: ${adminEmail}`);
+      return { adminEmail, adminName };
+    }
+  } catch (e) {
+    console.warn("[Email] DB settings read error:", e.message);
+  }
+
+  // ── Step 2: Shopify Admin API se fetch ────────────────
+  try {
+    const { admin } = await unauthenticated.admin(shop);
+
+    // Shop owner email + name fetch karo
+    const response = await admin.graphql(`
+      query {
+        shop {
+          name
+          email
+          contactEmail
+          billingAddress {
+            firstName
+            lastName
+          }
+        }
+      }
+    `);
+
+    const data     = await response.json();
+    const shopData = data?.data?.shop;
+
+    if (shopData) {
+      // contactEmail preferred (store admin email)
+      // email is the billing/owner email
+      adminEmail = shopData.contactEmail || shopData.email || null;
+
+      const firstName = shopData.billingAddress?.firstName || "";
+      const lastName  = shopData.billingAddress?.lastName  || "";
+      adminName = [firstName, lastName].filter(Boolean).join(" ") || shopData.name || "Admin";
+
+      console.log(`[Email] Shopify API email for ${shop}: ${adminEmail}, name: ${adminName}`);
+
+      // ── Step 3: DB mein save karo future calls ke liye ──
+      if (adminEmail) {
+        try {
+          await prisma.shopSettings.upsert({
+            where : { shop },
+            update: { adminEmail, adminName },
+            create: { shop, adminEmail, adminName },
+          });
+          console.log(`[Email] Admin info saved to DB for ${shop}`);
+        } catch (e) {
+          console.warn("[Email] DB save error (non-blocking):", e.message);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[Email] Shopify API fetch error:", e.message);
+  }
+
+  // ── Fallback: env variable ─────────────────────────────
+  if (!adminEmail) {
+    adminEmail = process.env.ADMIN_EMAIL || null;
+    console.warn(`[Email] Using fallback env email for ${shop}: ${adminEmail}`);
+  }
 
   return { adminEmail, adminName };
 }
@@ -182,7 +249,7 @@ async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delay
         lastName  : true,
         isResolved: true,
         messages  : {
-          where  : { sender: "user", seenByAdmin: false }, // ✅ only unseen
+          where  : { sender: "user", seenByAdmin: false },
           orderBy: { createdAt: "asc" },
           select : { id: true, message: true, fileUrl: true, createdAt: true },
         },
@@ -191,14 +258,13 @@ async function checkAndSendEmail({ shop, sessionId, adminEmail, adminName, delay
 
     if (!session)                  { console.log(`[Email] Session not found: ${sessionId}`); return; }
     if (session.isResolved)        { console.log(`[Email] Session resolved — skip`); return; }
-    if (!session.messages?.length) { console.log(`[Email] All messages already seen — no email sent ✅`); return; }
+    if (!session.messages?.length) { console.log(`[Email] All messages seen — no email ✅`); return; }
 
     const customerName = [session.firstName, session.lastName].filter(Boolean).join(" ") || "Customer";
     const shopDomain   = shop.replace(".myshopify.com", "");
     const shopUrl      = `https://admin.shopify.com/store/${shopDomain}/apps/talksy`;
     const textLines    = session.messages.map(m => m.fileUrl ? "📷 [Image]" : m.message).join("\n");
 
-    // Human-readable delay label for email body
     const delayMin   = Math.round(delayMs / 60000);
     const delayLabel = delayMin >= 60
       ? `${Math.round(delayMin / 60)} hour${delayMin >= 120 ? "s" : ""}`
@@ -230,15 +296,16 @@ export const action = async ({ request }) => {
       return json({ success: false, error: "shop and sessionId required" }, { status: 400, headers: corsHeaders });
     }
 
-    // Validate delay — default to 30 min if missing
     const resolvedDelay = (typeof delayMs === "number" && delayMs > 0)
       ? delayMs
       : 30 * 60 * 1000;
 
+    // ✅ Dynamic admin email fetch
     const { adminEmail, adminName } = await getAdminInfo(shop);
+
     if (!adminEmail) {
-      console.warn(`[Email] No adminEmail for ${shop}`);
-      return json({ success: false, error: "No admin email configured" }, { headers: corsHeaders });
+      console.warn(`[Email] No adminEmail found for ${shop} — skipping`);
+      return json({ success: false, error: "No admin email found" }, { headers: corsHeaders });
     }
 
     // Debounce — reset timer on rapid messages
@@ -251,9 +318,9 @@ export const action = async ({ request }) => {
     }, resolvedDelay);
 
     emailTimers.set(sessionId, timer);
-    console.log(`[Email] Timer set — session: ${sessionId}, delay: ${delayMin} min, admin: ${adminEmail}`);
+    console.log(`[Email] Timer set — session: ${sessionId}, delay: ${delayMin}min, admin: ${adminEmail}`);
 
-    return json({ success: true, scheduled: true, delayMin }, { headers: corsHeaders });
+    return json({ success: true, scheduled: true, delayMin, adminEmail }, { headers: corsHeaders });
 
   } catch (error) {
     console.error("❌ app.email.unseen error:", error);
