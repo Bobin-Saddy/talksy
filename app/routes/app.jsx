@@ -1,23 +1,15 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.jsx
 //
-//  DEFINITIVE FIX FOR "notifications only when chat page open":
+//  THE ACTUAL FIX:
+//  onMessage() handler added in ROOT layout so foreground
+//  FCM messages are caught on EVERY page, not just chat page.
 //
-//  ROOT CAUSE: FCM token was only being saved to DB when admin
-//  opened app.chat.admin.jsx. If admin never opened it, no token
-//  in DB = Firebase has nowhere to send the push.
-//
-//  FIX:
-//  1. Token registration runs in app.jsx root (every page load)
-//  2. SW registers with skipWaiting+claim (activates immediately)
-//  3. SW "push" event always fires and shows OS notification
-//  4. SW postMessages open clients → in-app toast shown
-//  5. No dependency on which page admin is on
-//
-//  MAC FIX (push not working when on another page):
-//  6. SW message listener added BEFORE SW registration (no race)
-//  7. SW always calls showNotification() — bypasses Chrome's
-//     foreground suppression on Mac
+//  When admin is on any page (settings, faq, subscription):
+//  - Firebase sees app is "in foreground" → skips OS notif
+//  - onMessage fires → we manually show OS notif + toast
+//  - This works on Mac because Notification.requestPermission
+//    was already granted at top level
 // ═══════════════════════════════════════════════════════════
 import { Outlet, useLoaderData, useRouteError, useLocation, useNavigate, useRevalidator } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -30,7 +22,7 @@ import { useEffect, useRef, useState } from "react";
 import { getUsageStats } from "../planLimits.server";
 import prisma from "../db.server";
 import { initializeApp, getApps } from "firebase/app";
-import { getMessaging, getToken } from "firebase/messaging";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
 const FIREBASE_CONFIG = {
   apiKey           : "AIzaSyDOVZ95b_MZ7Ba5TVvpluX2Jz5h-7FXNNA",
@@ -42,20 +34,18 @@ const FIREBASE_CONFIG = {
   measurementId    : "G-Q7BYVQGTEP",
 };
 const FIREBASE_VAPID_KEY = "BByGfcXLNVQBVZdVUvPgsdK3lP6Avvw6FD_OcTauED_QyCUfqjyqvGDTxdgNhuh8YffyTdWuoQBFDnmiPfRHAU8";
-
-const BACKEND_URL = "https://talksy-production-5d43.up.railway.app";
+const BACKEND_URL        = "https://talksy-production-5d43.up.railway.app";
+const TALKSY_ICON        = "https://cdn.shopify.com/app-store/listing_images/177dd497355fe743fa747f74896d9015/icon/CJmW96zmq5IDEAE=.png";
 
 // ── Loader ─────────────────────────────────────────────────
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
-
   const subscription = await prisma.subscription.findUnique({ where: { shop } });
-
   let usage = null;
   try {
     usage = await getUsageStats(shop);
-  } catch (error) {
+  } catch {
     usage = {
       plan    : "FREE",
       chats   : { current: 0, max: 100, percentage: 0, remaining: 100 },
@@ -64,7 +54,6 @@ export const loader = async ({ request }) => {
       retention: { days: 30 },
     };
   }
-
   return {
     apiKey            : process.env.SHOPIFY_API_KEY || "",
     usage,
@@ -105,38 +94,27 @@ function GlobalToast({ toasts, onDismiss }) {
   if (!toasts.length) return null;
   return (
     <div style={{
-      position     : "fixed",
-      bottom       : "32px",
-      right        : "32px",
-      zIndex       : 2147483647,
-      display      : "flex",
-      flexDirection: "column-reverse",
-      gap          : "10px",
-      maxWidth     : "340px",
-      pointerEvents: "none",
+      position:"fixed", bottom:"32px", right:"32px", zIndex:2147483647,
+      display:"flex", flexDirection:"column-reverse", gap:"10px",
+      maxWidth:"340px", pointerEvents:"none",
     }}>
       {toasts.map(toast => (
         <div key={toast.id} style={{
-          pointerEvents: "auto",
-          background   : "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-          color        : "white",
-          borderRadius : "16px",
-          padding      : "14px 16px",
-          boxShadow    : "0 6px 24px rgba(99,102,241,0.5)",
-          display      : "flex",
-          alignItems   : "flex-start",
-          gap          : "12px",
-          animation    : "talksySlideIn 0.3s ease",
-          border       : "1px solid rgba(255,255,255,0.15)",
-          position     : "relative",
-          overflow     : "hidden",
+          pointerEvents:"auto",
+          background:"linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+          color:"white", borderRadius:"16px", padding:"14px 16px",
+          boxShadow:"0 6px 24px rgba(99,102,241,0.5)",
+          display:"flex", alignItems:"flex-start", gap:"12px",
+          animation:"talksySlideIn 0.3s ease",
+          border:"1px solid rgba(255,255,255,0.15)",
+          position:"relative", overflow:"hidden",
         }}>
           <div style={{ position:"absolute", bottom:0, left:0, height:"3px", background:"rgba(255,255,255,0.4)", animation:"talksyProgress 7s linear forwards", width:"100%" }} />
           <div style={{ width:"36px", height:"36px", background:"rgba(255,255,255,0.2)", borderRadius:"10px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px", flexShrink:0 }}>💬</div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontWeight:"700", fontSize:"13px", marginBottom:"4px" }}>{toast.title}</div>
             {toast.imageUrl && (
-              <img src={toast.imageUrl} alt="" style={{ width:"100%", maxHeight:"100px", objectFit:"cover", borderRadius:"8px", marginBottom:"6px" }} onError={e => e.currentTarget.style.display = "none"} />
+              <img src={toast.imageUrl} alt="" style={{ width:"100%", maxHeight:"100px", objectFit:"cover", borderRadius:"8px", marginBottom:"6px" }} onError={e => e.currentTarget.style.display="none"} />
             )}
             <div style={{ fontSize:"12px", opacity:0.9, lineHeight:"1.45", wordBreak:"break-word" }}>{toast.body}</div>
             <div style={{ fontSize:"10px", opacity:0.6, marginTop:"4px" }}>{toast.time}</div>
@@ -160,8 +138,9 @@ export default function App() {
   const revalidator = useRevalidator();
 
   const [globalToasts, setGlobalToasts] = useState([]);
-  const audioRef      = useRef(null);
-  const tokenSavedRef = useRef(false);
+  const audioRef        = useRef(null);
+  const tokenSavedRef   = useRef(false);
+  const messagingRef    = useRef(null); // ← store messaging instance
 
   const pushGlobalToast = (title, body, imageUrl = null) => {
     const id = Date.now() + Math.random();
@@ -172,17 +151,33 @@ export default function App() {
     setTimeout(() => setGlobalToasts(prev => prev.filter(t => t.id !== id)), 8000);
   };
 
+  // ── Show OS notification manually (for foreground messages) ──
+  // When the app is open (foreground), FCM does NOT auto-show
+  // the OS notification. We must call it ourselves via the
+  // Notification API — this works fine because permission was
+  // already granted by the user.
+  function showOsNotification(title, body, imageUrl, shopUrl) {
+    if (Notification.permission !== "granted") return;
+    try {
+      const notif = new Notification(title, {
+        body,
+        icon : TALKSY_ICON,
+        badge: TALKSY_ICON,
+        tag  : "talksy-foreground-" + Date.now(),
+        ...(imageUrl ? { image: imageUrl } : {}),
+      });
+      notif.onclick = () => {
+        window.focus();
+        notif.close();
+        if (shopUrl) window.location.href = shopUrl;
+      };
+    } catch (err) {
+      console.warn("[FCM] OS notification error:", err.message);
+    }
+  }
+
   // ════════════════════════════════════════════════════════
-  //  FCM SETUP — runs on every page load in the root layout
-  //
-  //  MAC FIX: SW message listener is added FIRST before the
-  //  async SW registration call, eliminating the race condition
-  //  where a push arrives during registration and is missed.
-  //
-  //  The actual OS notification is now always shown by the SW
-  //  itself (see firebase-messaging-sw.js) — it calls
-  //  showNotification() unconditionally, bypassing Chrome's
-  //  foreground suppression on Mac.
+  //  FCM SETUP
   // ════════════════════════════════════════════════════════
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -191,12 +186,10 @@ export default function App() {
 
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
 
-    // ── STEP 1: Add SW message listener FIRST (eliminates race condition) ──
-    // Registered before SW setup so we never miss a push that arrives
-    // during the async registration window.
+    // ── Step 1: SW message listener FIRST (no race condition) ──
     function onSwMessage(event) {
       if (!event.data || event.data.type !== "TALKSY_PUSH") return;
-      console.log("[FCM] SW message received:", event.data);
+      console.log("[FCM] SW→page message:", event.data);
       if (audioRef.current) audioRef.current.play().catch(() => {});
       pushGlobalToast(
         event.data.title    || "💬 New Message",
@@ -204,72 +197,110 @@ export default function App() {
         event.data.imageUrl || null,
       );
     }
-
     navigator.serviceWorker.addEventListener("message", onSwMessage);
 
-    // ── STEP 2: Register SW ────────────────────────────────
+    // ── Step 2: Register SW ────────────────────────────────
     async function registerSW() {
       try {
         const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
-        // skipWaiting + clients.claim handled inside the SW itself
         await navigator.serviceWorker.ready;
-        console.log("[FCM] SW registered and ready");
+        console.log("[FCM] SW registered");
         return swReg;
       } catch (err) {
-        console.warn("[FCM] SW registration failed:", err.message);
+        console.warn("[FCM] SW failed:", err.message);
         return null;
       }
     }
 
-    // ── STEP 3: Save FCM token to DB ───────────────────────
-    async function saveToken(swReg) {
+    // ── Step 3: Get token + setup onMessage ───────────────
+    async function setupFCM(swReg) {
       if (Notification.permission !== "granted") return;
-      if (tokenSavedRef.current) return;
-
       try {
         const app       = getApps().length > 0 ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
         const messaging = getMessaging(app);
+        messagingRef.current = messaging;
 
-        const token = await getToken(messaging, {
-          vapidKey                 : FIREBASE_VAPID_KEY,
-          serviceWorkerRegistration: swReg,
-        });
-
-        if (!token) { console.warn("[FCM] No token returned"); return; }
-
-        const res = await fetch(`${BACKEND_URL}/app/admin/register-fcm-token`, {
-          method : "POST",
-          headers: { "Content-Type": "application/json" },
-          body   : JSON.stringify({
-            shop        : currentShop,
-            fcmToken    : token,
-            registeredAt: new Date().toISOString(),
-          }),
-        });
-
-        if (res.ok) {
-          tokenSavedRef.current = true;
-          console.log(`[FCM] ✅ Token saved for ${currentShop}`);
+        // Get + save token
+        if (!tokenSavedRef.current) {
+          const token = await getToken(messaging, {
+            vapidKey                 : FIREBASE_VAPID_KEY,
+            serviceWorkerRegistration: swReg,
+          });
+          if (token) {
+            const res = await fetch(`${BACKEND_URL}/app/admin/register-fcm-token`, {
+              method : "POST",
+              headers: { "Content-Type": "application/json" },
+              body   : JSON.stringify({ shop: currentShop, fcmToken: token, registeredAt: new Date().toISOString() }),
+            });
+            if (res.ok) {
+              tokenSavedRef.current = true;
+              console.log(`[FCM] ✅ Token saved for ${currentShop}`);
+            }
+          }
         }
+
+        // ══════════════════════════════════════════════════
+        //  KEY FIX: onMessage handler in ROOT layout
+        //
+        //  This fires when a push arrives AND the app window
+        //  is currently focused (any page — settings, faq,
+        //  subscription, etc.). Without this, FCM silently
+        //  drops the notification when app is in foreground.
+        //
+        //  We:
+        //  1. Show OS notification manually via Notification API
+        //  2. Show in-app toast
+        //  3. Play sound
+        // ══════════════════════════════════════════════════
+        const unsubscribe = onMessage(messaging, (payload) => {
+          console.log("[FCM] Foreground message received on:", location.pathname, payload);
+
+          const n         = payload.notification || {};
+          const d         = payload.data         || {};
+          const title     = n.title    || d.title    || "💬 New Message — Talksy";
+          const body      = n.body     || d.body     || "A customer sent a message";
+          const imageUrl  = d.imageUrl || d.fileUrl  || null;
+          const shopUrl   = d.shopUrl  || "/";
+
+          // 1. OS notification (Notification API — works on Mac)
+          showOsNotification(title, body, imageUrl, shopUrl);
+
+          // 2. In-app toast
+          if (audioRef.current) audioRef.current.play().catch(() => {});
+          pushGlobalToast(title, body, imageUrl);
+        });
+
+        // Return cleanup
+        return unsubscribe;
       } catch (err) {
-        console.warn("[FCM] Token save error:", err.message);
+        console.warn("[FCM] setup error:", err.message);
+        return null;
       }
     }
 
-    // ── STEP 4: Re-register token when permission granted ──
-    function onPermissionGranted() {
-      tokenSavedRef.current = false; // reset so token is re-saved
-      registerSW().then(swReg => { if (swReg) saveToken(swReg); });
-    }
+    // ── Step 4: Re-register when permission granted ────────
+    let unsubscribeOnMessage = null;
 
+    function onPermissionGranted() {
+      tokenSavedRef.current = false;
+      registerSW().then(async (swReg) => {
+        if (swReg) {
+          if (unsubscribeOnMessage) unsubscribeOnMessage();
+          unsubscribeOnMessage = await setupFCM(swReg);
+        }
+      });
+    }
     window.addEventListener("talksy:permission-granted", onPermissionGranted);
 
-    // Run setup
-    registerSW().then(swReg => { if (swReg) saveToken(swReg); });
+    // Run
+    registerSW().then(async (swReg) => {
+      if (swReg) unsubscribeOnMessage = await setupFCM(swReg);
+    });
 
     return () => {
       navigator.serviceWorker.removeEventListener("message", onSwMessage);
       window.removeEventListener("talksy:permission-granted", onPermissionGranted);
+      if (unsubscribeOnMessage) unsubscribeOnMessage();
     };
   }, [currentShop]);
 
@@ -318,7 +349,6 @@ export default function App() {
     <ShopifyAppProvider embedded apiKey={apiKey}>
       <PolarisAppProvider i18n={enTranslations}>
 
-        {/* ✅ Global toast — always visible on every page */}
         <GlobalToast toasts={globalToasts} onDismiss={(id) => setGlobalToasts(p => p.filter(t => t.id !== id))} />
 
         <s-app-nav key={`${usage?.plan}-${subscriptionStatus}-${isBillingApproved}`}>

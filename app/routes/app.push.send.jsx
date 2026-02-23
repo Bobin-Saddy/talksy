@@ -1,15 +1,10 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.push.send.jsx
 //
-//  FIX: Image was not showing in notification because it was
-//  only set in webpush.notification.image but FCM needs it in
-//  MULTIPLE places for the image to actually render:
-//
-//  1. webpush.notification.image  ← Chrome desktop notification
-//  2. data.imageUrl               ← SW reads this from event.data
-//  3. notification.imageUrl       ← Android FCM
-//
-//  All 3 must be set for cross-platform image support.
+//  CHANGES FROM PREVIOUS VERSION:
+//  - Added title + body to data{} block so SW v9's
+//    onBackgroundMessage can read them for the in-app toast
+//  - Everything else unchanged
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -45,7 +40,6 @@ function getMessaging() {
 
 const TALKSY_ICON = "https://cdn.shopify.com/app-store/listing_images/177dd497355fe743fa747f74896d9015/icon/CJmW96zmq5IDEAE=.png";
 
-// Only HTTPS URLs work in FCM notification image field
 function isValidHttpsUrl(url) {
   return !!(url && url.startsWith("https://") && !url.startsWith("data:"));
 }
@@ -67,12 +61,10 @@ function debounceNotification(key, payload, sendFn) {
 async function sendPushToTokens(messaging, tokens, adminTokens, payload) {
   const { shop, title, notifBody, imageUrl, fileUrl, sessionId, shopUrl, notifTag } = payload;
 
-  // Resolve best image URL to use
   const validImage = isValidHttpsUrl(imageUrl) ? imageUrl
     : isValidHttpsUrl(fileUrl) ? fileUrl
     : null;
 
-  // For image messages with no valid URL, use Talksy icon as placeholder
   const isImageMsg = notifBody.includes("📷");
   const notifImage = validImage || (isImageMsg ? TALKSY_ICON : null);
 
@@ -81,7 +73,7 @@ async function sendPushToTokens(messaging, tokens, adminTokens, payload) {
   const message = {
     tokens,
 
-    // Top-level notification (Android + some platforms)
+    // Top-level notification (shown by FCM on Mac when no push handler exists in SW)
     notification: {
       title,
       body: notifBody,
@@ -97,7 +89,6 @@ async function sendPushToTokens(messaging, tokens, adminTokens, payload) {
         tag               : notifTag,
         renotify          : true,
         requireInteraction: true,
-        // ✅ FIX 1: image in webpush.notification — Chrome desktop
         ...(notifImage ? { image: notifImage } : {}),
         actions: [
           { action: "open",    title: "Open Chat" },
@@ -113,27 +104,26 @@ async function sendPushToTokens(messaging, tokens, adminTokens, payload) {
         sound: "default",
         tag  : notifTag,
         color: "#6366f1",
-        // ✅ FIX 2: imageUrl in android notification — Android devices
         ...(notifImage ? { imageUrl: notifImage } : {}),
       },
     },
 
-    // ✅ FIX 3: imageUrl in data — SW reads this from event.data.json()
-    // This is what firebase-messaging-sw.js uses in the push event handler:
-    // const rawImage = d.imageUrl || d.fileUrl || null;
     data: {
-      shopUrl  : shopUrl      || "",
-      imageUrl : notifImage   || "",  // ← SW reads this to show image
-      fileUrl  : fileUrl      || "",
-      sessionId: sessionId    || "",
-      shop     : shop         || "",
-      tag      : notifTag     || "",
+      shopUrl  : shopUrl    || "",
+      imageUrl : notifImage || "",
+      fileUrl  : fileUrl    || "",
+      sessionId: sessionId  || "",
+      shop     : shop       || "",
+      tag      : notifTag   || "",
+      // ✅ ADDED: title + body in data so onBackgroundMessage
+      // in SW v9 can read them for the in-app toast postMessage
+      title    : title      || "",
+      body     : notifBody  || "",
     },
   };
 
   const batchResponse = await messaging.sendEachForMulticast(message);
 
-  // Clean expired tokens
   const expiredIds = [];
   batchResponse.responses.forEach((resp, idx) => {
     if (!resp.success) {
@@ -188,7 +178,6 @@ export const action = async ({ request }) => {
       return json({ success: true, sent: 0 }, { headers: corsHeaders });
     }
 
-    // Clean title — no URLs or domains
     const cleanTitle = (title || "New Message")
       .replace(/https?:\/\/[^\s]*/g, "")
       .replace(/\.myshopify\.com/g, "")
@@ -196,13 +185,10 @@ export const action = async ({ request }) => {
       .trim();
 
     const notifTitle = `${cleanTitle} — Talksy`;
-
-    // Clean body — no \n (FCM rejects it)
-    const notifBody = (body || "New message").replace(/\n/g, " ").trim();
-
-    const shopUrl  = url || `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`;
-    const notifTag = `talksy-${sessionId || shop}-${Date.now()}`;
-    const tokens   = adminTokens.map(t => t.token);
+    const notifBody  = (body || "New message").replace(/\n/g, " ").trim();
+    const shopUrl    = url || `https://admin.shopify.com/store/${shop.replace(".myshopify.com", "")}/apps/talksy`;
+    const notifTag   = `talksy-${sessionId || shop}-${Date.now()}`;
+    const tokens     = adminTokens.map(t => t.token);
 
     const payload = {
       shop, title: notifTitle, notifBody,
