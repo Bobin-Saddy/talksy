@@ -40,7 +40,7 @@ export const action = async ({ request }) => {
       return json({ success: false, error: "shop and imageData required" }, { status: 400, headers: corsHeaders });
     }
 
-    // Strip data URL prefix: "data:image/png;base64,XXXX" → "XXXX"
+    // Strip data URL prefix: "data:image/png;base64,XXXX" → "XXXX
     const base64 = imageData.includes(",") ? imageData.split(",")[1] : imageData;
 
     // Detect mime type from data URL or from passed mimeType
