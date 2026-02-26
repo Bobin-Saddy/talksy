@@ -391,7 +391,7 @@
      🎯 ANIMATED QUESTIONS — State
   ══════════════════════════════════════════ */
   let aqQuestions   = [];
-  let aqSettings    = { enabled: true, maxVisible: 3, showDelay: 2000, autoHide: true, autoHideDelay: 8000 };
+  let aqSettings    = { enabled: true, maxVisible: 3, showDelay: 1000, autoHide: false, autoHideDelay: 0 };
   let aqHideTimer   = null;
   const aqContainer = document.getElementById('animated-questions-container');
 
@@ -401,7 +401,13 @@
       const res  = await fetch(`${BASE_URL}/api/animated-questions?shop=${encodeURIComponent(shop)}`);
       const data = await res.json();
       if (data.questions) aqQuestions = data.questions.filter(q => q.isActive !== false);
-      if (data.settings)  Object.assign(aqSettings, data.settings);
+      if (data.settings) {
+        // ✅ autoHide INTENTIONALLY ignore kiya — bubbles hamesha visible rahein
+        aqSettings.enabled    = data.settings.enabled !== false;
+        aqSettings.maxVisible = data.settings.maxVisible || 3;
+        aqSettings.showDelay  = data.settings.showDelay  || 2000;
+        // autoHide: NEVER override — always false
+      }
       if (aqSettings.enabled && aqQuestions.length > 0) {
         setTimeout(showAnimatedBubbles, aqSettings.showDelay);
       }
@@ -445,11 +451,7 @@
       });
     });
 
-    /* Auto-hide timer */
-    if (aqSettings.autoHide) {
-      clearTimeout(aqHideTimer);
-      aqHideTimer = setTimeout(hideAllBubbles, aqSettings.autoHideDelay);
-    }
+    /* ✅ NO auto-hide — bubbles stay until user dismisses or opens widget */
   }
 
   /* ── Dismiss a single bubble (× button) ── */
