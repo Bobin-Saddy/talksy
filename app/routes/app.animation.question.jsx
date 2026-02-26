@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const BASE_URL = "https://talksy-production-5d43.up.railway.app";
+const BASE_URL = "";
 
 // ── Color palette inspired by Talksy's orange brand ──
 const COLORS = {
