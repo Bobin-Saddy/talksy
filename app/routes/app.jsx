@@ -356,6 +356,7 @@ export default function App() {
           <s-link href="/app/admin/search">Search {!isPaidPlan && "🔒"}</s-link>
           <s-link href="/app/settings">Settings {!canCustomizeWidget && "🔒"}</s-link>
           <s-link href="/app/faq">FAQs {!canManageFAQs && "🔒"}</s-link>
+          <s-link href="/app/animation/question">Animated Questions</s-link>
           <s-link href="/app/subscription">
             Subscription
             {usage && isApproachingLimit && !isAtLimit && usage.chats.remaining !== "Unlimited" && (

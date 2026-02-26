@@ -351,3 +351,67 @@ model ChatImage {
   @@index([shop])
   @@index([sessionId])
 }
+
+/// Stores each floating question bubble shown above the chat launcher
+model AnimatedQuestion {
+  id            String   @id @default(cuid())
+  shop          String
+
+  /// The question text shown in the bubble (max 80 chars)
+  text          String   @db.VarChar(80)
+
+  /// Emoji icon shown in the bubble
+  icon          String   @default("💬")
+
+  /// Category: general | products | orders | shipping | returns | payment | support
+  category      String   @default("general")
+
+  /// CSS animation type: float | bounce | pulse | slide
+  animationType String   @default("float")
+
+  /// Lower number = shown first
+  displayOrder  Int      @default(0)
+
+  /// Toggle to show/hide without deleting
+  isActive      Boolean  @default(true)
+
+  /// If set — auto-sent as bot reply when user clicks bubble
+  /// If null — admin gets push notification to reply manually
+  defaultAnswer String?  @db.Text
+
+  /// Analytics counters
+  clickCount    Int      @default(0)
+  dismissCount  Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, isActive])
+  @@index([shop, displayOrder])
+}
+
+/// Global display settings for animated questions — one row per shop
+model AnimatedQuestionSettings {
+  id String @id @default(cuid())
+
+  /// One record per shop (unique constraint)
+  shop          String   @unique
+
+  /// Master toggle — disable all bubbles without deleting them
+  enabled       Boolean  @default(true)
+
+  /// How many bubbles to show at once (1–5)
+  maxVisible    Int      @default(3)
+
+  /// Milliseconds to wait after page load before showing bubbles
+  showDelay     Int      @default(2000)
+
+  /// Whether bubbles auto-hide after autoHideDelay ms
+  autoHide      Boolean  @default(true)
+
+  /// Milliseconds before bubbles auto-hide (default 8 seconds)
+  autoHideDelay Int      @default(8000)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

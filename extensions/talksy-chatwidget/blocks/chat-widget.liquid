@@ -1,5 +1,5 @@
 {% comment %}
-  Talksy Chat Widget v2.9 - CHAT-STYLE SEARCH + ANON PERSISTENCE
+  Talksy Chat Widget v3.0 - CHAT-STYLE SEARCH + ANON PERSISTENCE + ANIMATED QUESTIONS
 {% endcomment %}
 
 {%- assign primary_color = section.settings.primary_color | default: '#F39C12' -%}
@@ -15,7 +15,130 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 
+<!-- ══ ANIMATED QUESTIONS CSS ══ -->
+<style>
+/* ── Animated Question Bubbles Container ── */
+#animated-questions-container {
+  position: fixed;
+  bottom: 88px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 9998;
+  pointer-events: none;
+}
 
+/* ── Each bubble ── */
+.aq-bubble {
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #e8e8e8;
+  border-radius: 18px 18px 4px 18px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'Plus Jakarta Sans', 'Montserrat', sans-serif;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  pointer-events: all;
+  max-width: 250px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s ease, opacity 0.35s ease;
+  transform-origin: bottom right;
+  opacity: 0;
+  transform: translateX(30px) scale(0.85);
+  will-change: transform, opacity;
+}
+
+.aq-bubble.aq-visible {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+/* ── Animation variants ── */
+.aq-bubble.aq-anim-float  { animation: aq-float  3s ease-in-out infinite; }
+.aq-bubble.aq-anim-bounce { animation: aq-bounce 2.4s ease infinite; }
+.aq-bubble.aq-anim-pulse  { animation: aq-pulse  2.2s ease-in-out infinite; }
+.aq-bubble.aq-anim-slide  { /* entrance only — no loop */ }
+
+.aq-bubble:hover {
+  transform: translateX(-4px) scale(1.04) !important;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.18) !important;
+  animation-play-state: paused !important;
+}
+
+.aq-bubble:active {
+  transform: scale(0.95) !important;
+  transition-duration: 0.1s !important;
+}
+
+.aq-bubble-icon {
+  font-size: 17px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.aq-bubble-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Close (×) button inside bubble ── */
+.aq-bubble-close {
+  width: 17px;
+  height: 17px;
+  background: rgba(0,0,0,0.07);
+  border: none;
+  border-radius: 50%;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  flex-shrink: 0;
+  padding: 0;
+  margin-left: 4px;
+  line-height: 1;
+  transition: background 0.15s;
+}
+.aq-bubble-close:hover { background: rgba(0,0,0,0.18); }
+
+/* ── Exit animation ── */
+.aq-bubble.aq-hiding {
+  opacity: 0 !important;
+  transform: translateX(24px) scale(0.85) !important;
+  transition: opacity 0.35s ease, transform 0.35s ease !important;
+  animation: none !important;
+  pointer-events: none;
+}
+
+/* ── Keyframes ── */
+@keyframes aq-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-7px); }
+}
+@keyframes aq-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  40%       { transform: translateY(-10px) scale(1.02); }
+  60%       { transform: translateY(-5px) scale(1.01); }
+}
+@keyframes aq-pulse {
+  0%, 100% { box-shadow: 0 6px 24px rgba(0,0,0,0.12); }
+  50%       { box-shadow: 0 6px 28px rgba(243,156,18,0.45), 0 0 0 6px rgba(243,156,18,0.1); }
+}
+</style>
+
+<!-- ══ ANIMATED QUESTIONS CONTAINER ══ -->
+<div id="animated-questions-container"></div>
 
 <!-- Launcher Button -->
 <div id="chat-launcher" aria-label="Open Chat" style="background:#ffffff; color:{{ primary_color }};">
@@ -155,13 +278,9 @@
       </div>
     </div>
 
-    <!-- ══ SEARCH TAB — Premium v3.0 ══ -->
+    <!-- ══ SEARCH TAB ══ -->
     <div id="tab-search" class="tab-content" style="display:none; flex-direction:column; height:100%;">
-
-      <!-- scrollable conversation area -->
       <div class="search-chat-area" id="search-chat-area">
-
-        <!-- Empty state -->
         <div class="search-chat-empty" id="search-chat-empty">
           <div class="search-empty-icon-wrap">
             <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg>
@@ -174,10 +293,7 @@
             <div class="search-empty-chip" onclick="document.getElementById('store-search-input-new').value='new arrivals';document.getElementById('search-icon-btn').click()">✨ New</div>
           </div>
         </div>
-
       </div>
-
-      <!-- Fixed search input bar -->
       <div class="search-input-bar">
         <div class="search-input-wrap">
           <textarea
@@ -194,7 +310,6 @@
           </svg>
         </button>
       </div>
-
     </div>
 
   </div><!-- #widget-main-container -->
@@ -260,18 +375,177 @@
   let faqData              = [];
   let adminOnline          = true;
   let fcmToken             = null;
-  let searchBusy           = false; // prevents double-send
+  let searchBusy           = false;
 
   /* ── localStorage keys ── */
   const SK = {
-    SID          : `chat_session_${shop}`,
-    EMAIL        : `chat_email_${shop}`,
-    FNAME        : `chat_fname_${shop}`,
-    LNAME        : `chat_lname_${shop}`,
-    FCM_TOKEN    : `chat_fcm_token_${shop}`,
-    SEARCH_HIST  : `chat_search_history_${shop}`  // ✅ anon users only
+    SID         : `chat_session_${shop}`,
+    EMAIL       : `chat_email_${shop}`,
+    FNAME       : `chat_fname_${shop}`,
+    LNAME       : `chat_lname_${shop}`,
+    FCM_TOKEN   : `chat_fcm_token_${shop}`,
+    SEARCH_HIST : `chat_search_history_${shop}`
   };
-  // ✅ Search history saved for anonymous users, cleared on login/registration
+
+  /* ══════════════════════════════════════════
+     🎯 ANIMATED QUESTIONS — State
+  ══════════════════════════════════════════ */
+  let aqQuestions   = [];
+  let aqSettings    = { enabled: true, maxVisible: 3, showDelay: 2000, autoHide: true, autoHideDelay: 8000 };
+  let aqHideTimer   = null;
+  const aqContainer = document.getElementById('animated-questions-container');
+
+  /* ── Load animated questions from backend ── */
+  async function loadAnimatedQuestions() {
+    try {
+      const res  = await fetch(`${BASE_URL}/api/animated-questions?shop=${encodeURIComponent(shop)}`);
+      const data = await res.json();
+      if (data.questions) aqQuestions = data.questions.filter(q => q.isActive !== false);
+      if (data.settings)  Object.assign(aqSettings, data.settings);
+      if (aqSettings.enabled && aqQuestions.length > 0) {
+        setTimeout(showAnimatedBubbles, aqSettings.showDelay);
+      }
+    } catch (_) { /* silent — non-critical feature */ }
+  }
+
+  /* ── Render all bubbles ── */
+  function showAnimatedBubbles() {
+    if (!aqContainer) return;
+    // Don't show if widget is open
+    if (widget.classList.contains('chat-visible')) return;
+
+    const toShow = aqQuestions.slice(0, aqSettings.maxVisible);
+    aqContainer.innerHTML = '';
+
+    toShow.forEach((q, i) => {
+      const bubble = document.createElement('div');
+      bubble.className    = `aq-bubble aq-anim-${q.animationType || 'float'}`;
+      bubble.style.animationDelay = `${i * 0.55}s`;
+
+      bubble.innerHTML = `
+        <span class="aq-bubble-icon">${q.icon || '💬'}</span>
+        <span class="aq-bubble-text">${escapeHtml(q.text)}</span>
+        <button class="aq-bubble-close" title="Dismiss" type="button">×</button>
+      `;
+
+      /* Click on bubble text → open chat + send question */
+      bubble.addEventListener('click', e => {
+        if (e.target.classList.contains('aq-bubble-close')) {
+          dismissSingleBubble(bubble, q.id);
+          return;
+        }
+        handleAQClick(q);
+      });
+
+      aqContainer.appendChild(bubble);
+
+      /* Staggered entrance */
+      requestAnimationFrame(() => {
+        setTimeout(() => bubble.classList.add('aq-visible'), 30 + i * 130);
+      });
+    });
+
+    /* Auto-hide timer */
+    if (aqSettings.autoHide) {
+      clearTimeout(aqHideTimer);
+      aqHideTimer = setTimeout(hideAllBubbles, aqSettings.autoHideDelay);
+    }
+  }
+
+  /* ── Dismiss a single bubble (× button) ── */
+  function dismissSingleBubble(bubbleEl, questionId) {
+    bubbleEl.classList.add('aq-hiding');
+    setTimeout(() => { if (bubbleEl.parentNode) bubbleEl.remove(); }, 400);
+    /* Track dismiss (non-blocking) */
+    fetch(`${BASE_URL}/api/animated-questions/${questionId}/dismiss`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ shop, sessionId: localStorage.getItem(SK.SID) || null })
+    }).catch(() => {});
+  }
+
+  /* ── Hide all bubbles (with stagger) ── */
+  function hideAllBubbles() {
+    if (!aqContainer) return;
+    Array.from(aqContainer.querySelectorAll('.aq-bubble')).forEach((b, i) => {
+      setTimeout(() => {
+        b.classList.add('aq-hiding');
+        setTimeout(() => { if (b.parentNode) b.remove(); }, 400);
+      }, i * 70);
+    });
+  }
+
+  /* ── Handle bubble click: open widget → chat tab → send question ── */
+  async function handleAQClick(question) {
+    /* 1. Track click analytics (non-blocking) */
+    fetch(`${BASE_URL}/api/animated-questions/${question.id}/click`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ shop, sessionId: localStorage.getItem(SK.SID) || null })
+    }).catch(() => {});
+
+    /* 2. Hide all bubbles */
+    hideAllBubbles();
+
+    /* 3. Open widget if closed */
+    if (!widget.classList.contains('chat-visible')) {
+      // Manually open (same as launcher click but without re-triggering bubble logic)
+      widget.classList.add('chat-visible');
+      widget.classList.remove('chat-hidden');
+      document.getElementById('launcher-icon').style.display       = 'none';
+      document.getElementById('close-launcher-icon').style.display = 'flex';
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    /* 4. Switch to chat tab */
+    const chatNav = document.querySelector('[data-tab="chat"]');
+    if (chatNav) chatNav.click();
+    await new Promise(r => setTimeout(r, 120));
+
+    /* 5a. Unregistered user → pre-fill input & focus */
+    const sessionId = localStorage.getItem(SK.SID);
+    const email     = localStorage.getItem(SK.EMAIL);
+
+    if (!sessionId || !email || email === 'null' || email === 'undefined') {
+      /* Show onboarding if not done yet */
+      const chatInputEl = document.getElementById('chat-input');
+      if (chatInputEl) {
+        chatInputEl.value = question.text;
+        chatInputEl.focus();
+      }
+      return;
+    }
+
+    /* 5b. Registered user → send message directly */
+    try {
+      await fetch(`${BASE_URL}/app/chat/message`, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({
+          sessionId,
+          shop,
+          message    : question.text,
+          fileUrl    : null,
+          email,
+          fname      : localStorage.getItem(SK.FNAME) || '',
+          triggerPush: true,
+          /* ── auto-reply fields ── */
+          autoReply  : question.defaultAnswer || null,
+          questionId : question.id
+        })
+      });
+
+      /* Refresh messages to show user question + possible bot auto-reply */
+      await fetchMessages();
+      setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 100);
+
+    } catch (err) {
+      console.error('[AQ] send error:', err);
+      /* Fallback: pre-fill input */
+      const chatInputEl = document.getElementById('chat-input');
+      if (chatInputEl) { chatInputEl.value = question.text; chatInputEl.focus(); }
+    }
+  }
 
   /* ══════════════════════════════════════════
      🔥 FIREBASE PUSH NOTIFICATION SETUP
@@ -470,31 +744,15 @@
 
   /* ══════════════════════════════════════════
      🔍 CHAT-STYLE SEARCH
-     Rules:
-       • Query goes in as RIGHT bubble
-       • Results come back as LEFT bubble
-       • Each search APPENDS — old ones stay above
-       • Anonymous users: history saved in localStorage, restored on refresh
-       • Registered users: results gone on refresh (session-based)
-       • Empty state shown only when no searches yet
   ══════════════════════════════════════════ */
-
   const searchArea  = document.getElementById('search-chat-area');
   const searchEmpty = document.getElementById('search-chat-empty');
   const searchInput = document.getElementById('store-search-input-new');
   const searchBtn   = document.getElementById('search-icon-btn');
 
-  // ── Anonymous search history (in-memory + localStorage for anon users) ──
-  // Each entry: { query: string, results: object|null, error: boolean }
   let searchHistory = [];
 
-  function isAnonymousUser() {
-    const email = localStorage.getItem(SK.EMAIL);
-    return !email || email === 'null' || email === 'undefined' || email === '';
-  }
-
   function saveSearchHistory() {
-    // ✅ ALL users (registered + anonymous) get search history saved
     try {
       const trimmed = searchHistory.slice(-20);
       localStorage.setItem(SK.SEARCH_HIST, JSON.stringify(trimmed));
@@ -502,21 +760,17 @@
   }
 
   function loadSearchHistory() {
-    // ✅ Restore for ALL users — registered and anonymous
     try {
       const raw = localStorage.getItem(SK.SEARCH_HIST);
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (!Array.isArray(saved) || !saved.length) return;
-      // Restore each entry into the DOM (no animation — instant restore)
       if (searchEmpty) searchEmpty.style.display = 'none';
-      // Show a subtle session divider
       const divider = document.createElement('div');
       divider.className = 'search-session-divider';
       divider.innerHTML = `<span>Previous searches</span>`;
       searchArea.appendChild(divider);
       saved.forEach(entry => {
-        // Re-append query bubble (no animation on restore)
         const qEl = document.createElement('div');
         qEl.className = 'search-query-bubble';
         qEl.style.animation = 'none';
@@ -526,7 +780,6 @@
             ${escapeHtml(entry.query)}
           </div>`;
         searchArea.appendChild(qEl);
-        // Re-append result block
         if (entry.error) {
           appendErrorBlock(true);
         } else {
@@ -538,19 +791,10 @@
     } catch (_) {}
   }
 
-  // Clear search history when user registers/logs in
-  function clearSearchHistoryForRegisteredUser() {
-    localStorage.removeItem(SK.SEARCH_HIST);
-    searchHistory = [];
-  }
-
   function scrollSearchToBottom() {
-    requestAnimationFrame(() => {
-      searchArea.scrollTop = searchArea.scrollHeight;
-    });
+    requestAnimationFrame(() => { searchArea.scrollTop = searchArea.scrollHeight; });
   }
 
-  // Append the user query bubble (RIGHT side)
   function appendQueryBubble(query) {
     if (searchEmpty) searchEmpty.style.display = 'none';
     const el = document.createElement('div');
@@ -564,7 +808,6 @@
     scrollSearchToBottom();
   }
 
-  // Append the loading indicator (LEFT side)
   function appendLoadingBubble() {
     const el = document.createElement('div');
     el.className = 'search-loading-bubble';
@@ -586,20 +829,15 @@
     return el.id;
   }
 
-  // Remove loading bubble by id
   function removeLoadingBubble(id) {
     const el = document.getElementById(id);
     if (el) el.remove();
   }
 
-  // Build a product/collection card (horizontal scroll)
   function buildSrCard(type, item) {
-    const pc = currentConfig.primaryColor || '#F39C12';
     if (type === 'product') {
       return `<div class="sr-card" onclick="window.open('${item.url}','_blank')">
-        ${item.image
-          ? `<img class="sr-card-img" src="${item.image}" alt="${escapeHtml(item.title)}" loading="lazy"/>`
-          : `<div class="sr-card-img-placeholder">🛍️</div>`}
+        ${item.image ? `<img class="sr-card-img" src="${item.image}" alt="${escapeHtml(item.title)}" loading="lazy"/>` : `<div class="sr-card-img-placeholder">🛍️</div>`}
         <div class="sr-card-body">
           <div class="sr-card-title">${escapeHtml(item.title)}</div>
           <div class="sr-card-price">${item.currency} ${parseFloat(item.price).toFixed(2)}</div>
@@ -608,9 +846,7 @@
     }
     if (type === 'collection') {
       return `<div class="sr-card" onclick="window.open('${item.url}','_blank')">
-        ${item.image
-          ? `<img class="sr-card-img" src="${item.image}" alt="${escapeHtml(item.title)}" loading="lazy"/>`
-          : `<div class="sr-card-img-placeholder">📁</div>`}
+        ${item.image ? `<img class="sr-card-img" src="${item.image}" alt="${escapeHtml(item.title)}" loading="lazy"/>` : `<div class="sr-card-img-placeholder">📁</div>`}
         <div class="sr-card-body">
           <div class="sr-card-title">${escapeHtml(item.title)}</div>
           <div class="sr-card-meta">${item.productCount || 0} products</div>
@@ -620,7 +856,6 @@
     return '';
   }
 
-  // Build a page/order list item (vertical list style)
   function buildSrListItem(type, item) {
     if (type === 'page') {
       return `<div class="sr-list-item" onclick="window.open('${item.url}','_blank')">
@@ -645,7 +880,6 @@
     return '';
   }
 
-  // Build a section block HTML string
   function buildSection(label, icon, items, type) {
     if (!items || !items.length) return '';
     const isCard = (type === 'product' || type === 'collection');
@@ -663,13 +897,11 @@
       </div>`;
   }
 
-  // Count total results
   function countResults(results) {
     return (results.products?.length||0) + (results.collections?.length||0) +
            (results.pages?.length||0) + (results.orders?.length||0);
   }
 
-  // Append result block (LEFT side)
   function appendResultBlock(results, restore = false) {
     const sections =
       buildSection('Products',    '🛍️', results.products,    'product')    +
@@ -683,112 +915,58 @@
     if (restore) el.style.animation = 'none';
 
     if (!sections.trim()) {
-      el.innerHTML = `<div class="search-result-inner">
-        <div class="search-result-card-wrap">
-          <div class="sr-no-results">
-            <div class="sr-no-results-icon">🔍</div>
-            <div class="sr-no-results-text">No results found</div>
-            <div class="sr-no-results-sub">Try different keywords</div>
-          </div>
-        </div>
-      </div>`;
+      el.innerHTML = `<div class="search-result-inner"><div class="search-result-card-wrap"><div class="sr-no-results"><div class="sr-no-results-icon">🔍</div><div class="sr-no-results-text">No results found</div><div class="sr-no-results-sub">Try different keywords</div></div></div></div>`;
     } else {
-      el.innerHTML = `<div class="search-result-inner">
-        <div class="search-result-card-wrap">
-          <div class="sr-result-header">
-            <div class="sr-result-header-left">
-              <div class="sr-bot-avatar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg>
-              </div>
-              <span class="sr-result-label">Search Results</span>
-            </div>
-            <span class="sr-result-count-pill">${total} found</span>
-          </div>
-          ${sections}
-        </div>
-      </div>`;
+      el.innerHTML = `<div class="search-result-inner"><div class="search-result-card-wrap"><div class="sr-result-header"><div class="sr-result-header-left"><div class="sr-bot-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg></div><span class="sr-result-label">Search Results</span></div><span class="sr-result-count-pill">${total} found</span></div>${sections}</div></div>`;
     }
-
     searchArea.appendChild(el);
     scrollSearchToBottom();
   }
 
-  // Append error block (LEFT side)
   function appendErrorBlock(restore = false) {
     const el = document.createElement('div');
     el.className = 'search-result-block';
     if (restore) el.style.animation = 'none';
-    el.innerHTML = `<div class="search-result-inner">
-      <div class="search-result-card-wrap">
-        <div class="sr-no-results">
-          <div class="sr-no-results-icon">⚠️</div>
-          <div class="sr-no-results-text">Something went wrong</div>
-          <div class="sr-no-results-sub">Please try again</div>
-        </div>
-      </div>
-    </div>`;
+    el.innerHTML = `<div class="search-result-inner"><div class="search-result-card-wrap"><div class="sr-no-results"><div class="sr-no-results-icon">⚠️</div><div class="sr-no-results-text">Something went wrong</div><div class="sr-no-results-sub">Please try again</div></div></div></div>`;
     searchArea.appendChild(el);
     scrollSearchToBottom();
   }
 
-  // Main search handler
   async function performSearch(query) {
     query = query.trim();
     if (!query || query.length < 2 || searchBusy) return;
     searchBusy = true;
     searchBtn.disabled = true;
-
-    // 1. Show user query bubble on RIGHT
     appendQueryBubble(query);
-
-    // 2. Show typing indicator on LEFT
     const loadingId = appendLoadingBubble();
-
-    // 3. Log search (non-blocking)
     fetch(`${BASE_URL}/app/chat/search-log`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ shop, query, searchType: 'frontend', userEmail: localStorage.getItem(SK.EMAIL) || 'anonymous', sessionId: localStorage.getItem(SK.SID) || 'no-session', firstName: localStorage.getItem(SK.FNAME) || '', lastName: localStorage.getItem(SK.LNAME) || '', createdAt: new Date() })
     }).catch(() => {});
-
-    // 4. Fetch results
     try {
       const res  = await fetch(`${BASE_URL}/app/chat/search?shop=${encodeURIComponent(shop)}&query=${encodeURIComponent(query)}&type=all`);
       const data = await res.json();
       removeLoadingBubble(loadingId);
-      // 5. Append result block on LEFT
       const results = (data.success ? data.results : null) || {};
       appendResultBlock(results);
-      // ✅ Save to history for anonymous users
       searchHistory.push({ query, results, error: false });
       saveSearchHistory();
     } catch (_) {
       removeLoadingBubble(loadingId);
       appendErrorBlock();
-      // ✅ Save error entry too so conversation shape is restored correctly
       searchHistory.push({ query, results: {}, error: true });
       saveSearchHistory();
     }
-
     searchBusy = false;
     searchBtn.disabled = false;
     searchInput.value = '';
     searchInput.focus();
   }
 
-  // Bind search input events
-  searchBtn && searchBtn.addEventListener('click', () => {
-    const q = searchInput.value.trim();
-    if (q) performSearch(q);
-  });
+  searchBtn && searchBtn.addEventListener('click', () => { const q = searchInput.value.trim(); if (q) performSearch(q); });
   searchInput && searchInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      const q = searchInput.value.trim();
-      if (q) performSearch(q);
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const q = searchInput.value.trim(); if (q) performSearch(q); }
   });
-
-  // Auto-resize textarea
   searchInput && searchInput.addEventListener('input', () => {
     searchInput.style.height = 'auto';
     searchInput.style.height = Math.min(searchInput.scrollHeight, 80) + 'px';
@@ -862,6 +1040,16 @@
     widget.classList.toggle("chat-hidden", !open);
     document.getElementById("launcher-icon").style.display       = open ? "none" : "flex";
     document.getElementById("close-launcher-icon").style.display = open ? "flex" : "none";
+
+    /* ── Animated Questions: hide when open, show when closed ── */
+    if (open) {
+      hideAllBubbles();
+    } else {
+      // Re-show bubbles after widget closes (small delay for animation)
+      setTimeout(() => {
+        if (aqSettings.enabled && aqQuestions.length > 0) showAnimatedBubbles();
+      }, 600);
+    }
   };
 
   /* ── tabs ── */
@@ -948,9 +1136,9 @@
     await loadFAQs();
     await checkExistingSession();
     startStatusPolling();
-    // ✅ Restore anonymous user's search history into DOM immediately on page load
-    // Must run AFTER checkExistingSession() so isAnonymousUser() returns correct value
     loadSearchHistory();
+    /* ✅ NEW — Load animated questions */
+    await loadAnimatedQuestions();
     if ('serviceWorker' in navigator && 'Notification' in window) {
       initFirebasePush().catch(e => console.warn('Push unavailable:', e));
     }
