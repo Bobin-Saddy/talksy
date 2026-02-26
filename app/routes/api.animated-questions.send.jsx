@@ -5,15 +5,14 @@
 //
 //  Yeh route:
 //    1. User ka message save karta hai (sender: "user")
-//    2. Agar question ka defaultAnswer set hai → bot reply save karta hai (sender: "bot")
-//    3. Agar defaultAnswer nahi hai → admin ko notification jaati hai
+//    2. Agar question ka defaultAnswer set hai → bot reply save karta hai
+//    3. Agar defaultAnswer nahi hai → fallback "Thanks for reaching out" reply
 //
-//  Liquid widget is route ko call karta hai jab koi
-//  animated question bubble pe click karta hai.
+//  ✅ FIX: loader added for OPTIONS preflight
 // ═══════════════════════════════════════════════════════════════
 
-import { data }  from "react-router";
-import prisma    from "../db.server.js";
+import { data } from "react-router";
+import prisma   from "../db.server.js";
 
 const CORS = {
   "Access-Control-Allow-Origin" : "*",
@@ -21,8 +20,15 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+// ✅ loader REQUIRED — OPTIONS preflight React Router yahan route karta hai
+export async function loader({ request }) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS });
+  }
+  return data({ ok: true }, { headers: CORS });
+}
+
 export async function action({ request }) {
-  // ── OPTIONS preflight ──
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
   }
@@ -45,7 +51,7 @@ export async function action({ request }) {
     email,
     fname        = "",
     questionId   = null,
-    autoReply    = null,   // admin ne backend mein set kiya hua answer
+    autoReply    = null,
   } = body;
 
   if (!sessionId || !shop || !message) {
@@ -60,14 +66,13 @@ export async function action({ request }) {
     let session = await prisma.chatSession.findUnique({ where: { sessionId } });
 
     if (!session) {
-      // Nayi session banao agar exist nahi karti
       session = await prisma.chatSession.create({
         data: {
           sessionId,
           shop,
-          email    : email || "unknown@unknown.com",
-          firstName: fname || "Customer",
-          lastName : "",
+          email     : email || "unknown@unknown.com",
+          firstName : fname || "Customer",
+          lastName  : "",
           isResolved: false,
         },
       });
@@ -91,7 +96,7 @@ export async function action({ request }) {
       data : { updatedAt: new Date() },
     });
 
-    // ── Step 4: Analytics — questionId click count ──
+    // ── Step 4: Analytics click count ──
     if (questionId) {
       try {
         await prisma.animatedQuestion.update({
@@ -101,53 +106,26 @@ export async function action({ request }) {
       } catch (_) { /* non-critical */ }
     }
 
-    // ── Step 5: Auto-reply logic ──
-    //
-    //   Case A: admin ne defaultAnswer set kiya hai
-    //           → bot ke naam se reply save karo (800ms delay feel ke liye)
-    //
-    //   Case B: defaultAnswer nahi hai
-    //           → koi bot reply nahi, admin ko message jaata hai (existing push system)
-    //           → user ko "We'll get back to you" type default reply
-
+    // ── Step 5: Auto-reply ──
     const trimmedAutoReply = autoReply?.trim();
+    const replyText = (trimmedAutoReply && trimmedAutoReply.length > 0)
+      ? trimmedAutoReply
+      : "Thanks for reaching out! Our team will get back to you shortly. 👋";
 
-    if (trimmedAutoReply && trimmedAutoReply.length > 0) {
-      // ── Case A: Admin ka set kiya hua answer ──
-      // Small delay so it feels like a real response
-      await new Promise((r) => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 800));
 
-      await prisma.chatMessage.create({
-        data: {
-          sessionId,
-          shop,
-          message  : trimmedAutoReply,
-          fileUrl  : null,
-          sender   : "bot",
-          createdAt: new Date(),
-        },
-      });
+    await prisma.chatMessage.create({
+      data: {
+        sessionId,
+        shop,
+        message  : replyText,
+        fileUrl  : null,
+        sender   : "bot",
+        createdAt: new Date(),
+      },
+    });
 
-      console.log(`[AQ] Auto-replied to session ${sessionId}: "${trimmedAutoReply.substring(0, 50)}..."`);
-
-    } else {
-      // ── Case B: Koi defaultAnswer nahi — default fallback message ──
-      // Isse user blank nahi dekhega, aur admin ko real message bhi jaayega
-      await new Promise((r) => setTimeout(r, 600));
-
-      await prisma.chatMessage.create({
-        data: {
-          sessionId,
-          shop,
-          message  : "Thanks for reaching out! Our team will get back to you shortly. 👋",
-          fileUrl  : null,
-          sender   : "bot",
-          createdAt: new Date(),
-        },
-      });
-
-      console.log(`[AQ] No defaultAnswer set for question "${message.substring(0, 40)}" — sent fallback reply`);
-    }
+    console.log(`[AQ send] session=${sessionId} reply="${replyText.substring(0, 50)}"`);
 
     return data({ success: true }, { headers: CORS });
 
@@ -158,9 +136,4 @@ export async function action({ request }) {
       { status: 500, headers: CORS }
     );
   }
-}
-
-// GET not supported on this route
-export async function loader() {
-  return data({ error: "Use POST" }, { status: 405, headers: CORS });
 }
