@@ -357,39 +357,29 @@ model AnimatedQuestion {
   id            String   @id @default(cuid())
   shop          String
 
-  /// The question text shown in the bubble (max 80 chars)
-  text          String   @db.VarChar(80)
-
-  /// Emoji icon shown in the bubble
+  text          String   @db.VarChar(120)
   icon          String   @default("💬")
-
-  /// Category: general | products | orders | shipping | returns | payment | support
   category      String   @default("general")
-
-  /// CSS animation type: float | bounce | pulse | slide
   animationType String   @default("float")
-
-  /// Lower number = shown first
   displayOrder  Int      @default(0)
-
-  /// Toggle to show/hide without deleting
   isActive      Boolean  @default(true)
-
-  /// If set — auto-sent as bot reply when user clicks bubble
-  /// If null — admin gets push notification to reply manually
   defaultAnswer String?  @db.Text
 
-  /// Analytics counters
+  // ✅ Self-relation — parentId null = floating bubble, set = child chip inside chat
+  parentId      String?
+  parent        AnimatedQuestion?  @relation("QuestionChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children      AnimatedQuestion[] @relation("QuestionChildren")
+
   clickCount    Int      @default(0)
   dismissCount  Int      @default(0)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([shop, isActive])
   @@index([shop, displayOrder])
+  @@index([shop, parentId])
 }
-
 /// Global display settings for animated questions — one row per shop
 model AnimatedQuestionSettings {
   id String @id @default(cuid())

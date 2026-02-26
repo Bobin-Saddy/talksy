@@ -135,6 +135,71 @@
   0%, 100% { box-shadow: 0 6px 24px rgba(0,0,0,0.12); }
   50%       { box-shadow: 0 6px 28px rgba(243,156,18,0.45), 0 0 0 6px rgba(243,156,18,0.1); }
 }
+
+/* ── Child Question Chips (inside chat message box) ── */
+.aq-child-chips-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 2px 0 4px 0;
+  align-self: flex-start;
+  max-width: 90%;
+  animation: aq-chips-in 0.35s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes aq-chips-in {
+  from { opacity:0; transform: translateY(10px) scale(0.96); }
+  to   { opacity:1; transform: translateY(0)    scale(1);    }
+}
+.aq-child-chips-label {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 500;
+  margin-bottom: 7px;
+  padding-left: 2px;
+  font-family: 'Plus Jakarta Sans','Montserrat',sans-serif;
+}
+.aq-child-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.aq-child-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 13px;
+  background: #ffffff;
+  border: 1.5px solid #e0d7f8;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #6d28d9;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans','Montserrat',sans-serif;
+  box-shadow: 0 2px 8px rgba(109,40,217,0.08);
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.aq-child-chip:hover {
+  background: #f3eeff;
+  border-color: #a78bfa;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(109,40,217,0.18);
+}
+.aq-child-chip:active {
+  transform: scale(0.95);
+}
+.aq-child-chip.aq-chip-used {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  cursor: default;
+  pointer-events: none;
+}
+.aq-child-chip-icon {
+  font-size: 14px;
+  line-height: 1;
+}
 </style>
 
 <!-- ══ ANIMATED QUESTIONS CONTAINER ══ -->
@@ -395,23 +460,33 @@
   let aqHideTimer   = null;
   const aqContainer = document.getElementById('animated-questions-container');
 
+  /* ── All questions flat (parents + children) ── */
+  let aqAllQuestions = [];
+
   /* ── Load animated questions from backend ── */
   async function loadAnimatedQuestions() {
     try {
       const res  = await fetch(`${BASE_URL}/api/animated-questions?shop=${encodeURIComponent(shop)}`);
       const data = await res.json();
-      if (data.questions) aqQuestions = data.questions.filter(q => q.isActive !== false);
+      if (data.questions) {
+        aqAllQuestions = data.questions.filter(q => q.isActive !== false);
+        // Only top-level (no parentId) shown as floating bubbles
+        aqQuestions = aqAllQuestions.filter(q => !q.parentId);
+      }
       if (data.settings) {
-        // ✅ autoHide INTENTIONALLY ignore kiya — bubbles hamesha visible rahein
         aqSettings.enabled    = data.settings.enabled !== false;
         aqSettings.maxVisible = data.settings.maxVisible || 3;
         aqSettings.showDelay  = data.settings.showDelay  || 2000;
-        // autoHide: NEVER override — always false
       }
       if (aqSettings.enabled && aqQuestions.length > 0) {
         setTimeout(showAnimatedBubbles, aqSettings.showDelay);
       }
-    } catch (_) { /* silent — non-critical feature */ }
+    } catch (_) { /* silent */ }
+  }
+
+  /* ── Get child questions for a given parentId ── */
+  function getChildQuestions(parentId) {
+    return aqAllQuestions.filter(q => q.parentId === parentId && q.isActive !== false);
   }
 
   /* ── Render all bubbles ── */
@@ -491,7 +566,6 @@
 
     /* 3. Open widget if closed */
     if (!widget.classList.contains('chat-visible')) {
-      // Manually open (same as launcher click but without re-triggering bubble logic)
       widget.classList.add('chat-visible');
       widget.classList.remove('chat-hidden');
       document.getElementById('launcher-icon').style.display       = 'none';
@@ -504,27 +578,19 @@
     if (chatNav) chatNav.click();
     await new Promise(r => setTimeout(r, 120));
 
-    /* 5a. Unregistered user → pre-fill input & focus */
+    /* 5a. Unregistered user → pre-fill + store pending */
     const sessionId = localStorage.getItem(SK.SID);
     const email     = localStorage.getItem(SK.EMAIL);
 
     if (!sessionId || !email || email === 'null' || email === 'undefined') {
-      /* Unregistered — question text store karo
-         Submit ke baad auto-reply bhi handle hogi */
-      window._pendingAQQuestion = question;  // store for post-registration send
+      window._pendingAQQuestion = question;
       const chatInputEl = document.getElementById('chat-input');
-      if (chatInputEl) {
-        chatInputEl.value = question.text;
-        chatInputEl.focus();
-      }
+      if (chatInputEl) { chatInputEl.value = question.text; chatInputEl.focus(); }
       return;
     }
 
     /* 5b. Registered user → send message + auto-reply */
     try {
-      // ✅ Dedicated route use karo jo autoReply handle karta hai
-      // Agar admin ne defaultAnswer set kiya → bot reply aayega
-      // Agar nahi → "Thanks for reaching out" fallback reply aayega
       await fetch(`${BASE_URL}/api/animated-questions/send`, {
         method : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -539,16 +605,85 @@
         })
       });
 
-      /* Refresh messages to show user question + possible bot auto-reply */
+      /* Refresh messages */
       await fetchMessages();
       setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 100);
 
+      /* ✅ Show child question chips inside chat (if any children exist) */
+      const children = getChildQuestions(question.id);
+      if (children.length > 0) {
+        setTimeout(() => showChildChips(children, question.id), 600);
+      }
+
     } catch (err) {
       console.error('[AQ] send error:', err);
-      /* Fallback: pre-fill input */
       const chatInputEl = document.getElementById('chat-input');
       if (chatInputEl) { chatInputEl.value = question.text; chatInputEl.focus(); }
     }
+  }
+
+  /* ── Show child question chips inside the chat message box ── */
+  function showChildChips(children, parentId) {
+    // Remove any existing chips for this parent
+    const existingWrap = document.getElementById(`aq-chips-${parentId}`);
+    if (existingWrap) existingWrap.remove();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'aq-child-chips-wrap msg';
+    wrap.id = `aq-chips-${parentId}`;
+
+    const label = document.createElement('div');
+    label.className = 'aq-child-chips-label';
+    label.textContent = 'Related questions:';
+    wrap.appendChild(label);
+
+    const row = document.createElement('div');
+    row.className = 'aq-child-chips-row';
+
+    children.forEach(child => {
+      const chip = document.createElement('button');
+      chip.className = 'aq-child-chip';
+      chip.innerHTML = `<span class="aq-child-chip-icon">${child.icon || '💬'}</span><span>${escapeHtml(child.text)}</span>`;
+      chip.addEventListener('click', async () => {
+        // Mark all chips as used
+        wrap.querySelectorAll('.aq-child-chip').forEach(c => c.classList.add('aq-chip-used'));
+
+        const sid   = localStorage.getItem(SK.SID);
+        const email = localStorage.getItem(SK.EMAIL);
+        if (!sid || !email) return;
+
+        // Track analytics
+        fetch(`${BASE_URL}/api/animated-questions/${child.id}/click`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ shop, sessionId: sid })
+        }).catch(()=>{});
+
+        try {
+          await fetch(`${BASE_URL}/api/animated-questions/send`, {
+            method : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body   : JSON.stringify({
+              sessionId  : sid,
+              shop,
+              message    : child.text,
+              email,
+              fname      : localStorage.getItem(SK.FNAME) || '',
+              questionId : child.id,
+              autoReply  : child.defaultAnswer || null
+            })
+          });
+          await fetchMessages();
+          setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 100);
+        } catch (err) {
+          console.error('[AQ] child chip send error:', err);
+        }
+      });
+      row.appendChild(chip);
+    });
+
+    wrap.appendChild(row);
+    msgBox.appendChild(wrap);
+    msgBox.scrollTop = msgBox.scrollHeight;
   }
 
   /* ══════════════════════════════════════════
