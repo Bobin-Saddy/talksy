@@ -9,7 +9,7 @@
 //  route loader/action files mein import karo.
 // ═══════════════════════════════════════════════════════════════
 
-import prisma from "../db.server.js";
+import prisma from "./db.server.js";
 
 // ── Helper: Admin ko notify karo ────────────────────────────
 async function notifyAdmin(shop, payload) {

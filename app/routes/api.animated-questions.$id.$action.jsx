@@ -10,7 +10,7 @@ import { json } from "@remix-run/node";
 import {
   trackQuestionClick,
   trackQuestionDismiss,
-} from "./services/animatedQuestions.js";
+} from "../services.animatedQuestions";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin" : "*",

@@ -13,7 +13,7 @@ import {
   getAnimatedQuestions,
   createAnimatedQuestion,
   saveAnimatedQuestionSettings,
-} from "./app.services.animatedQuestions";
+} from "../services.animatedQuestions";
 
 // ── CORS headers — Shopify widget ke liye zaroori ───────────
 const CORS_HEADERS = {
