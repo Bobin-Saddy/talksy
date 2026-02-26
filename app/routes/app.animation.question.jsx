@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const BASE_URL = "";
+const BASE_URL = "https://talksy-production-5d43.up.railway.app";
 
 // ── Color palette inspired by Talksy's orange brand ──
 const COLORS = {
@@ -619,7 +619,7 @@ export default function AnimationQuestion() {
                         className="icon-btn"
                         onClick={() => setForm({ ...form, icon: ic })}
                         style={{
-                          width: 36, height: 36, fontSize: 18, border: "none", cursor: "pointer",
+                          width: 36, height: 36, fontSize: 18, cursor: "pointer",
                           borderRadius: 8, background: form.icon === ic ? "rgba(243,156,18,0.2)" : COLORS.surface2,
                           border: form.icon === ic ? `1.5px solid ${COLORS.primary}` : `1px solid ${COLORS.border}`,
                           transition: "all 0.15s",
