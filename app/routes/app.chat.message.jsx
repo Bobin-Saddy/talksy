@@ -7,6 +7,11 @@
 //      FREE     → 30 minutes
 //      STANDARD → 5 minutes
 //      PREMIUM  → 1 minute
+//
+//  ✅ FIXED: autoReply + questionId now handled
+//      - Agar autoReply set hai → bot reply save hoti hai
+//      - Agar autoReply nahi hai → fallback "Thanks for reaching out" reply
+//      - animated question click count increment hota hai
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -80,6 +85,49 @@ async function triggerUnseenEmailTimer(shop, sessionId, plan) {
   }
 }
 
+// ✅ NEW — Auto-reply after animated question click
+// ─────────────────────────────────────────────────────────
+// autoReply = admin ka set kiya hua defaultAnswer
+//   → set hai  : bot ke naam se woh answer save karo
+//   → set nahi : fallback "Thanks for reaching out" save karo
+async function handleAutoReply(sessionId, shop, autoReply, questionId) {
+  try {
+    const trimmed = autoReply?.trim();
+
+    const replyText = (trimmed && trimmed.length > 0)
+      ? trimmed
+      : "Thanks for reaching out! Our team will get back to you shortly. 👋";
+
+    // Small delay — feels natural
+    await new Promise((r) => setTimeout(r, 800));
+
+    await prisma.chatMessage.create({
+      data: {
+        sessionId,
+        shop,
+        message  : replyText,
+        fileUrl  : null,
+        sender   : "bot",
+        createdAt: new Date(),
+      },
+    });
+
+    // Analytics — increment click count on the question
+    if (questionId) {
+      try {
+        await prisma.animatedQuestion.update({
+          where: { id: questionId },
+          data : { clickCount: { increment: 1 } },
+        }).catch(() => {}); // non-critical
+      } catch (_) {}
+    }
+
+    console.log(`🤖 Auto-reply sent for session ${sessionId}: "${replyText.substring(0, 60)}..."`);
+  } catch (err) {
+    console.error("❌ Auto-reply error (non-blocking):", err.message);
+  }
+}
+
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -87,12 +135,27 @@ export const action = async ({ request }) => {
 
   try {
     const body = await request.json();
-    const { sessionId, message, fileUrl, shop, email } = body;
+    const {
+      sessionId, message, fileUrl, shop, email,
+      // ✅ NEW fields from animated question bubble click
+      autoReply  = null,   // admin ka set kiya hua answer (ya null)
+      questionId = null,   // animated question ka ID (analytics ke liye)
+    } = body;
 
     const sender = (body.sender === "admin" || body.sender === "bot") ? body.sender : "user";
     const fname  = body.fname || body.firstName || null;
 
-    console.log("📨 Message received:", { sessionId, sender, shop, messageLength: message?.length, hasFile: !!(fileUrl) });
+    // ✅ Check: kya yeh animated question click hai?
+    const isAnimatedQuestion = !!(questionId || autoReply);
+
+    console.log("📨 Message received:", {
+      sessionId, sender, shop,
+      messageLength    : message?.length,
+      hasFile          : !!(fileUrl),
+      isAnimatedQuestion,
+      hasAutoReply     : !!(autoReply),
+      questionId,
+    });
 
     if (!shop)      return json({ error: "Shop parameter is required" }, { status: 400, headers: corsHeaders });
     if (!sessionId) return json({ error: "Session ID is required" },     { status: 400, headers: corsHeaders });
@@ -110,7 +173,10 @@ export const action = async ({ request }) => {
     if (isNewChat && sender === "user") {
       chatLimit    = await canCreateChat(shop);
       limitReached = !chatLimit.allowed;
-      console.log(`📊 Plan check for ${shop}:`, { isNewChat, current: chatLimit.current, max: chatLimit.max, allowed: chatLimit.allowed, limitReached });
+      console.log(`📊 Plan check for ${shop}:`, {
+        isNewChat, current: chatLimit.current,
+        max: chatLimit.max, allowed: chatLimit.allowed, limitReached,
+      });
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -146,7 +212,6 @@ export const action = async ({ request }) => {
       const shopDomain  = shop.replace(".myshopify.com", "");
       const displayName = fname || (email ? email.split("@")[0] : "Customer");
 
-      // Get current plan
       const plan = await getShopPlan(shop);
       console.log(`📋 Shop plan: ${plan}`);
 
@@ -162,7 +227,7 @@ export const action = async ({ request }) => {
       else if (message && message.trim()) notifBody = message.length > 100 ? message.substring(0, 100) + "…" : message;
       else                                notifBody = null;
 
-      // ✅ Push notification — ONLY Standard and Premium plans
+      // Push — Standard + Premium only
       if (notifBody && (plan === "STANDARD" || plan === "PREMIUM")) {
         console.log(`🔔 Sending push — plan ${plan} qualifies`);
         sendPushToAdmin(shop, {
@@ -174,12 +239,21 @@ export const action = async ({ request }) => {
           sessionId,
         });
       } else if (plan === "FREE") {
-        console.log(`🔕 Push skipped — Free plan does not get push notifications`);
+        console.log(`🔕 Push skipped — Free plan`);
       }
 
-      // ✅ Email timer — ALL plans get email, but delay differs
-      // FREE: 30 min | STANDARD: 5 min | PREMIUM: 1 min
+      // Email timer — all plans
       triggerUnseenEmailTimer(shop, sessionId, plan);
+
+      // ✅ AUTO-REPLY — animated question click
+      // limitReached nahi hai toh hi auto-reply karo
+      // (limit reached hone par neeche alag bot reply hai)
+      if (isAnimatedQuestion && !limitReached) {
+        // Non-blocking — background mein chala do
+        handleAutoReply(sessionId, shop, autoReply, questionId).catch((e) =>
+          console.error("handleAutoReply failed:", e.message)
+        );
+      }
     }
 
     // ── Limit reached — auto bot reply ─────────────────────
@@ -194,21 +268,36 @@ export const action = async ({ request }) => {
       await prisma.chatSession.update({ where: { sessionId }, data: { updatedAt: new Date() } });
       console.log(`⚠️ LIMIT REACHED for ${shop}: ${chatLimit.current + 1}/${chatLimit.max}`);
       return json(
-        { success:true, newMessage:result.newMessage, botReply, limitReached:true, usage:{ current:chatLimit.current+1, max:chatLimit.max, remaining:0 } },
+        {
+          success     : true,
+          newMessage  : result.newMessage,
+          botReply,
+          limitReached: true,
+          usage       : { current: chatLimit.current + 1, max: chatLimit.max, remaining: 0 },
+        },
         { headers: corsHeaders }
       );
     }
 
     return json(
-      { success:true, newMessage:result.newMessage, limitReached:false, usage:{ current:chatLimit.current+(isNewChat?1:0), max:chatLimit.max||0, remaining:isNewChat?chatLimit.remaining-1:chatLimit.remaining } },
+      {
+        success     : true,
+        newMessage  : result.newMessage,
+        limitReached: false,
+        usage       : {
+          current  : chatLimit.current + (isNewChat ? 1 : 0),
+          max      : chatLimit.max || 0,
+          remaining: isNewChat ? chatLimit.remaining - 1 : chatLimit.remaining,
+        },
+      },
       { headers: corsHeaders }
     );
 
   } catch (error) {
     console.error("❌ Message Error:", error);
     return json(
-      { error:error.message, details:process.env.NODE_ENV==="development"?error.stack:undefined },
-      { status:500, headers:corsHeaders }
+      { error: error.message, details: process.env.NODE_ENV === "development" ? error.stack : undefined },
+      { status: 500, headers: corsHeaders }
     );
   }
 };
