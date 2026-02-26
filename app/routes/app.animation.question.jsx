@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
+import { useLoaderData } from "react-router";
+import { authenticate } from "../shopify.server";
 
-const BASE_URL = "https://talksy-production-5d43.up.railway.app";
+// ── Loader — shop Shopify session se milta hai, no page refresh needed ──
+export const loader = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  return { shop: session.shop };
+};
+
+
+const BASE_URL = "";
 
 // ── Color palette inspired by Talksy's orange brand ──
 const COLORS = {
@@ -346,11 +355,11 @@ function Toggle({ active, onChange }) {
 
 // ── Main Page ──
 export default function AnimationQuestion() {
+  const { shop } = useLoaderData();          // ✅ Shopify session se directly
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [shop, setShop] = useState("");
 
   // Form state
   const [form, setForm] = useState({
@@ -384,19 +393,16 @@ export default function AnimationQuestion() {
   ];
   const CATEGORIES = ["general", "products", "orders", "shipping", "returns", "payment", "support"];
 
+  // ✅ shop comes from loader (Shopify session) — no URL params needed
   useEffect(() => {
-    // Get shop from URL params or localStorage
-    const params = new URLSearchParams(window.location.search);
-    const s = params.get("shop") || localStorage.getItem("talksy_shop") || "";
-    setShop(s);
-    if (s) fetchQuestions(s);
+    if (shop) fetchQuestions(shop);
     else setLoading(false);
-  }, []);
+  }, [shop]);
 
   const fetchQuestions = async (s) => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/animated-questions?shop=${s}`);
+      const res = await fetch(`${BASE_URL}/api/animated-questions?shop=${encodeURIComponent(s)}&admin=true`);
       const data = await res.json();
       setQuestions(data.questions || []);
       if (data.settings) setGlobalSettings(data.settings);
