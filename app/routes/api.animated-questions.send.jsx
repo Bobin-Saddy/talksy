@@ -81,12 +81,11 @@ export async function action({ request }) {
     // ── Step 2: User message save karo ──
     await prisma.chatMessage.create({
       data: {
-        sessionId,
-        shop,
-        message  : message.trim(),
-        fileUrl  : null,
-        sender   : "user",
-        createdAt: new Date(),
+        message    : message.trim(),
+        sender     : "user",
+        fileUrl    : null,
+        seenByAdmin: false,
+        session    : { connect: { sessionId } },
       },
     });
 
@@ -116,12 +115,10 @@ export async function action({ request }) {
 
     await prisma.chatMessage.create({
       data: {
-        sessionId,
-        shop,
-        message  : replyText,
-        fileUrl  : null,
-        sender   : "bot",
-        createdAt: new Date(),
+        message: replyText,
+        sender : "bot",
+        fileUrl: null,
+        session: { connect: { sessionId } },
       },
     });
 
