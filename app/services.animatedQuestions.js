@@ -1,78 +1,101 @@
 // ═══════════════════════════════════════════════════════════════
-//  Talksy — Animated Questions Service (ES Module)
 //  File: app/services/animatedQuestions.js
-//
-//  ✅ ES Module syntax (import/export) — works with "type":"module"
-//  ✅ No require() — no CommonJS
-//
-//  Yeh ek SERVICE file hai. Ishe apne Remix/React Router
-//  route loader/action files mein import karo.
+//  ✅ UPDATED: parentId support added in create/update/get
 // ═══════════════════════════════════════════════════════════════
 
 import prisma from "./db.server.js";
 
-// ── Helper: Admin ko notify karo ────────────────────────────
 async function notifyAdmin(shop, payload) {
   try {
-    console.log(`[AQ] Admin notification for shop: ${shop}`, payload);
-    // Apni existing FCM/push logic yahan call karo
+    console.log(`[AQ] Admin notification → shop: ${shop}`, payload);
   } catch (e) {
     console.error("[AQ] notifyAdmin error:", e.message);
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-//  GET — Questions + Settings fetch karo
+//  GET questions + settings
+//  Widget ke liye: sirf parentId=null wale bubbles + unke children
 // ─────────────────────────────────────────────────────────────
 export async function getAnimatedQuestions(shop, isAdmin = false) {
-  const whereClause = isAdmin ? { shop } : { shop, isActive: true };
+  const whereClause = isAdmin
+    ? { shop }
+    : { shop, isActive: true };
 
-  const [questions, settings] = await Promise.all([
+  const [allQuestions, settings] = await Promise.all([
     prisma.animatedQuestion.findMany({
       where  : whereClause,
       orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
+      // ✅ Select parentId so frontend can build parent→children map
+      select : {
+        id           : true,
+        shop         : true,
+        text         : true,
+        icon         : true,
+        category     : true,
+        animationType: true,
+        displayOrder : true,
+        isActive     : true,
+        defaultAnswer: true,
+        parentId     : true,   // ✅ KEY FIELD
+        clickCount   : true,
+        dismissCount : true,
+        createdAt    : true,
+        updatedAt    : true,
+      },
     }),
     prisma.animatedQuestionSettings.findUnique({ where: { shop } }),
   ]);
 
   return {
-    success: true,
-    questions,
-    settings: settings || {
+    success  : true,
+    questions: allQuestions,   // flat list — parentId field se frontend grouping karega
+    settings : settings || {
       enabled: true, maxVisible: 3, showDelay: 2000,
-      autoHide: true, autoHideDelay: 8000,
+      autoHide: false, autoHideDelay: 8000,
     },
   };
 }
 
 // ─────────────────────────────────────────────────────────────
-//  POST — Naya question create karo
+//  CREATE question (parent or child)
 // ─────────────────────────────────────────────────────────────
 export async function createAnimatedQuestion({
   shop, text, icon = "💬", category = "general",
   animationType = "float", displayOrder = 0,
   isActive = true, defaultAnswer = null,
+  parentId = null,   // ✅ null = parent bubble, string = child chip
 }) {
   if (!shop)         throw new Error("shop is required");
   if (!text?.trim()) throw new Error("text is required");
 
+  // If parentId given, verify it exists and belongs to same shop
+  if (parentId) {
+    const parent = await prisma.animatedQuestion.findUnique({ where: { id: parentId } });
+    if (!parent)              throw new Error("Parent question not found");
+    if (parent.shop !== shop) throw new Error("Forbidden");
+    // Prevent nesting children under children (only 1 level deep)
+    if (parent.parentId)      throw new Error("Cannot nest children under a child question");
+  }
+
   const question = await prisma.animatedQuestion.create({
     data: {
       shop,
-      text         : text.trim().substring(0, 80),
+      text         : text.trim().substring(0, 120),
       icon,
       category,
       animationType,
       displayOrder : Number(displayOrder) || 0,
       isActive     : Boolean(isActive),
       defaultAnswer: defaultAnswer?.trim() || null,
+      parentId     : parentId || null,  // ✅
     },
   });
   return { success: true, question };
 }
 
 // ─────────────────────────────────────────────────────────────
-//  PUT — Existing question update karo
+//  UPDATE question
 // ─────────────────────────────────────────────────────────────
 export async function updateAnimatedQuestion(id, shop, fields) {
   if (!shop) throw new Error("shop is required");
@@ -81,18 +104,22 @@ export async function updateAnimatedQuestion(id, shop, fields) {
   if (!existing)              throw new Error("Question not found");
   if (existing.shop !== shop) throw new Error("Forbidden");
 
-  const { text, icon, category, animationType, displayOrder, isActive, defaultAnswer } = fields;
+  const {
+    text, icon, category, animationType,
+    displayOrder, isActive, defaultAnswer, parentId,
+  } = fields;
 
   const updated = await prisma.animatedQuestion.update({
     where: { id },
-    data: {
-      ...(text          !== undefined && { text         : text.trim().substring(0, 80) }),
+    data : {
+      ...(text          !== undefined && { text         : text.trim().substring(0, 120) }),
       ...(icon          !== undefined && { icon }),
       ...(category      !== undefined && { category }),
       ...(animationType !== undefined && { animationType }),
       ...(displayOrder  !== undefined && { displayOrder : Number(displayOrder) }),
       ...(isActive      !== undefined && { isActive     : Boolean(isActive) }),
       ...(defaultAnswer !== undefined && { defaultAnswer: defaultAnswer?.trim() || null }),
+      ...(parentId      !== undefined && { parentId     : parentId || null }),  // ✅
       updatedAt: new Date(),
     },
   });
@@ -100,7 +127,7 @@ export async function updateAnimatedQuestion(id, shop, fields) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  DELETE — Question delete karo
+//  DELETE question (children auto-delete via onDelete: Cascade)
 // ─────────────────────────────────────────────────────────────
 export async function deleteAnimatedQuestion(id, shop) {
   if (!shop) throw new Error("shop is required");
@@ -114,115 +141,80 @@ export async function deleteAnimatedQuestion(id, shop) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  POST — Global settings save/update karo (upsert)
+//  UPSERT global settings
 // ─────────────────────────────────────────────────────────────
 export async function saveAnimatedQuestionSettings(shop, settings) {
   if (!shop || !settings) throw new Error("shop and settings are required");
 
   const {
     enabled = true, maxVisible = 3, showDelay = 2000,
-    autoHide = true, autoHideDelay = 8000,
+    autoHide = false, autoHideDelay = 8000,
   } = settings;
 
   const saved = await prisma.animatedQuestionSettings.upsert({
     where : { shop },
-    update: {
-      enabled,
-      maxVisible   : Number(maxVisible),
-      showDelay    : Number(showDelay),
-      autoHide,
-      autoHideDelay: Number(autoHideDelay),
-      updatedAt    : new Date(),
-    },
-    create: {
-      shop, enabled,
-      maxVisible   : Number(maxVisible),
-      showDelay    : Number(showDelay),
-      autoHide,
-      autoHideDelay: Number(autoHideDelay),
-    },
+    update: { enabled, maxVisible: Number(maxVisible), showDelay: Number(showDelay), autoHide, autoHideDelay: Number(autoHideDelay), updatedAt: new Date() },
+    create: { shop, enabled, maxVisible: Number(maxVisible), showDelay: Number(showDelay), autoHide, autoHideDelay: Number(autoHideDelay) },
   });
   return { success: true, settings: saved };
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Analytics — Click track karo
+//  ANALYTICS
 // ─────────────────────────────────────────────────────────────
 export async function trackQuestionClick(id) {
   try {
-    await prisma.animatedQuestion.update({
-      where: { id },
-      data : { clickCount: { increment: 1 } },
-    });
+    await prisma.animatedQuestion.update({ where: { id }, data: { clickCount: { increment: 1 } } });
     return { success: true };
   } catch (_) { return { success: false }; }
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Analytics — Dismiss track karo
-// ─────────────────────────────────────────────────────────────
 export async function trackQuestionDismiss(id) {
   try {
-    await prisma.animatedQuestion.update({
-      where: { id },
-      data : { dismissCount: { increment: 1 } },
-    });
+    await prisma.animatedQuestion.update({ where: { id }, data: { dismissCount: { increment: 1 } } });
     return { success: true };
   } catch (_) { return { success: false }; }
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Message send karo + optional auto-reply
-//  Apni existing /app/chat/message route mein is function ko
-//  call karo ya sirf autoReply block wahan paste karo.
+//  SEND MESSAGE with auto-reply
 // ─────────────────────────────────────────────────────────────
 export async function sendMessageWithAutoReply({
   sessionId, shop, message, fileUrl = null,
-  email, fname, triggerPush = false,
-  autoReply = null, questionId = null,
+  email, fname, autoReply = null, questionId = null,
 }) {
   if (!sessionId || !shop) throw new Error("sessionId and shop are required");
 
-  // 1. User message save karo
   await prisma.chatMessage.create({
     data: {
-      sessionId, shop,
       message  : message || "",
       fileUrl,
       sender   : "user",
-      createdAt: new Date(),
+      seenByAdmin: false,
+      session  : { connect: { sessionId } },
     },
   });
 
-  // 2. Auto-reply check
-  if (autoReply && autoReply.trim().length > 0) {
-    // Admin ne defaultAnswer set kiya — bot auto reply karega
-    await new Promise((r) => setTimeout(r, 800));
+  const replyText = autoReply?.trim() ||
+    "Thanks for reaching out! Our team will get back to you shortly. 👋";
 
-    await prisma.chatMessage.create({
-      data: {
-        sessionId, shop,
-        message  : autoReply.trim(),
-        fileUrl  : null,
-        sender   : "bot",
-        createdAt: new Date(),
-      },
-    });
+  await new Promise((r) => setTimeout(r, 800));
 
-    await notifyAdmin(shop, {
-      type: "animated_question_auto_replied",
-      sessionId, email, fname,
-      question: message, autoReply, questionId,
-    });
-  } else {
-    // Admin manually reply karega
-    if (triggerPush || questionId) {
-      await notifyAdmin(shop, {
-        type      : questionId ? "animated_question_clicked" : "new_message",
-        sessionId, email, fname, message, questionId,
-      });
-    }
+  await prisma.chatMessage.create({
+    data: {
+      message: replyText,
+      sender : "bot",
+      session: { connect: { sessionId } },
+    },
+  });
+
+  if (questionId) {
+    prisma.animatedQuestion.update({
+      where: { id: questionId },
+      data : { clickCount: { increment: 1 } },
+    }).catch(() => {});
   }
 
+  await notifyAdmin(shop, { type: "animated_question", sessionId, email, fname, message, autoReply, questionId });
   return { success: true };
 }

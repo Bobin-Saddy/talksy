@@ -469,9 +469,10 @@
       const res  = await fetch(`${BASE_URL}/api/animated-questions?shop=${encodeURIComponent(shop)}`);
       const data = await res.json();
       if (data.questions) {
+        // Keep all active questions (both parents + children)
         aqAllQuestions = data.questions.filter(q => q.isActive !== false);
-        // Only top-level (no parentId) shown as floating bubbles
-        aqQuestions = aqAllQuestions.filter(q => !q.parentId);
+        // Only null-parentId ones float as bubbles
+        aqQuestions    = aqAllQuestions.filter(q => !q.parentId);
       }
       if (data.settings) {
         aqSettings.enabled    = data.settings.enabled !== false;
@@ -484,7 +485,7 @@
     } catch (_) { /* silent */ }
   }
 
-  /* ── Get child questions for a given parentId ── */
+  /* ── Get active child questions for a given parentId ── */
   function getChildQuestions(parentId) {
     return aqAllQuestions.filter(q => q.parentId === parentId && q.isActive !== false);
   }
@@ -609,10 +610,11 @@
       await fetchMessages();
       setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 100);
 
-      /* ✅ Show child question chips inside chat (if any children exist) */
+      /* ✅ Show child chips if this parent has children */
       const children = getChildQuestions(question.id);
       if (children.length > 0) {
-        setTimeout(() => showChildChips(children, question.id), 600);
+        // Small delay so bot auto-reply renders first, then chips appear below
+        setTimeout(() => showChildChips(children, question.id), 900);
       }
 
     } catch (err) {
@@ -624,41 +626,54 @@
 
   /* ── Show child question chips inside the chat message box ── */
   function showChildChips(children, parentId) {
-    // Remove any existing chips for this parent
-    const existingWrap = document.getElementById(`aq-chips-${parentId}`);
-    if (existingWrap) existingWrap.remove();
+    if (!children || children.length === 0) return;
 
+    // Remove existing chips for this parent (prevent duplicates)
+    const existing = document.getElementById(`aq-chips-${parentId}`);
+    if (existing) existing.remove();
+
+    // Outer wrapper — sits in message flow as a "bot row"
     const wrap = document.createElement('div');
-    wrap.className = 'aq-child-chips-wrap msg';
-    wrap.id = `aq-chips-${parentId}`;
+    wrap.className = 'msg';                      // left-aligned like bot messages
+    wrap.id        = `aq-chips-${parentId}`;
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-self:flex-start;max-width:92%;margin-bottom:4px;animation:aq-chips-in 0.35s cubic-bezier(.34,1.56,.64,1);';
 
+    // Label
     const label = document.createElement('div');
-    label.className = 'aq-child-chips-label';
-    label.textContent = 'Related questions:';
+    label.style.cssText = 'font-size:11px;color:#9ca3af;font-weight:500;margin-bottom:7px;padding-left:2px;';
+    label.textContent   = 'Related questions:';
     wrap.appendChild(label);
 
+    // Chips row
     const row = document.createElement('div');
-    row.className = 'aq-child-chips-row';
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:7px;';
 
     children.forEach(child => {
       const chip = document.createElement('button');
+      chip.type      = 'button';
       chip.className = 'aq-child-chip';
-      chip.innerHTML = `<span class="aq-child-chip-icon">${child.icon || '💬'}</span><span>${escapeHtml(child.text)}</span>`;
-      chip.addEventListener('click', async () => {
-        // Mark all chips as used
-        wrap.querySelectorAll('.aq-child-chip').forEach(c => c.classList.add('aq-chip-used'));
+      chip.innerHTML = `<span style="font-size:14px;line-height:1;">${child.icon || '💬'}</span><span>${escapeHtml(child.text)}</span>`;
 
+      chip.addEventListener('click', async () => {
         const sid   = localStorage.getItem(SK.SID);
         const email = localStorage.getItem(SK.EMAIL);
         if (!sid || !email) return;
 
-        // Track analytics
+        // Disable all chips in this row immediately
+        row.querySelectorAll('.aq-child-chip').forEach(c => {
+          c.disabled = true;
+          c.classList.add('aq-chip-used');
+        });
+
+        // Analytics (non-blocking)
         fetch(`${BASE_URL}/api/animated-questions/${child.id}/click`, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ shop, sessionId: sid })
-        }).catch(()=>{});
+          method : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body   : JSON.stringify({ shop, sessionId: sid })
+        }).catch(() => {});
 
         try {
+          // Send child question as user message + get auto-reply
           await fetch(`${BASE_URL}/api/animated-questions/send`, {
             method : 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -672,12 +687,21 @@
               autoReply  : child.defaultAnswer || null
             })
           });
+
+          // Refresh messages — user message + bot reply dono dikhenge
           await fetchMessages();
-          setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 100);
+          setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 150);
+
         } catch (err) {
-          console.error('[AQ] child chip send error:', err);
+          console.error('[AQ child chip] send error:', err);
+          // Re-enable chips on failure
+          row.querySelectorAll('.aq-child-chip').forEach(c => {
+            c.disabled = false;
+            c.classList.remove('aq-chip-used');
+          });
         }
       });
+
       row.appendChild(chip);
     });
 
