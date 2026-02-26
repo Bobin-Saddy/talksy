@@ -509,7 +509,9 @@
     const email     = localStorage.getItem(SK.EMAIL);
 
     if (!sessionId || !email || email === 'null' || email === 'undefined') {
-      /* Show onboarding if not done yet */
+      /* Unregistered — question text store karo
+         Submit ke baad auto-reply bhi handle hogi */
+      window._pendingAQQuestion = question;  // store for post-registration send
       const chatInputEl = document.getElementById('chat-input');
       if (chatInputEl) {
         chatInputEl.value = question.text;
@@ -518,22 +520,22 @@
       return;
     }
 
-    /* 5b. Registered user → send message directly */
+    /* 5b. Registered user → send message + auto-reply */
     try {
-      await fetch(`${BASE_URL}/app/chat/message`, {
+      // ✅ Dedicated route use karo jo autoReply handle karta hai
+      // Agar admin ne defaultAnswer set kiya → bot reply aayega
+      // Agar nahi → "Thanks for reaching out" fallback reply aayega
+      await fetch(`${BASE_URL}/api/animated-questions/send`, {
         method : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body   : JSON.stringify({
           sessionId,
           shop,
           message    : question.text,
-          fileUrl    : null,
           email,
           fname      : localStorage.getItem(SK.FNAME) || '',
-          triggerPush: true,
-          /* ── auto-reply fields ── */
-          autoReply  : question.defaultAnswer || null,
-          questionId : question.id
+          questionId : question.id,
+          autoReply  : question.defaultAnswer || null
         })
       });
 
@@ -1088,6 +1090,31 @@
         localStorage.setItem(SK.SID,sid); localStorage.setItem(SK.FNAME,f); localStorage.setItem(SK.LNAME,l||''); localStorage.setItem(SK.EMAIL,e);
         showChatInterface(); startPolling();
         await updateTokenAfterLogin();
+
+        // ✅ Agar user ne register karne se pehle kisi AQ bubble pe click kiya tha
+        // toh ab uska message + auto-reply bhejo
+        if (window._pendingAQQuestion) {
+          const pq = window._pendingAQQuestion;
+          window._pendingAQQuestion = null;
+          try {
+            await fetch(`${BASE_URL}/api/animated-questions/send`, {
+              method : 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body   : JSON.stringify({
+                sessionId  : sid,
+                shop,
+                message    : pq.text,
+                email      : e,
+                fname      : f,
+                questionId : pq.id,
+                autoReply  : pq.defaultAnswer || null
+              })
+            });
+            await fetchMessages();
+            setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 150);
+          } catch (_) { /* non-critical — user message still in input */ }
+        }
+
       } else alert("Registration failed.");
     } catch (_) { alert("Connection error."); }
     submitBtn.disabled=false; submitBtn.textContent="Start Chatting";
