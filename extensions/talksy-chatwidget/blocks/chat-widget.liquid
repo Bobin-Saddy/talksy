@@ -534,8 +534,12 @@
 
     toShow.forEach((q, i) => {
       const bubble = document.createElement('div');
-      bubble.className    = `aq-bubble aq-anim-${q.animationType || 'float'}`;
-      bubble.style.animationDelay = `${i * 0.55}s`;
+      // 'none' animationType pe koi animation class nahi — bubble static rahega
+      const animClass = (q.animationType && q.animationType !== 'none')
+        ? `aq-anim-${q.animationType}`
+        : '';
+      bubble.className = `aq-bubble ${animClass}`.trim();
+      bubble.style.animationDelay = animClass ? `${i * 0.55}s` : '0s';
 
       bubble.innerHTML = `
         <span class="aq-bubble-icon">${q.icon || '💬'}</span>
@@ -623,9 +627,16 @@
       return;
     }
 
-    /* 5b. Registered user → send message + auto-reply */
+    /* 5b. Registered user → send message + typing + auto-reply */
     try {
-      await fetch(`${BASE_URL}/api/animated-questions/send`, {
+      // STEP 1: User ka message turant chat mein dikha (optimistic render)
+      renderUserMsgLocally(question.text);
+
+      // STEP 2: Typing indicator ON
+      const typingId = showTypingIndicator();
+
+      // STEP 3: Background mein message + auto-reply save karo (non-blocking)
+      fetch(`${BASE_URL}/api/animated-questions/send`, {
         method : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body   : JSON.stringify({
@@ -637,23 +648,20 @@
           questionId : question.id,
           autoReply  : question.defaultAnswer || null
         })
-      });
+      }).catch(() => {});
 
-      /* Show typing indicator while waiting for bot reply */
-      const typingId = showTypingIndicator();
+      // STEP 4: Backend ka 800ms reply delay + thoda buffer
+      await new Promise(r => setTimeout(r, 1100));
 
-      /* Wait for backend auto-reply to be saved (800ms delay in backend) */
-      await new Promise(r => setTimeout(r, 950));
-
-      /* Hide typing + refresh messages */
+      // STEP 5: Typing band karo, fresh messages fetch karo
       hideTypingIndicator(typingId);
       await fetchMessages();
-      setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 100);
+      msgBox.scrollTop = msgBox.scrollHeight;
 
-      /* ✅ Show child chips if this parent has children */
+      // STEP 6: Agar children hain toh chips dikhao
       const children = getChildQuestions(question.id);
       if (children.length > 0) {
-        setTimeout(() => showChildChips(children, question.id), 400);
+        setTimeout(() => showChildChips(children, question.id), 350);
       }
 
     } catch (err) {
@@ -661,6 +669,20 @@
       const chatInputEl = document.getElementById('chat-input');
       if (chatInputEl) { chatInputEl.value = question.text; chatInputEl.focus(); }
     }
+  }
+
+  /* ── Render user message locally (optimistic — before API returns) ── */
+  function renderUserMsgLocally(text) {
+    const fakeId = 'local-' + Date.now();
+    seenMsgs.add(fakeId);   // prevent duplicate when fetchMessages runs
+    const div = document.createElement('div');
+    div.className   = 'msg user';
+    div.dataset.fakeId = fakeId;
+    div.innerHTML   = `<div class="msg-content" style="background:#F39C12;color:#fff;border:none;">
+      <div>${escapeHtml(text)}</div>
+    </div>`;
+    msgBox.appendChild(div);
+    msgBox.scrollTop = msgBox.scrollHeight;
   }
 
   /* ── Typing indicator (3 bouncing dots) ── */
@@ -733,8 +755,14 @@
         }).catch(() => {});
 
         try {
-          // Send child question as user message
-          await fetch(`${BASE_URL}/api/animated-questions/send`, {
+          // STEP 1: Child question text turant chat mein dikha
+          renderUserMsgLocally(child.text);
+
+          // STEP 2: Typing ON
+          const chipTypingId = showTypingIndicator();
+
+          // STEP 3: Backend pe save (non-blocking)
+          fetch(`${BASE_URL}/api/animated-questions/send`, {
             method : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body   : JSON.stringify({
@@ -746,18 +774,15 @@
               questionId : child.id,
               autoReply  : child.defaultAnswer || null
             })
-          });
+          }).catch(() => {});
 
-          // Show user message immediately, then typing
-          await fetchMessages();
-          const chipTypingId = showTypingIndicator();
+          // STEP 4: Wait for bot reply
+          await new Promise(r => setTimeout(r, 1100));
 
-          // Wait for backend bot reply (800ms backend delay + buffer)
-          await new Promise(r => setTimeout(r, 950));
-
+          // STEP 5: Typing band, fresh fetch
           hideTypingIndicator(chipTypingId);
           await fetchMessages();
-          setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 100);
+          msgBox.scrollTop = msgBox.scrollHeight;
 
         } catch (err) {
           console.error('[AQ child chip] send error:', err);
