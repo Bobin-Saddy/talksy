@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { useLoaderData } from "react-router";
+import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import prisma from "../db.server";
-import { getShopLimits } from "../planLimits.server";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+  const { getShopLimits } = await import("../planLimits.server.js");
   const { plan } = await getShopLimits(shop);
-  return { shop, plan };
+  return json({ shop, plan });
 };
+
 
 const BASE_URL = "";
 
