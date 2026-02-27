@@ -1,13 +1,24 @@
 import { useState, useEffect } from "react";
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
+import { getShopLimits } from "../planLimits.server";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
-  return { shop: session.shop };
+  const shop = session.shop;
+  const { plan } = await getShopLimits(shop);
+  return { shop, plan };
 };
 
 const BASE_URL = "";
+
+// ── Plan limits for Animated Questions ──
+const AQ_PLAN_LIMITS = {
+  FREE    : { maxQuestions: 3,   canAutoReply: false },
+  STANDARD: { maxQuestions: -1,  canAutoReply: true  },
+  PREMIUM : { maxQuestions: -1,  canAutoReply: true  },
+};
 
 const C = {
   primary    : "#F39C12",
@@ -59,10 +70,90 @@ const S = {
   tab       : (a) => ({ flex:1, padding:"9px 14px", borderRadius:7, border:"none", fontWeight:600, fontSize:13, cursor:"pointer", background:a?"#fff":"transparent", color:a?C.text:C.muted, boxShadow:a?"0 1px 4px rgba(0,0,0,0.08)":"none", transition:"all 0.15s" }),
 };
 
+// ── Upgrade Banner ──
+function UpgradeBanner({ plan, reason }) {
+  return (
+    <div style={{
+      background  : "linear-gradient(135deg,#7c3aed,#6366f1)",
+      borderRadius: 12,
+      padding     : "16px 20px",
+      marginBottom: 18,
+      display     : "flex",
+      alignItems  : "center",
+      gap         : 14,
+      boxShadow   : "0 4px 16px rgba(124,58,237,0.25)",
+    }}>
+      <span style={{ fontSize:28 }}>🔒</span>
+      <div style={{ flex:1 }}>
+        <div style={{ color:"#fff", fontWeight:700, fontSize:14, marginBottom:3 }}>
+          {reason}
+        </div>
+        <div style={{ color:"rgba(255,255,255,0.8)", fontSize:12 }}>
+          You're on the <strong>{plan}</strong> plan. Upgrade to Standard or Premium to unlock this feature.
+        </div>
+      </div>
+      <a
+        href="/app/subscription"
+        style={{
+          background:"#fff", color:"#7c3aed", borderRadius:8, padding:"8px 16px",
+          fontWeight:700, fontSize:13, textDecoration:"none", whiteSpace:"nowrap",
+          boxShadow:"0 2px 8px rgba(0,0,0,0.1)",
+        }}
+      >
+        Upgrade Now ✨
+      </a>
+    </div>
+  );
+}
+
+// ── Plan Limit Banner (question count) ──
+function QuotaBanner({ used, max, plan }) {
+  const isFull = used >= max;
+  return (
+    <div style={{
+      background  : isFull ? "linear-gradient(135deg,#fef2f2,#fff7ed)" : "linear-gradient(135deg,#fffbeb,#fef3c7)",
+      border      : isFull ? "1px solid #fca5a5" : "1px solid #fcd34d",
+      borderRadius: 10,
+      padding     : "13px 16px",
+      marginBottom: 16,
+      display     : "flex",
+      alignItems  : "center",
+      gap         : 10,
+    }}>
+      <span style={{ fontSize:20 }}>{isFull ? "🚫" : "📊"}</span>
+      <div style={{ flex:1 }}>
+        <div style={{ fontWeight:700, fontSize:13, color: isFull ? C.danger : "#92400e" }}>
+          {isFull
+            ? `Question Limit Reached (${used}/${max})`
+            : `Questions Used: ${used} / ${max}`}
+        </div>
+        <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>
+          {isFull
+            ? "Upgrade to Standard or Premium for unlimited questions."
+            : `FREE plan allows max ${max} questions total (parents + children).`}
+        </div>
+      </div>
+      {isFull && (
+        <a
+          href="/app/subscription"
+          style={{
+            background:"linear-gradient(135deg,#7c3aed,#6366f1)", color:"#fff",
+            borderRadius:8, padding:"7px 14px", fontWeight:700, fontSize:12,
+            textDecoration:"none", whiteSpace:"nowrap",
+          }}
+        >
+          Upgrade
+        </a>
+      )}
+    </div>
+  );
+}
+
 function Toast({ msg, type, onClose }) {
   useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, []);
   return <div style={S.toast(type)}><span>{type==="success"?"✅":"❌"}</span>{msg}</div>;
 }
+
 function Toggle({ active, onChange }) {
   return <div style={S.toggle(active)} onClick={() => onChange(!active)}><div style={S.toggleDot(active)} /></div>;
 }
@@ -70,24 +161,25 @@ function Toggle({ active, onChange }) {
 const BLANK_FORM = { text:"", icon:"💬", category:"general", displayOrder:0, isActive:true, animationType:"float", defaultAnswer:"", parentId:null };
 
 export default function AnimationQuestion() {
-  const { shop } = useLoaderData();
+  const { shop, plan } = useLoaderData();
+
+  // ── Plan limits ──
+  const planLimits   = AQ_PLAN_LIMITS[plan] || AQ_PLAN_LIMITS.FREE;
+  const canAutoReply = planLimits.canAutoReply;
+  const maxQ         = planLimits.maxQuestions; // -1 = unlimited
 
   // ── Data ──
-  const [questions,  setQuestions]  = useState([]);   // only parent questions (parentId=null)
-  const [allQ,       setAllQ]       = useState([]);   // all questions flat
+  const [questions,  setQuestions]  = useState([]);
+  const [allQ,       setAllQ]       = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [toast,      setToast]      = useState(null);
   const [saving,     setSaving]     = useState(false);
 
   // ── Form ──
-  const [form,    setForm]    = useState(BLANK_FORM);
-  const [editId,  setEditId]  = useState(null);
-  const [activeTab, setActiveTab] = useState("parent"); // "parent" | "child"
-
-  // child form — which parent is selected
+  const [form,       setForm]       = useState(BLANK_FORM);
+  const [editId,     setEditId]     = useState(null);
+  const [activeTab,  setActiveTab]  = useState("parent");
   const [childParentId, setChildParentId] = useState("");
-
-  // expanded parent (to show its children inline)
   const [expandedId, setExpandedId] = useState(null);
 
   // ── Settings ──
@@ -121,18 +213,29 @@ export default function AnimationQuestion() {
   };
 
   const showToast = (msg, type="success") => setToast({msg,type});
-
   const childrenOf = (parentId) => allQ.filter(q => q.parentId === parentId);
 
-  // ── Save (parent or child) ──
+  // ── Total question count (parents + children) ──
+  const totalQCount = allQ.length;
+  const isAtLimit   = maxQ !== -1 && totalQCount >= maxQ;
+
+  // ── Save ──
   const handleSave = async () => {
     if (!form.text.trim()) return showToast("Question text is required","error");
     if (activeTab==="child" && !form.parentId && !childParentId) return showToast("Select a parent question","error");
 
+    // FREE plan: block if at limit (and not editing existing)
+    if (!editId && isAtLimit) {
+      showToast(`FREE plan allows max ${maxQ} questions. Upgrade to add more.`, "error");
+      return;
+    }
+
+    // FREE plan: strip defaultAnswer
     const payload = {
       ...form,
       shop,
-      parentId: activeTab==="child" ? (form.parentId || childParentId || null) : null,
+      parentId    : activeTab==="child" ? (form.parentId || childParentId || null) : null,
+      defaultAnswer: canAutoReply ? form.defaultAnswer : "",
     };
 
     setSaving(true);
@@ -181,6 +284,10 @@ export default function AnimationQuestion() {
   };
 
   const startAddChild = (parentId) => {
+    if (!editId && isAtLimit) {
+      showToast(`FREE plan allows max ${maxQ} questions. Upgrade to add more.`, "error");
+      return;
+    }
     resetForm();
     setActiveTab("child");
     setChildParentId(parentId);
@@ -204,10 +311,10 @@ export default function AnimationQuestion() {
     } catch (_) { showToast("Failed","error"); }
   };
 
-  const activeParents  = questions.filter(q => q.isActive).length;
-  const totalChildren  = allQ.filter(q => q.parentId).length;
-  const totalClicks    = allQ.reduce((a,q)=>a+(q.clickCount||0),0);
-  const previewItems   = form.text
+  const activeParents = questions.filter(q => q.isActive).length;
+  const totalChildren = allQ.filter(q => q.parentId).length;
+  const totalClicks   = allQ.reduce((a,q)=>a+(q.clickCount||0),0);
+  const previewItems  = form.text
     ? [{text:form.text, icon:form.icon}]
     : questions.filter(q=>q.isActive).slice(0,3).map(q=>({text:q.text,icon:q.icon||"💬"}));
 
@@ -230,6 +337,8 @@ export default function AnimationQuestion() {
         .bubble-anim:nth-child(3){animation-delay:1.1s;}
         ::-webkit-scrollbar{width:4px;}
         ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:4px;}
+        .locked-field{opacity:0.5;pointer-events:none;position:relative;}
+        .upgrade-tag{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;border-radius:20px;padding:2px 10px;fontSize:11px;fontWeight:700;}
       `}</style>
 
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)} />}
@@ -242,21 +351,36 @@ export default function AnimationQuestion() {
           <p style={S.headerSub}>Parent bubbles + follow-up child questions inside chat</p>
         </div>
         {shop && (
-          <div style={{marginLeft:"auto",fontSize:12,color:"rgba(255,255,255,0.85)",background:"rgba(255,255,255,0.15)",padding:"5px 13px",borderRadius:20}}>
-            🏪 {shop}
+          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:10}}>
+            {/* Plan badge in header */}
+            <div style={{
+              background: plan==="FREE"?"rgba(255,255,255,0.15)":plan==="STANDARD"?"rgba(99,102,241,0.6)":"rgba(16,185,129,0.6)",
+              border:"1px solid rgba(255,255,255,0.3)",
+              color:"#fff", borderRadius:20, padding:"4px 13px", fontSize:12, fontWeight:700,
+            }}>
+              {plan==="FREE"?"🆓 Free":plan==="STANDARD"?"⭐ Standard":"👑 Premium"}
+            </div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,0.85)",background:"rgba(255,255,255,0.15)",padding:"5px 13px",borderRadius:20}}>
+              🏪 {shop}
+            </div>
           </div>
         )}
       </div>
 
       <div style={S.container}>
 
+        {/* ── FREE plan quota banner ── */}
+        {maxQ !== -1 && (
+          <QuotaBanner used={totalQCount} max={maxQ} plan={plan} />
+        )}
+
         {/* Stats */}
         <div style={S.statsRow}>
           {[
-            {num:questions.length, label:"Parent Questions"},
-            {num:activeParents,    label:"Active Bubbles"},
-            {num:totalChildren,    label:"Child Questions"},
-            {num:totalClicks,      label:"Total Clicks"},
+            {num:questions.length,  label:"Parent Questions"},
+            {num:activeParents,     label:"Active Bubbles"},
+            {num:totalChildren,     label:"Child Questions"},
+            {num:totalClicks,       label:"Total Clicks"},
           ].map(s=>(
             <div key={s.label} style={S.statCard}>
               <div style={S.statNum}>{s.num}</div>
@@ -286,6 +410,14 @@ export default function AnimationQuestion() {
                 {editId && <button onClick={resetForm} style={{...S.btnSec,marginLeft:"auto",padding:"4px 12px",fontSize:12}}>Cancel</button>}
               </div>
 
+              {/* FREE plan limit warning in form */}
+              {!editId && isAtLimit && (
+                <UpgradeBanner
+                  plan={plan}
+                  reason={`FREE plan limit: You've used all ${maxQ} questions.`}
+                />
+              )}
+
               {/* Child: parent selector */}
               {activeTab==="child" && (
                 <div style={{marginBottom:16,padding:14,background:"rgba(124,58,237,0.06)",border:"1px solid rgba(124,58,237,0.18)",borderRadius:10}}>
@@ -302,44 +434,100 @@ export default function AnimationQuestion() {
                   </select>
                   {selectedParentName && (
                     <div style={{fontSize:12,color:C.purple,marginTop:-10}}>
-                      ↳ This child will appear inside chat after user clicks: <strong>"{selectedParentName}"</strong>
+                      ↳ Child will appear inside chat after: <strong>"{selectedParentName}"</strong>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Parent info box */}
+              {/* Info box */}
               {activeTab==="parent" && (
                 <div style={{marginBottom:14,padding:12,background:"rgba(243,156,18,0.06)",border:"1px solid rgba(243,156,18,0.18)",borderRadius:9,fontSize:12,color:C.muted,lineHeight:1.7}}>
-                  💬 Parent questions appear as <strong style={{color:C.primary}}>floating bubbles</strong> above the chat launcher.<br/>
-                  Add child questions to show follow-ups inside the chat after user clicks this bubble.
+                  💬 Parent questions appear as <strong style={{color:C.primary}}>floating bubbles</strong> above the chat launcher.
+                  {maxQ !== -1 && <span style={{color:C.danger}}> FREE plan: max {maxQ} total questions.</span>}
                 </div>
               )}
-
               {activeTab==="child" && (
                 <div style={{marginBottom:14,padding:12,background:"rgba(124,58,237,0.06)",border:"1px solid rgba(124,58,237,0.18)",borderRadius:9,fontSize:12,color:C.muted,lineHeight:1.7}}>
-                  🔗 Child questions appear as <strong style={{color:C.purple}}>clickable chips inside the chat</strong> after the parent is clicked.<br/>
-                  Each child can have its own auto-reply answer.
+                  🔗 Child questions appear as <strong style={{color:C.purple}}>clickable chips inside the chat</strong> after the parent is clicked.
                 </div>
               )}
 
               <label style={S.label}>Question Text *</label>
               <input
-                style={S.input}
+                style={{...S.input, opacity: (!editId && isAtLimit) ? 0.5 : 1 }}
                 placeholder={activeTab==="parent" ? "e.g. Where is my order? 🤔" : "e.g. Track my order"}
                 value={form.text}
                 onChange={e=>setForm({...form,text:e.target.value})}
                 maxLength={120}
+                disabled={!editId && isAtLimit}
               />
               <div style={{fontSize:11,color:C.muted,marginTop:-10,marginBottom:14,textAlign:"right"}}>{form.text.length}/120</div>
 
-              <label style={S.label}>Auto Reply (optional)</label>
-              <textarea
-                style={S.textarea}
-                placeholder="Bot will send this reply when user clicks. Leave empty for manual admin reply."
-                value={form.defaultAnswer}
-                onChange={e=>setForm({...form,defaultAnswer:e.target.value})}
-              />
+              {/* ── Auto Reply — locked for FREE ── */}
+              <div style={{ position:"relative", marginBottom:4 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                  <label style={{...S.label, marginBottom:0}}>Auto Reply (Bot Response)</label>
+                  {!canAutoReply && (
+                    <span style={{
+                      display:"inline-flex", alignItems:"center", gap:4,
+                      background:"linear-gradient(135deg,#7c3aed,#6366f1)",
+                      color:"#fff", borderRadius:20, padding:"2px 9px",
+                      fontSize:10, fontWeight:700,
+                    }}>
+                      🔒 Standard+
+                    </span>
+                  )}
+                </div>
+
+                {!canAutoReply ? (
+                  /* Locked state for FREE */
+                  <div style={{
+                    position:"relative", marginBottom:14,
+                    border:`1px solid #e5e7eb`, borderRadius:9, overflow:"hidden",
+                  }}>
+                    <div style={{
+                      padding:"10px 13px", background:"#f9fafb",
+                      minHeight:72, fontSize:13, color:"#9ca3af",
+                      fontStyle:"italic",
+                    }}>
+                      Upgrade to Standard or Premium to set auto-reply messages for your questions...
+                    </div>
+                    {/* Lock overlay */}
+                    <div style={{
+                      position:"absolute", inset:0,
+                      background:"rgba(124,58,237,0.06)",
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      backdropFilter:"blur(1.5px)",
+                    }}>
+                      <div style={{ textAlign:"center" }}>
+                        <div style={{ fontSize:28, marginBottom:6 }}>🔒</div>
+                        <div style={{ fontSize:12, fontWeight:700, color:C.purple, marginBottom:8 }}>
+                          Auto-Reply is a paid feature
+                        </div>
+                        <a
+                          href="/app/subscription"
+                          style={{
+                            background:"linear-gradient(135deg,#7c3aed,#6366f1)",
+                            color:"#fff", borderRadius:8, padding:"7px 16px",
+                            fontSize:12, fontWeight:700, textDecoration:"none",
+                            display:"inline-block",
+                          }}
+                        >
+                          Upgrade to Unlock ✨
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <textarea
+                    style={S.textarea}
+                    placeholder="Bot will send this reply when user clicks. Leave empty for manual admin reply."
+                    value={form.defaultAnswer}
+                    onChange={e=>setForm({...form,defaultAnswer:e.target.value})}
+                  />
+                )}
+              </div>
 
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                 <div>
@@ -376,9 +564,38 @@ export default function AnimationQuestion() {
                 <Toggle active={form.isActive} onChange={v=>setForm({...form,isActive:v})} />
               </div>
 
-              <button className="btn-p" style={activeTab==="child"?{...S.btn,background:`linear-gradient(135deg,${C.purple},#6d28d9)`}:S.btn} onClick={handleSave} disabled={saving}>
+              <button
+                className="btn-p"
+                style={{
+                  ...(activeTab==="child"
+                    ? {...S.btn,background:`linear-gradient(135deg,${C.purple},#6d28d9)`}
+                    : S.btn),
+                  opacity: (!editId && isAtLimit) ? 0.5 : 1,
+                  cursor : (!editId && isAtLimit) ? "not-allowed" : "pointer",
+                }}
+                onClick={handleSave}
+                disabled={saving || (!editId && isAtLimit)}
+              >
                 {saving?"⏳ Saving…":editId?"💾 Update":activeTab==="parent"?"✨ Add Parent Question":"🔗 Add Child Question"}
               </button>
+
+              {/* Upgrade CTA below button if at limit */}
+              {!editId && isAtLimit && (
+                <div style={{marginTop:12,textAlign:"center"}}>
+                  <a
+                    href="/app/subscription"
+                    style={{
+                      display:"inline-flex", alignItems:"center", gap:6,
+                      background:"linear-gradient(135deg,#7c3aed,#6366f1)",
+                      color:"#fff", borderRadius:9, padding:"10px 20px",
+                      fontWeight:700, fontSize:13, textDecoration:"none",
+                      boxShadow:"0 4px 14px rgba(124,58,237,0.35)",
+                    }}
+                  >
+                    ✨ Upgrade to Add More Questions
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Settings */}
@@ -411,6 +628,60 @@ export default function AnimationQuestion() {
           {/* ── RIGHT: Preview + List ── */}
           <div>
 
+            {/* Plan Info Card */}
+            <div style={{
+              ...S.card,
+              marginBottom:18,
+              background: plan==="FREE"
+                ? "linear-gradient(135deg,#fffbeb,#fef3c7)"
+                : plan==="STANDARD"
+                ? "linear-gradient(135deg,#eff6ff,#f5f3ff)"
+                : "linear-gradient(135deg,#f0fdf4,#d1fae5)",
+              border: plan==="FREE" ? "1px solid #fcd34d" : plan==="STANDARD" ? "1px solid #c7d2fe" : "1px solid #86efac",
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                <span style={{ fontSize:32 }}>
+                  {plan==="FREE"?"🆓":plan==="STANDARD"?"⭐":"👑"}
+                </span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:700, fontSize:14, color:C.text, marginBottom:4 }}>
+                    {plan} Plan Features
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                    <div style={{ fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ color: maxQ===-1 ? C.success : C.primary }}>
+                        {maxQ===-1 ? "✅" : `📊`}
+                      </span>
+                      <span style={{ color:C.muted }}>
+                        {maxQ===-1
+                          ? "Unlimited questions"
+                          : `Max ${maxQ} questions (${totalQCount} used)`}
+                      </span>
+                    </div>
+                    <div style={{ fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
+                      <span>{canAutoReply ? "✅" : "🔒"}</span>
+                      <span style={{ color:C.muted }}>
+                        {canAutoReply ? "Auto-reply enabled" : "Auto-reply — upgrade to unlock"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {plan === "FREE" && (
+                  <a
+                    href="/app/subscription"
+                    style={{
+                      background:"linear-gradient(135deg,#7c3aed,#6366f1)",
+                      color:"#fff", borderRadius:8, padding:"8px 14px",
+                      fontSize:12, fontWeight:700, textDecoration:"none",
+                      whiteSpace:"nowrap", flexShrink:0,
+                    }}
+                  >
+                    Upgrade ✨
+                  </a>
+                )}
+              </div>
+            </div>
+
             {/* Preview */}
             <div style={S.card}>
               <div style={S.cardTitle}>👁️ Live Preview</div>
@@ -434,7 +705,6 @@ export default function AnimationQuestion() {
                 <div style={{position:"absolute",bottom:10,left:14,fontSize:11,color:C.muted}}>Preview — bubbles appear above launcher</div>
               </div>
 
-              {/* Chat preview for child questions */}
               {questions.some(q=>childrenOf(q.id).length>0) && (
                 <div style={{marginTop:14,padding:14,background:"rgba(124,58,237,0.04)",border:"1px solid rgba(124,58,237,0.15)",borderRadius:10}}>
                   <div style={{fontSize:12,fontWeight:700,color:C.purple,marginBottom:8}}>💬 Chat Follow-up Preview</div>
@@ -467,6 +737,7 @@ export default function AnimationQuestion() {
                 📋 All Questions
                 <span style={{marginLeft:"auto",background:"rgba(243,156,18,0.1)",border:"1px solid rgba(243,156,18,0.2)",color:C.primary,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>
                   {questions.length} parent · {totalChildren} child
+                  {maxQ !== -1 && ` · ${totalQCount}/${maxQ} used`}
                 </span>
               </div>
 
@@ -480,11 +751,10 @@ export default function AnimationQuestion() {
                 </div>
               ) : (
                 questions.map(q => {
-                  const kids = childrenOf(q.id);
+                  const kids    = childrenOf(q.id);
                   const expanded = expandedId === q.id;
                   return (
                     <div key={q.id}>
-                      {/* Parent card */}
                       <div className="q-card" style={S.qCard}>
                         <div style={{display:"flex",alignItems:"flex-start",gap:11}}>
                           <div style={{width:36,height:36,background:"rgba(243,156,18,0.1)",border:"1px solid rgba(243,156,18,0.2)",borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>
@@ -498,11 +768,9 @@ export default function AnimationQuestion() {
                               <span style={S.tag}>{q.category||"general"}</span>
                               <span style={S.tag}>🎬 {q.animationType||"float"}</span>
                               {q.clickCount>0 && <span style={{fontSize:11,color:C.muted}}>👆 {q.clickCount}</span>}
-                              {kids.length>0 && (
-                                <span style={S.tagPurple}>{kids.length} child{kids.length>1?"ren":""}</span>
-                              )}
+                              {kids.length>0 && <span style={S.tagPurple}>{kids.length} child{kids.length>1?"ren":""}</span>}
                             </div>
-                            {q.defaultAnswer && (
+                            {q.defaultAnswer && canAutoReply && (
                               <div style={{fontSize:11,color:C.muted,marginTop:6,padding:"5px 9px",background:"#fff",borderRadius:6,borderLeft:`2px solid ${C.primary}`}}>
                                 🤖 {q.defaultAnswer.substring(0,55)}{q.defaultAnswer.length>55?"…":""}
                               </div>
@@ -514,13 +782,12 @@ export default function AnimationQuestion() {
                               <button
                                 onClick={()=>setExpandedId(expanded?null:q.id)}
                                 style={{...S.btnSec,padding:"4px 9px",fontSize:12,color:expanded?C.purple:C.muted,borderColor:expanded?"rgba(124,58,237,0.3)":C.border}}
-                                title="Show/hide children"
-                              >
-                                {expanded?"▲":"▼"}
-                              </button>
-                              <button onClick={()=>startAddChild(q.id)} style={{...S.btnSec,padding:"4px 9px",fontSize:12,color:C.purple,borderColor:"rgba(124,58,237,0.3)"}} title="Add child question">
-                                +🔗
-                              </button>
+                              >{expanded?"▲":"▼"}</button>
+                              <button
+                                onClick={()=>startAddChild(q.id)}
+                                style={{...S.btnSec,padding:"4px 9px",fontSize:12,color:C.purple,borderColor:"rgba(124,58,237,0.3)", opacity: (!editId && isAtLimit) ? 0.5 : 1}}
+                                title={isAtLimit ? "Upgrade to add more" : "Add child question"}
+                              >+🔗</button>
                               <button onClick={()=>handleEdit(q)} style={{...S.btnSec,padding:"4px 9px",fontSize:12}}>✏️</button>
                               <button onClick={()=>handleDelete(q.id)} style={S.btnDanger}>🗑️</button>
                             </div>
@@ -528,13 +795,14 @@ export default function AnimationQuestion() {
                         </div>
                       </div>
 
-                      {/* Child cards — shown when expanded */}
                       {expanded && (
                         <div style={{marginBottom:10}}>
                           {kids.length===0 ? (
                             <div style={{...S.childCard,color:C.muted,fontSize:13,textAlign:"center"}}>
                               No child questions yet.
-                              <button onClick={()=>startAddChild(q.id)} style={{...S.btnPurple,marginLeft:12,padding:"4px 12px",fontSize:12}}>+ Add Child</button>
+                              {!isAtLimit && (
+                                <button onClick={()=>startAddChild(q.id)} style={{...S.btnPurple,marginLeft:12,padding:"4px 12px",fontSize:12}}>+ Add Child</button>
+                              )}
                             </div>
                           ) : (
                             kids.map(child=>(
@@ -543,7 +811,7 @@ export default function AnimationQuestion() {
                                   <span style={{fontSize:16}}>{child.icon||"💬"}</span>
                                   <div style={{flex:1,minWidth:0}}>
                                     <div style={{fontSize:13,fontWeight:600,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{child.text}</div>
-                                    {child.defaultAnswer && (
+                                    {child.defaultAnswer && canAutoReply && (
                                       <div style={{fontSize:11,color:C.purple,marginTop:3}}>🤖 {child.defaultAnswer.substring(0,50)}{child.defaultAnswer.length>50?"…":""}</div>
                                     )}
                                     {child.clickCount>0 && <div style={{fontSize:11,color:C.muted,marginTop:2}}>👆 {child.clickCount} clicks</div>}
@@ -557,9 +825,11 @@ export default function AnimationQuestion() {
                               </div>
                             ))
                           )}
-                          <div style={{textAlign:"right",marginBottom:4}}>
-                            <button onClick={()=>startAddChild(q.id)} style={{...S.btnPurple,padding:"5px 12px",fontSize:12}}>+ Add Another Child</button>
-                          </div>
+                          {!isAtLimit && (
+                            <div style={{textAlign:"right",marginBottom:4}}>
+                              <button onClick={()=>startAddChild(q.id)} style={{...S.btnPurple,padding:"5px 12px",fontSize:12}}>+ Add Another Child</button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
