@@ -16,9 +16,9 @@ const BASE_URL = "";
 
 // ── Plan limits for Animated Questions ──
 const AQ_PLAN_LIMITS = {
-  FREE    : { maxQuestions: 3,   canAutoReply: false },
-  STANDARD: { maxQuestions: -1,  canAutoReply: true  },
-  PREMIUM : { maxQuestions: -1,  canAutoReply: true  },
+  FREE    : { maxParents: 3,  canAddChild: false, canAutoReply: false },
+  STANDARD: { maxParents: -1, canAddChild: true,  canAutoReply: true  },
+  PREMIUM : { maxParents: -1, canAddChild: true,  canAutoReply: true  },
 };
 
 const C = {
@@ -168,7 +168,8 @@ export default function AnimationQuestion() {
   // ── Plan limits ──
   const planLimits   = AQ_PLAN_LIMITS[plan] || AQ_PLAN_LIMITS.FREE;
   const canAutoReply = planLimits.canAutoReply;
-  const maxQ         = planLimits.maxQuestions; // -1 = unlimited
+  const canAddChild  = planLimits.canAddChild;
+  const maxQ         = planLimits.maxParents; // -1 = unlimited (parents only)
 
   // ── Data ──
   const [questions,  setQuestions]  = useState([]);
@@ -218,17 +219,25 @@ export default function AnimationQuestion() {
   const childrenOf = (parentId) => allQ.filter(q => q.parentId === parentId);
 
   // ── Total question count (parents + children) ──
-  const totalQCount = allQ.length;
-  const isAtLimit   = maxQ !== -1 && totalQCount >= maxQ;
+  const totalQCount    = allQ.length;
+  const parentCount    = questions.length; // only parent questions
+  const isAtLimit      = maxQ !== -1 && parentCount >= maxQ;
+  const isChildBlocked = !canAddChild; // FREE plan can't add children at all
 
   // ── Save ──
   const handleSave = async () => {
     if (!form.text.trim()) return showToast("Question text is required","error");
     if (activeTab==="child" && !form.parentId && !childParentId) return showToast("Select a parent question","error");
 
-    // FREE plan: block if at limit (and not editing existing)
-    if (!editId && isAtLimit) {
-      showToast(`FREE plan allows max ${maxQ} questions. Upgrade to add more.`, "error");
+    // FREE plan: block child questions entirely
+    if (!editId && activeTab === "child" && isChildBlocked) {
+      showToast("Child questions require Standard or Premium plan. Upgrade to unlock.", "error");
+      return;
+    }
+
+    // FREE plan: block if parent limit reached
+    if (!editId && activeTab === "parent" && isAtLimit) {
+      showToast(`FREE plan allows max ${maxQ} parent questions. Upgrade to add more.`, "error");
       return;
     }
 
@@ -286,8 +295,8 @@ export default function AnimationQuestion() {
   };
 
   const startAddChild = (parentId) => {
-    if (!editId && isAtLimit) {
-      showToast(`FREE plan allows max ${maxQ} questions. Upgrade to add more.`, "error");
+    if (isChildBlocked) {
+      showToast("Child questions require Standard or Premium plan. Upgrade to unlock.", "error");
       return;
     }
     resetForm();
@@ -373,7 +382,7 @@ export default function AnimationQuestion() {
 
         {/* ── FREE plan quota banner ── */}
         {maxQ !== -1 && (
-          <QuotaBanner used={totalQCount} max={maxQ} plan={plan} onUpgrade={() => navigate("/app/subscription")} />
+          <QuotaBanner used={parentCount} max={maxQ} plan={plan} onUpgrade={() => navigate("/app/subscription")} />
         )}
 
         {/* Stats */}
@@ -413,10 +422,17 @@ export default function AnimationQuestion() {
               </div>
 
               {/* FREE plan limit warning in form */}
-              {!editId && isAtLimit && (
+              {!editId && activeTab === "child" && isChildBlocked && (
                 <UpgradeBanner
                   plan={plan}
-                  reason={`FREE plan limit: You've used all ${maxQ} questions.`}
+                  reason="Child questions are not available on the FREE plan."
+                  onUpgrade={() => navigate("/app/subscription")}
+                />
+              )}
+              {!editId && activeTab === "parent" && isAtLimit && (
+                <UpgradeBanner
+                  plan={plan}
+                  reason={`FREE plan limit: You've used all ${maxQ} parent questions.`}
                   onUpgrade={() => navigate("/app/subscription")}
                 />
               )}
@@ -447,23 +463,26 @@ export default function AnimationQuestion() {
               {activeTab==="parent" && (
                 <div style={{marginBottom:14,padding:12,background:"rgba(243,156,18,0.06)",border:"1px solid rgba(243,156,18,0.18)",borderRadius:9,fontSize:12,color:C.muted,lineHeight:1.7}}>
                   💬 Parent questions appear as <strong style={{color:C.primary}}>floating bubbles</strong> above the chat launcher.
-                  {maxQ !== -1 && <span style={{color:C.danger}}> FREE plan: max {maxQ} total questions.</span>}
+                  {maxQ !== -1 && <span style={{color:C.danger}}> FREE plan: max {maxQ} parent questions.</span>}
                 </div>
               )}
               {activeTab==="child" && (
-                <div style={{marginBottom:14,padding:12,background:"rgba(124,58,237,0.06)",border:"1px solid rgba(124,58,237,0.18)",borderRadius:9,fontSize:12,color:C.muted,lineHeight:1.7}}>
-                  🔗 Child questions appear as <strong style={{color:C.purple}}>clickable chips inside the chat</strong> after the parent is clicked.
+                <div style={{marginBottom:14,padding:12,background:isChildBlocked?"rgba(220,38,38,0.05)":"rgba(124,58,237,0.06)",border:isChildBlocked?"1px solid rgba(220,38,38,0.2)":"1px solid rgba(124,58,237,0.18)",borderRadius:9,fontSize:12,color:C.muted,lineHeight:1.7}}>
+                  {isChildBlocked
+                    ? <><span style={{color:"#dc2626",fontWeight:700}}>🔒 Child questions require Standard or Premium plan.</span><br/>Upgrade to add follow-up chips inside the chat.</>
+                    : <>🔗 Child questions appear as <strong style={{color:C.purple}}>clickable chips inside the chat</strong> after the parent is clicked.</>
+                  }
                 </div>
               )}
 
               <label style={S.label}>Question Text *</label>
               <input
-                style={{...S.input, opacity: (!editId && isAtLimit) ? 0.5 : 1 }}
+                style={{...S.input, opacity: (!editId && (isAtLimit || (activeTab==="child" && isChildBlocked))) ? 0.5 : 1 }}
                 placeholder={activeTab==="parent" ? "e.g. Where is my order? 🤔" : "e.g. Track my order"}
                 value={form.text}
                 onChange={e=>setForm({...form,text:e.target.value})}
                 maxLength={120}
-                disabled={!editId && isAtLimit}
+                disabled={!editId && (isAtLimit || (activeTab==="child" && isChildBlocked))}
               />
               <div style={{fontSize:11,color:C.muted,marginTop:-10,marginBottom:14,textAlign:"right"}}>{form.text.length}/120</div>
 
@@ -573,17 +592,17 @@ export default function AnimationQuestion() {
                   ...(activeTab==="child"
                     ? {...S.btn,background:`linear-gradient(135deg,${C.purple},#6d28d9)`}
                     : S.btn),
-                  opacity: (!editId && isAtLimit) ? 0.5 : 1,
-                  cursor : (!editId && isAtLimit) ? "not-allowed" : "pointer",
+                  opacity: (!editId && (isAtLimit || (activeTab==="child" && isChildBlocked))) ? 0.5 : 1,
+                  cursor : (!editId && (isAtLimit || (activeTab==="child" && isChildBlocked))) ? "not-allowed" : "pointer",
                 }}
                 onClick={handleSave}
-                disabled={saving || (!editId && isAtLimit)}
+                disabled={saving || (!editId && (isAtLimit || (activeTab==="child" && isChildBlocked)))}
               >
                 {saving?"⏳ Saving…":editId?"💾 Update":activeTab==="parent"?"✨ Add Parent Question":"🔗 Add Child Question"}
               </button>
 
               {/* Upgrade CTA below button if at limit */}
-              {!editId && isAtLimit && (
+              {!editId && (isAtLimit || (activeTab==="child" && isChildBlocked)) && (
                 <div style={{marginTop:12,textAlign:"center"}}>
                   <button
                     onClick={() => navigate("/app/subscription")}
@@ -595,7 +614,7 @@ export default function AnimationQuestion() {
                       boxShadow:"0 4px 14px rgba(124,58,237,0.35)",
                     }}
                   >
-                    ✨ Upgrade to Add More Questions
+                    {activeTab==="child" && isChildBlocked ? "🔒 Upgrade to Add Child Questions" : "✨ Upgrade to Add More Questions"}
                   </button>
                 </div>
               )}
@@ -659,6 +678,12 @@ export default function AnimationQuestion() {
                         {maxQ===-1
                           ? "Unlimited questions"
                           : `Max ${maxQ} questions (${totalQCount} used)`}
+                      </span>
+                    </div>
+                    <div style={{ fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
+                      <span>{canAddChild ? "✅" : "🔒"}</span>
+                      <span style={{ color:C.muted }}>
+                        {canAddChild ? "Child questions enabled" : "Child questions — upgrade to unlock"}
                       </span>
                     </div>
                     <div style={{ fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
@@ -788,9 +813,9 @@ export default function AnimationQuestion() {
                               >{expanded?"▲":"▼"}</button>
                               <button
                                 onClick={()=>startAddChild(q.id)}
-                                style={{...S.btnSec,padding:"4px 9px",fontSize:12,color:C.purple,borderColor:"rgba(124,58,237,0.3)", opacity: (!editId && isAtLimit) ? 0.5 : 1}}
-                                title={isAtLimit ? "Upgrade to add more" : "Add child question"}
-                              >+🔗</button>
+                                style={{...S.btnSec,padding:"4px 9px",fontSize:12,color:isChildBlocked?"#dc2626":C.purple,borderColor:isChildBlocked?"rgba(220,38,38,0.3)":"rgba(124,58,237,0.3)"}}
+                                title={isChildBlocked ? "Upgrade to Standard/Premium to add child questions" : "Add child question"}
+                              >{isChildBlocked ? "🔒" : "+🔗"}</button>
                               <button onClick={()=>handleEdit(q)} style={{...S.btnSec,padding:"4px 9px",fontSize:12}}>✏️</button>
                               <button onClick={()=>handleDelete(q.id)} style={S.btnDanger}>🗑️</button>
                             </div>
@@ -803,9 +828,10 @@ export default function AnimationQuestion() {
                           {kids.length===0 ? (
                             <div style={{...S.childCard,color:C.muted,fontSize:13,textAlign:"center"}}>
                               No child questions yet.
-                              {!isAtLimit && (
-                                <button onClick={()=>startAddChild(q.id)} style={{...S.btnPurple,marginLeft:12,padding:"4px 12px",fontSize:12}}>+ Add Child</button>
-                              )}
+                              {isChildBlocked
+                                ? <button onClick={() => navigate("/app/subscription")} style={{...S.btnPurple,marginLeft:12,padding:"4px 12px",fontSize:12,background:"rgba(220,38,38,0.08)",color:"#dc2626",border:"1px solid rgba(220,38,38,0.2)"}}>🔒 Upgrade to Add Children</button>
+                                : <button onClick={()=>startAddChild(q.id)} style={{...S.btnPurple,marginLeft:12,padding:"4px 12px",fontSize:12}}>+ Add Child</button>
+                              }
                             </div>
                           ) : (
                             kids.map(child=>(
@@ -828,7 +854,7 @@ export default function AnimationQuestion() {
                               </div>
                             ))
                           )}
-                          {!isAtLimit && (
+                          {!isChildBlocked && (
                             <div style={{textAlign:"right",marginBottom:4}}>
                               <button onClick={()=>startAddChild(q.id)} style={{...S.btnPurple,padding:"5px 12px",fontSize:12}}>+ Add Another Child</button>
                             </div>
