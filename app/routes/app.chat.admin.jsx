@@ -9,6 +9,7 @@
 //    5. ✅ NEW: "Enable Notifications" button for default/not-yet-granted state
 //    6. ✅ UPDATED: VAPID banner text converted to English
 //    7. ✅ UPDATED: Permission guide now shows Chrome URL setup steps
+//    8. ✅ FIXED: Bot message bubble style + BOT label badge
 // ═══════════════════════════════════════════════════════════
 
 import { json } from "@remix-run/node";
@@ -707,6 +708,33 @@ export default function NeuralChatAdmin() {
     setActiveSession(prev => ({ ...prev, isResolved: false, resolvedAt: null }));
   };
 
+  // ── Helper: get bubble styles per sender ──
+  const getMsgBubbleStyle = (sender) => {
+    if (sender === "admin") {
+      return {
+        background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+        color     : "#fff",
+        border    : "none",
+        borderRadius: "16px 16px 4px 16px",
+      };
+    }
+    if (sender === "bot") {
+      return {
+        background  : "linear-gradient(135deg, #f0fdf4, #dcfce7)",
+        color       : "#111827",
+        border      : "1px solid #86efac",
+        borderRadius: "16px 16px 16px 4px",
+      };
+    }
+    // user
+    return {
+      background  : "#fff",
+      color       : "#111827",
+      border      : "1px solid #e5e7eb",
+      borderRadius: "16px 16px 16px 4px",
+    };
+  };
+
   return (
     <div style={{ display:"flex", height:"100vh", backgroundColor:"#f9fafb", color:"#111827", fontFamily:'"Inter", system-ui, sans-serif' }}>
 
@@ -888,7 +916,7 @@ export default function NeuralChatAdmin() {
           </button>
         </div>
 
-        {/* ── VAPID push enabled banner (English) ── */}
+        {/* ── VAPID push enabled banner ── */}
         {pushEnabled && (
           <div style={{ margin:"0 16px 8px", padding:"8px 12px", background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:"8px", fontSize:"11px", color:"#166534", display:"flex", alignItems:"center", gap:"6px" }}>
             <span>🔔</span>
@@ -896,7 +924,7 @@ export default function NeuralChatAdmin() {
           </div>
         )}
 
-        {/* ════ PERMISSION MODAL — Mode A: not asked yet | Mode B: blocked ════ */}
+        {/* ════ PERMISSION MODAL ════ */}
         {showPermissionGuide && (
           <div
             onClick={() => setShowPermissionGuide(false)}
@@ -920,7 +948,6 @@ export default function NeuralChatAdmin() {
               >✕</button>
 
               {notifPermission !== "denied" ? (
-                /* ── Mode A: Not yet asked ── */
                 <div>
                   <div style={{ textAlign:"center", marginBottom:"20px" }}>
                     <div style={{ fontSize:"44px", marginBottom:"10px" }}>🔔</div>
@@ -929,8 +956,6 @@ export default function NeuralChatAdmin() {
                       Click <strong>Allow</strong> when your browser asks — done in one click!
                     </p>
                   </div>
-
-                  {/* Step-by-step visual guide */}
                   <div style={{ marginBottom:"20px", display:"flex", flexDirection:"column", gap:"10px" }}>
                     <div style={{ background:"#f0f9ff", border:"1px solid #bae6fd", borderRadius:"12px", padding:"14px 16px", display:"flex", gap:"12px", alignItems:"flex-start" }}>
                       <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:"#0ea5e9", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>1</div>
@@ -947,11 +972,10 @@ export default function NeuralChatAdmin() {
                     <div style={{ background:"#f5f3ff", border:"1px solid #ddd6fe", borderRadius:"12px", padding:"14px 16px", display:"flex", gap:"12px", alignItems:"flex-start" }}>
                       <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:"#6366f1", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>3</div>
                       <div style={{ fontSize:"12px", color:"#4338ca", lineHeight:"1.6" }}>
-                        That's it! You'll get instant alerts every time a customer sends you a message — even when this tab is in the background.
+                        That's it! You'll get instant alerts every time a customer sends you a message.
                       </div>
                     </div>
                   </div>
-
                   <button
                     onClick={async () => {
                       setShowPermissionGuide(false);
@@ -972,7 +996,6 @@ export default function NeuralChatAdmin() {
                   </p>
                 </div>
               ) : (
-                /* ── Mode B: Blocked — full Chrome URL guide ── */
                 <div>
                   <div style={{ textAlign:"center", marginBottom:"20px" }}>
                     <div style={{ fontSize:"44px", marginBottom:"10px" }}>🚫</div>
@@ -981,70 +1004,50 @@ export default function NeuralChatAdmin() {
                       You previously blocked notifications. Follow these 3 steps to fix it in Chrome:
                     </p>
                   </div>
-
                   <div style={{ display:"flex", flexDirection:"column", gap:"10px", marginBottom:"20px" }}>
-
-                    {/* Step 1 */}
                     <div style={{ background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:"12px", padding:"14px 16px" }}>
                       <div style={{ display:"flex", gap:"12px", alignItems:"flex-start" }}>
                         <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:"#6366f1", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>1</div>
                         <div style={{ flex:1 }}>
                           <div style={{ fontWeight:"700", fontSize:"13px", color:"#111827", marginBottom:"6px" }}>🌐 Open Chrome Notification Settings</div>
                           <div style={{ fontSize:"12px", color:"#6b7280", marginBottom:"10px", lineHeight:"1.5" }}>
-                            Open a <strong>new Chrome tab</strong>, paste the URL below into the address bar and press <kbd style={{ background:"#e5e7eb", padding:"1px 5px", borderRadius:"4px", fontSize:"11px", fontFamily:"monospace" }}>Enter</kbd>:
+                            Open a <strong>new Chrome tab</strong>, paste the URL below and press <kbd style={{ background:"#e5e7eb", padding:"1px 5px", borderRadius:"4px", fontSize:"11px", fontFamily:"monospace" }}>Enter</kbd>:
                           </div>
                           <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
                             <code style={{ flex:1, background:"#1e1e2e", color:"#a5f3fc", padding:"8px 10px", borderRadius:"8px", fontSize:"11px", fontFamily:"monospace", wordBreak:"break-all" }}>
                               chrome://settings/content/notifications
                             </code>
-                            <button
-                              onClick={() => { navigator.clipboard.writeText("chrome://settings/content/notifications").catch(() => {}); }}
-                              style={{ flexShrink:0, padding:"7px 10px", background:"#6366f1", color:"white", border:"none", borderRadius:"7px", fontSize:"11px", fontWeight:"700", cursor:"pointer" }}
-                            >Copy</button>
-                          </div>
-                          <div style={{ marginTop:"8px", fontSize:"11px", color:"#9ca3af", fontStyle:"italic" }}>
-                            💡 Note: Chrome blocks direct links to chrome:// URLs — you must paste it manually.
+                            <button onClick={() => { navigator.clipboard.writeText("chrome://settings/content/notifications").catch(() => {}); }} style={{ flexShrink:0, padding:"7px 10px", background:"#6366f1", color:"white", border:"none", borderRadius:"7px", fontSize:"11px", fontWeight:"700", cursor:"pointer" }}>Copy</button>
                           </div>
                         </div>
                       </div>
                     </div>
-
-                    {/* Step 2 */}
                     <div style={{ background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:"12px", padding:"14px 16px" }}>
                       <div style={{ display:"flex", gap:"12px", alignItems:"flex-start" }}>
                         <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:"#6366f1", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>2</div>
                         <div style={{ flex:1 }}>
                           <div style={{ fontWeight:"700", fontSize:"13px", color:"#111827", marginBottom:"6px" }}>🗑️ Remove the block for Talksy</div>
-                          <div style={{ fontSize:"12px", color:"#6b7280", marginBottom:"10px", lineHeight:"1.5" }}>
-                            Scroll down to the <strong>"Not allowed to send notifications"</strong> section. Find the entry below and click the <strong>trash 🗑️ icon</strong> next to it:
-                          </div>
                           <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
                             <code style={{ flex:1, background:"#fef2f2", color:"#991b1b", padding:"8px 10px", borderRadius:"8px", fontSize:"11px", fontFamily:"monospace", wordBreak:"break-all", border:"1px solid #fca5a5" }}>
                               talksy-production-5d43.up.railway.app
                             </code>
-                            <button
-                              onClick={() => { navigator.clipboard.writeText("talksy-production-5d43.up.railway.app").catch(() => {}); }}
-                              style={{ flexShrink:0, padding:"7px 10px", background:"#ef4444", color:"white", border:"none", borderRadius:"7px", fontSize:"11px", fontWeight:"700", cursor:"pointer" }}
-                            >Copy</button>
+                            <button onClick={() => { navigator.clipboard.writeText("talksy-production-5d43.up.railway.app").catch(() => {}); }} style={{ flexShrink:0, padding:"7px 10px", background:"#ef4444", color:"white", border:"none", borderRadius:"7px", fontSize:"11px", fontWeight:"700", cursor:"pointer" }}>Copy</button>
                           </div>
                         </div>
                       </div>
                     </div>
-
-                    {/* Step 3 */}
                     <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:"12px", padding:"14px 16px" }}>
                       <div style={{ display:"flex", gap:"12px", alignItems:"flex-start" }}>
                         <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:"#10b981", color:"white", fontSize:"12px", fontWeight:"800", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>3</div>
                         <div style={{ flex:1 }}>
                           <div style={{ fontWeight:"700", fontSize:"13px", color:"#065f46", marginBottom:"4px" }}>✅ Come back here and click Retry</div>
                           <div style={{ fontSize:"12px", color:"#6b7280", lineHeight:"1.5" }}>
-                            After removing the block, return to this tab and click the <strong>"I removed the block — Retry"</strong> button below. The browser will ask for permission again — click <strong>Allow</strong>.
+                            After removing the block, return to this tab and click <strong>"I removed the block — Retry"</strong> below.
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-
                   <button
                     onClick={async () => {
                       setShowPermissionGuide(false);
@@ -1204,23 +1207,90 @@ export default function NeuralChatAdmin() {
               )}
             </div>
 
-            <div ref={scrollRef} style={{ flex:1, padding:"32px", overflowY:"auto", display:"flex", flexDirection:"column", gap:"20px", background:"#f9fafb", filter:isActiveSessionBlurred?"blur(4px)":"none", pointerEvents:isActiveSessionBlurred?"none":"auto", userSelect:isActiveSessionBlurred?"none":"auto", opacity:isActiveSessionBlurred?0.5:1 }}>
-              {messages.map((msg, i) => (
-                <div key={msg.id||i} style={{ alignSelf:msg.sender==="admin"?"flex-end":"flex-start", maxWidth:"65%" }}>
-                  <div style={{ padding:"12px 16px", borderRadius:"16px", background:msg.sender==="admin"?"linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)":(msg.sender==="bot"?"#fef3c7":"#fff"), color:msg.sender==="admin"?"#fff":"#111827", boxShadow:"0 2px 8px rgba(0,0,0,0.06)", border:msg.sender==="admin"?"none":(msg.sender==="bot"?"1px solid #fbbf24":"1px solid #e5e7eb") }}>
-                    {msg.fileUrl ? (
-                      msg.fileUrl.includes("image") || msg.fileUrl.startsWith("data:image") ?
-                        <img src={msg.fileUrl} onClick={() => setSelectedImage(msg.fileUrl)} style={{ maxWidth:"280px", borderRadius:"10px", cursor:"zoom-in" }} alt="attachment" /> :
-                        <div style={{ display:"flex", gap:"8px", alignItems:"center" }}><Icons.FileText /><a href={msg.fileUrl} target="_blank" rel="noreferrer" style={{ color:"inherit", fontWeight:"600", textDecoration:"none" }}>View Document</a></div>
-                    ) : (
-                      <div style={{ fontSize:"14px", lineHeight:"1.5" }}>{msg.message}</div>
+            {/* ════ MESSAGES ════ */}
+            <div
+              ref={scrollRef}
+              style={{
+                flex      : 1,
+                padding   : "32px",
+                overflowY : "auto",
+                display   : "flex",
+                flexDirection: "column",
+                gap       : "16px",
+                background: "#f9fafb",
+                filter    : isActiveSessionBlurred ? "blur(4px)" : "none",
+                pointerEvents: isActiveSessionBlurred ? "none" : "auto",
+                userSelect: isActiveSessionBlurred ? "none" : "auto",
+                opacity   : isActiveSessionBlurred ? 0.5 : 1,
+              }}
+            >
+              {messages.map((msg, i) => {
+                const bubbleStyle = getMsgBubbleStyle(msg.sender);
+                const isAdmin = msg.sender === "admin";
+                const isBot   = msg.sender === "bot";
+
+                return (
+                  <div
+                    key={msg.id || i}
+                    style={{
+                      alignSelf : isAdmin ? "flex-end" : "flex-start",
+                      maxWidth  : "65%",
+                      display   : "flex",
+                      flexDirection: "column",
+                      alignItems: isAdmin ? "flex-end" : "flex-start",
+                    }}
+                  >
+                    {/* Bot label above bubble */}
+                    {isBot && (
+                      <div style={{ display:"flex", alignItems:"center", gap:"5px", marginBottom:"4px", paddingLeft:"2px" }}>
+                        <span style={{ fontSize:"14px" }}>🤖</span>
+                        <span style={{ fontSize:"10px", fontWeight:"700", color:"#059669", background:"#d1fae5", padding:"2px 7px", borderRadius:"4px", letterSpacing:"0.3px" }}>
+                          BOT
+                        </span>
+                      </div>
                     )}
+
+                    <div
+                      style={{
+                        padding     : "12px 16px",
+                        boxShadow   : "0 2px 8px rgba(0,0,0,0.06)",
+                        ...bubbleStyle,
+                      }}
+                    >
+                      {msg.fileUrl ? (
+                        (msg.fileUrl.includes("image") || msg.fileUrl.startsWith("data:image")) ?
+                          <img
+                            src={msg.fileUrl}
+                            onClick={() => setSelectedImage(msg.fileUrl)}
+                            style={{ maxWidth:"280px", borderRadius:"10px", cursor:"zoom-in" }}
+                            alt="attachment"
+                          /> :
+                          <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+                            <Icons.FileText />
+                            <a href={msg.fileUrl} target="_blank" rel="noreferrer" style={{ color:"inherit", fontWeight:"600", textDecoration:"none" }}>View Document</a>
+                          </div>
+                      ) : (
+                        <div style={{ fontSize:"14px", lineHeight:"1.5" }}>{msg.message}</div>
+                      )}
+                    </div>
+
+                    {/* Timestamp row */}
+                    <div
+                      style={{
+                        fontSize   : "11px",
+                        color      : "#9ca3af",
+                        marginTop  : "4px",
+                        display    : "flex",
+                        alignItems : "center",
+                        gap        : "6px",
+                        justifyContent: isAdmin ? "flex-end" : "flex-start",
+                      }}
+                    >
+                      {new Date(msg.createdAt).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}
+                    </div>
                   </div>
-                  <div style={{ fontSize:"11px", color:"#9ca3af", marginTop:"4px", textAlign:msg.sender==="admin"?"right":"left" }}>
-                    {new Date(msg.createdAt).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {filePreview && !isActiveSessionOverLimit && (

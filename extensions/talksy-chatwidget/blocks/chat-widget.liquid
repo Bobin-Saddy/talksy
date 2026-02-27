@@ -608,18 +608,25 @@
     hideAllBubbles();
 
     /* 3. Open widget if closed */
-    if (!widget.classList.contains('chat-visible')) {
-      widget.classList.add('chat-visible');
-      widget.classList.remove('chat-hidden');
-      document.getElementById('launcher-icon').style.display       = 'none';
-      document.getElementById('close-launcher-icon').style.display = 'flex';
-      await new Promise(r => setTimeout(r, 300));
-    }
+/* 3. Open widget if closed — switch to chat tab BEFORE making visible */
+const chatNav = document.querySelector('[data-tab="chat"]');
 
-    /* 4. Switch to chat tab */
-    const chatNav = document.querySelector('[data-tab="chat"]');
-    if (chatNav) chatNav.click();
-    await new Promise(r => setTimeout(r, 120));
+if (!widget.classList.contains('chat-visible')) {
+  // Tab pehle switch karo — user ko home flash nahi dikhega
+  if (chatNav) chatNav.click();
+  await new Promise(r => setTimeout(r, 30));
+
+  // Ab widget open karo
+  widget.classList.add('chat-visible');
+  widget.classList.remove('chat-hidden');
+  document.getElementById('launcher-icon').style.display       = 'none';
+  document.getElementById('close-launcher-icon').style.display = 'flex';
+  await new Promise(r => setTimeout(r, 300));
+} else {
+  /* 4. Widget already open — sirf tab switch karo */
+  if (chatNav) chatNav.click();
+  await new Promise(r => setTimeout(r, 120));
+}
 
     /* 5a. Unregistered user → pre-fill + store pending */
     const sessionId = localStorage.getItem(SK.SID);
@@ -727,13 +734,17 @@
     return id;
   }
 
-  function hideTypingIndicator(id) {
-    // Typing ko yahan remove mat karo —
-    // renderMsg khud typing ki jagah bot reply insert karega (no scroll jump)
-    // Sirf agar koi fetchMessages nahi aaya toh fallback remove karo
-    const el = document.getElementById(id);
-    if (el) el.remove();
-  }
+function hideTypingIndicator(id) {
+  // Bilkul mat hatao — renderMsg replace karega in-place
+  // Sirf class change karo taaki pata chale "fading"
+  const el = document.getElementById(id);
+  if (el) el.dataset.typingFallback = '1';
+  // Fallback: agar 4s mein koi bot message nahi aaya toh tab hatao
+  setTimeout(() => {
+    const stillThere = document.getElementById(id);
+    if (stillThere) stillThere.remove();
+  }, 4000);
+}
 
   /* ── Show child question chips inside the chat message box ── */
   function showChildChips(children, parentId) {
@@ -773,8 +784,9 @@
 
         // Disable all chips in this row immediately
         row.querySelectorAll('.aq-child-chip').forEach(c => {
-          c.disabled = true;
-          c.classList.add('aq-chip-used');
+        // Disable only the clicked chip
+chip.disabled = true;
+chip.classList.add('aq-chip-used');
         });
 
         // Analytics (non-blocking)
@@ -819,8 +831,8 @@
         } catch (err) {
           console.error('[AQ child chip] send error:', err);
           row.querySelectorAll('.aq-child-chip').forEach(c => {
-            c.disabled = false;
-            c.classList.remove('aq-chip-used');
+          chip.disabled = false;
+chip.classList.remove('aq-chip-used');
           });
           if (!pollInterval) pollInterval = setInterval(fetchMessages, 3500);
         }
@@ -1009,7 +1021,8 @@
 
     // ── Bot message: replace typing indicator in-place if exists ──
     // Typing indicator ki jagah pe bot message aayega — zero scroll jump
-    const typingEl = msgBox.querySelector('.aq-typing-bubble');
+    // Always find the LAST typing bubble (most recent one)
+const typingEl = isBot ? msgBox.querySelector('.aq-typing-bubble:last-of-type') || msgBox.querySelector('.aq-typing-bubble') : null;
     const bg  = isBot ? (currentConfig.messageBgColor || '#fff') : '#F39C12';
     const col = isBot ? '#1e293b' : '#fff';
     const bdr = isBot ? `1px solid ${currentConfig.widgetBorderColor || '#eee'}` : 'none';
@@ -1023,25 +1036,40 @@
       ${m.fileUrl ? `<img src="${m.fileUrl}" class="msg-image" style="max-width:100%;border-radius:10px;margin-top:6px;display:block;cursor:pointer;" onclick="window.openImagePopup('${m.fileUrl}')" />` : ''}
     </div>`;
 
-    if (isBot && typingEl) {
-      // Bot reply typing ki exact jagah pe insert karo, phir typing hatao
-      msgBox.insertBefore(div, typingEl);
-      typingEl.remove();
-    } else {
-      msgBox.appendChild(div);
-      // Naya message — scroll to bottom smoothly
-      requestAnimationFrame(() => {
-        msgBox.scrollTo({ top: msgBox.scrollHeight, behavior: 'smooth' });
-      });
-    }
+if (isBot && typingEl) {
+  // Scroll position lock karo before DOM change
+  const scrollLocked = msgBox.scrollTop + msgBox.clientHeight >= msgBox.scrollHeight - 10;
+  const typingTop = typingEl.getBoundingClientRect().top;
 
-    // Fade in — no translateY, no position change, sirf opacity
+  // In-place replace — typing ki exact position pe bot message
+  msgBox.insertBefore(div, typingEl);
+  typingEl.remove();
+
+  // Agar user bottom pe tha toh smooth scroll, warna position hold
+  if (scrollLocked) {
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const mc = div.querySelector('.msg-content');
-        if (mc) mc.style.opacity = '1';
-      });
+      msgBox.scrollTo({ top: msgBox.scrollHeight, behavior: 'smooth' });
     });
+  }
+} else {
+  msgBox.appendChild(div);
+  requestAnimationFrame(() => {
+    msgBox.scrollTo({ top: msgBox.scrollHeight, behavior: 'smooth' });
+  });
+}
+    // Fade in — no translateY, no position change, sirf opacity
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    const mc = div.querySelector('.msg-content');
+    if (mc) {
+      mc.style.opacity = '1';
+      // Smooth scroll after message fades in
+      setTimeout(() => {
+        msgBox.scrollTo({ top: msgBox.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    }
+  });
+});
   }
 
   window.openImagePopup = function(url) {
