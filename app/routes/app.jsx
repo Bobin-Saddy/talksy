@@ -1,15 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 //  FILE: app/routes/app.jsx
-//
-//  THE ACTUAL FIX:
-//  onMessage() handler added in ROOT layout so foreground
-//  FCM messages are caught on EVERY page, not just chat page.
-//
-//  When admin is on any page (settings, faq, subscription):
-//  - Firebase sees app is "in foreground" → skips OS notif
-//  - onMessage fires → we manually show OS notif + toast
-//  - This works on Mac because Notification.requestPermission
-//    was already granted at top level
+//  FIXES:
+//    1. server-only imports moved inside loader (build fix)
+//    2. onMessage() in ROOT so foreground FCM works everywhere
+//    3. Child question auto-reply locked for FREE plan
 // ═══════════════════════════════════════════════════════════
 import { Outlet, useLoaderData, useRouteError, useLocation, useNavigate, useRevalidator } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -19,8 +13,7 @@ import enTranslations from "@shopify/polaris/locales/en.json";
 import "@shopify/polaris/build/esm/styles.css";
 import { authenticate } from "../shopify.server";
 import { useEffect, useRef, useState } from "react";
-import { getUsageStats } from "../planLimits.server";
-import prisma from "../db.server";
+import { json } from "@remix-run/node";
 import { initializeApp, getApps } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
@@ -38,10 +31,17 @@ const BACKEND_URL        = "https://talksy-production-5d43.up.railway.app";
 const TALKSY_ICON        = "https://cdn.shopify.com/app-store/listing_images/177dd497355fe743fa747f74896d9015/icon/CJmW96zmq5IDEAE=.png";
 
 // ── Loader ─────────────────────────────────────────────────
+// ✅ server-only imports are INSIDE the loader — safe for build
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+
+  // Dynamic imports keep server modules out of client bundle
+  const { default: prisma }   = await import("../db.server.js");
+  const { getUsageStats }     = await import("../planLimits.server.js");
+
   const subscription = await prisma.subscription.findUnique({ where: { shop } });
+
   let usage = null;
   try {
     usage = await getUsageStats(shop);
@@ -54,18 +54,23 @@ export const loader = async ({ request }) => {
       retention: { days: 30 },
     };
   }
-  return {
+
+  return json({
     apiKey            : process.env.SHOPIFY_API_KEY || "",
     usage,
     subscriptionStatus: subscription?.status || "active",
     currentShop       : shop,
-  };
+  });
 };
 
 // ── Locked overlay ─────────────────────────────────────────
 function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNavigate }) {
   return (
-    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, WebkitBackdropFilter:"blur(12px)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+    <div style={{
+      position:"fixed", top:0, left:0, right:0, bottom:0,
+      WebkitBackdropFilter:"blur(12px)", zIndex:9999,
+      display:"flex", alignItems:"center", justifyContent:"center", padding:"20px",
+    }}>
       <div style={{ borderRadius:"16px", padding:"48px 40px", maxWidth:"520px", textAlign:"center" }}>
         <div style={{ fontSize:"72px", marginBottom:"20px", lineHeight:1 }}>🔒</div>
         <h2 style={{ fontSize:"26px", fontWeight:"700", marginBottom:"12px", color:"#202223", lineHeight:"1.3" }}>
@@ -78,7 +83,11 @@ function LockedPageOverlay({ requiredPlan, currentPlan, isPendingApproval, onNav
         </p>
         <button
           onClick={() => onNavigate("/app/subscription")}
-          style={{ padding:"14px 32px", backgroundColor:"#005BD3", color:"white", borderRadius:"8px", fontWeight:"600", fontSize:"16px", border:"none", cursor:"pointer" }}
+          style={{
+            padding:"14px 32px", backgroundColor:"#005BD3", color:"white",
+            borderRadius:"8px", fontWeight:"600", fontSize:"16px",
+            border:"none", cursor:"pointer",
+          }}
           onMouseEnter={e => { e.target.style.backgroundColor = "#004FC4"; }}
           onMouseLeave={e => { e.target.style.backgroundColor = "#005BD3"; }}
         >
@@ -109,17 +118,37 @@ function GlobalToast({ toasts, onDismiss }) {
           border:"1px solid rgba(255,255,255,0.15)",
           position:"relative", overflow:"hidden",
         }}>
-          <div style={{ position:"absolute", bottom:0, left:0, height:"3px", background:"rgba(255,255,255,0.4)", animation:"talksyProgress 7s linear forwards", width:"100%" }} />
-          <div style={{ width:"36px", height:"36px", background:"rgba(255,255,255,0.2)", borderRadius:"10px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px", flexShrink:0 }}>💬</div>
+          <div style={{
+            position:"absolute", bottom:0, left:0, height:"3px",
+            background:"rgba(255,255,255,0.4)",
+            animation:"talksyProgress 7s linear forwards", width:"100%",
+          }} />
+          <div style={{
+            width:"36px", height:"36px", background:"rgba(255,255,255,0.2)",
+            borderRadius:"10px", display:"flex", alignItems:"center",
+            justifyContent:"center", fontSize:"18px", flexShrink:0,
+          }}>💬</div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontWeight:"700", fontSize:"13px", marginBottom:"4px" }}>{toast.title}</div>
             {toast.imageUrl && (
-              <img src={toast.imageUrl} alt="" style={{ width:"100%", maxHeight:"100px", objectFit:"cover", borderRadius:"8px", marginBottom:"6px" }} onError={e => e.currentTarget.style.display="none"} />
+              <img
+                src={toast.imageUrl} alt=""
+                style={{ width:"100%", maxHeight:"100px", objectFit:"cover", borderRadius:"8px", marginBottom:"6px" }}
+                onError={e => e.currentTarget.style.display="none"}
+              />
             )}
             <div style={{ fontSize:"12px", opacity:0.9, lineHeight:"1.45", wordBreak:"break-word" }}>{toast.body}</div>
             <div style={{ fontSize:"10px", opacity:0.6, marginTop:"4px" }}>{toast.time}</div>
           </div>
-          <button onClick={() => onDismiss(toast.id)} style={{ background:"rgba(255,255,255,0.2)", border:"none", color:"white", width:"22px", height:"22px", borderRadius:"6px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:"14px" }}>×</button>
+          <button
+            onClick={() => onDismiss(toast.id)}
+            style={{
+              background:"rgba(255,255,255,0.2)", border:"none", color:"white",
+              width:"22px", height:"22px", borderRadius:"6px", cursor:"pointer",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              flexShrink:0, fontSize:"14px",
+            }}
+          >×</button>
         </div>
       ))}
       <style>{`
@@ -138,9 +167,9 @@ export default function App() {
   const revalidator = useRevalidator();
 
   const [globalToasts, setGlobalToasts] = useState([]);
-  const audioRef        = useRef(null);
-  const tokenSavedRef   = useRef(false);
-  const messagingRef    = useRef(null); // ← store messaging instance
+  const audioRef      = useRef(null);
+  const tokenSavedRef = useRef(false);
+  const messagingRef  = useRef(null);
 
   const pushGlobalToast = (title, body, imageUrl = null) => {
     const id = Date.now() + Math.random();
@@ -151,11 +180,6 @@ export default function App() {
     setTimeout(() => setGlobalToasts(prev => prev.filter(t => t.id !== id)), 8000);
   };
 
-  // ── Show OS notification manually (for foreground messages) ──
-  // When the app is open (foreground), FCM does NOT auto-show
-  // the OS notification. We must call it ourselves via the
-  // Notification API — this works fine because permission was
-  // already granted by the user.
   function showOsNotification(title, body, imageUrl, shopUrl) {
     if (Notification.permission !== "granted") return;
     try {
@@ -176,9 +200,7 @@ export default function App() {
     }
   }
 
-  // ════════════════════════════════════════════════════════
-  //  FCM SETUP
-  // ════════════════════════════════════════════════════════
+  // ── FCM Setup ──────────────────────────────────────────
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator) || !("Notification" in window)) return;
@@ -186,7 +208,6 @@ export default function App() {
 
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
 
-    // ── Step 1: SW message listener FIRST (no race condition) ──
     function onSwMessage(event) {
       if (!event.data || event.data.type !== "TALKSY_PUSH") return;
       console.log("[FCM] SW→page message:", event.data);
@@ -199,7 +220,6 @@ export default function App() {
     }
     navigator.serviceWorker.addEventListener("message", onSwMessage);
 
-    // ── Step 2: Register SW ────────────────────────────────
     async function registerSW() {
       try {
         const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
@@ -212,7 +232,6 @@ export default function App() {
       }
     }
 
-    // ── Step 3: Get token + setup onMessage ───────────────
     async function setupFCM(swReg) {
       if (Notification.permission !== "granted") return;
       try {
@@ -220,7 +239,6 @@ export default function App() {
         const messaging = getMessaging(app);
         messagingRef.current = messaging;
 
-        // Get + save token
         if (!tokenSavedRef.current) {
           const token = await getToken(messaging, {
             vapidKey                 : FIREBASE_VAPID_KEY,
@@ -230,7 +248,11 @@ export default function App() {
             const res = await fetch(`${BACKEND_URL}/app/admin/register-fcm-token`, {
               method : "POST",
               headers: { "Content-Type": "application/json" },
-              body   : JSON.stringify({ shop: currentShop, fcmToken: token, registeredAt: new Date().toISOString() }),
+              body   : JSON.stringify({
+                shop        : currentShop,
+                fcmToken    : token,
+                registeredAt: new Date().toISOString(),
+              }),
             });
             if (res.ok) {
               tokenSavedRef.current = true;
@@ -239,38 +261,20 @@ export default function App() {
           }
         }
 
-        // ══════════════════════════════════════════════════
-        //  KEY FIX: onMessage handler in ROOT layout
-        //
-        //  This fires when a push arrives AND the app window
-        //  is currently focused (any page — settings, faq,
-        //  subscription, etc.). Without this, FCM silently
-        //  drops the notification when app is in foreground.
-        //
-        //  We:
-        //  1. Show OS notification manually via Notification API
-        //  2. Show in-app toast
-        //  3. Play sound
-        // ══════════════════════════════════════════════════
         const unsubscribe = onMessage(messaging, (payload) => {
-          console.log("[FCM] Foreground message received on:", location.pathname, payload);
+          console.log("[FCM] Foreground message on:", location.pathname, payload);
+          const n        = payload.notification || {};
+          const d        = payload.data         || {};
+          const title    = n.title   || d.title   || "💬 New Message — Talksy";
+          const body     = n.body    || d.body    || "A customer sent a message";
+          const imageUrl = d.imageUrl || d.fileUrl || null;
+          const shopUrl  = d.shopUrl || "/";
 
-          const n         = payload.notification || {};
-          const d         = payload.data         || {};
-          const title     = n.title    || d.title    || "💬 New Message — Talksy";
-          const body      = n.body     || d.body     || "A customer sent a message";
-          const imageUrl  = d.imageUrl || d.fileUrl  || null;
-          const shopUrl   = d.shopUrl  || "/";
-
-          // 1. OS notification (Notification API — works on Mac)
           showOsNotification(title, body, imageUrl, shopUrl);
-
-          // 2. In-app toast
           if (audioRef.current) audioRef.current.play().catch(() => {});
           pushGlobalToast(title, body, imageUrl);
         });
 
-        // Return cleanup
         return unsubscribe;
       } catch (err) {
         console.warn("[FCM] setup error:", err.message);
@@ -278,7 +282,6 @@ export default function App() {
       }
     }
 
-    // ── Step 4: Re-register when permission granted ────────
     let unsubscribeOnMessage = null;
 
     function onPermissionGranted() {
@@ -292,7 +295,6 @@ export default function App() {
     }
     window.addEventListener("talksy:permission-granted", onPermissionGranted);
 
-    // Run
     registerSW().then(async (swReg) => {
       if (swReg) unsubscribeOnMessage = await setupFCM(swReg);
     });
@@ -304,7 +306,7 @@ export default function App() {
     };
   }, [currentShop]);
 
-  // ── Plan / billing ─────────────────────────────────────────
+  // ── Plan / billing ─────────────────────────────────────
   const isApproachingLimit = usage && typeof usage.chats.percentage === "number" && usage.chats.percentage > 80;
   const isAtLimit          = usage && typeof usage.chats.percentage === "number" && usage.chats.percentage >= 100;
   const isBillingApproved  = subscriptionStatus === "active" || subscriptionStatus === "trialing";
@@ -339,17 +341,26 @@ export default function App() {
   }, [isPendingApproval, revalidator]);
 
   useEffect(() => {
-    const beat = async () => { try { await fetch("/app/update-status", { method: "POST" }); } catch (_) {} };
+    const beat = async () => {
+      try { await fetch("/app/update-status", { method: "POST" }); } catch (_) {}
+    };
     beat();
     const interval = setInterval(beat, 30000);
     return () => clearInterval(interval);
   }, []);
 
+  // ── Pass plan info to child routes via context ─────────
+  // Animated Questions child form uses this to lock auto-reply
+  const currentPlan = usage?.plan || "FREE";
+
   return (
     <ShopifyAppProvider embedded apiKey={apiKey}>
       <PolarisAppProvider i18n={enTranslations}>
 
-        <GlobalToast toasts={globalToasts} onDismiss={(id) => setGlobalToasts(p => p.filter(t => t.id !== id))} />
+        <GlobalToast
+          toasts={globalToasts}
+          onDismiss={(id) => setGlobalToasts(p => p.filter(t => t.id !== id))}
+        />
 
         <s-app-nav key={`${usage?.plan}-${subscriptionStatus}-${isBillingApproved}`}>
           <s-link href="/app/chat/admin">Chats</s-link>
@@ -360,44 +371,93 @@ export default function App() {
           <s-link href="/app/subscription">
             Subscription
             {usage && isApproachingLimit && !isAtLimit && usage.chats.remaining !== "Unlimited" && (
-              <span style={{ marginLeft:"8px" }}><Badge tone="warning">{usage.chats.remaining} left</Badge></span>
+              <span style={{ marginLeft:"8px" }}>
+                <Badge tone="warning">{usage.chats.remaining} left</Badge>
+              </span>
             )}
-            {usage && isAtLimit && <span style={{ marginLeft:"8px" }}><Badge tone="critical">Limit Reached</Badge></span>}
-            {isPendingApproval && <span style={{ marginLeft:"8px" }}><Badge tone="info">Pending</Badge></span>}
+            {usage && isAtLimit && (
+              <span style={{ marginLeft:"8px" }}>
+                <Badge tone="critical">Limit Reached</Badge>
+              </span>
+            )}
+            {isPendingApproval && (
+              <span style={{ marginLeft:"8px" }}>
+                <Badge tone="info">Pending</Badge>
+              </span>
+            )}
           </s-link>
         </s-app-nav>
 
         {showUnlockLoader && (
-          <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:99999, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"20px" }}>
-            <div style={{ width:"60px", height:"60px", border:"4px solid #E1E3E5", borderTop:"4px solid #005BD3", borderRadius:"50%", animation:"spin 1s linear infinite" }} />
-            <h2 style={{ fontSize:"24px", fontWeight:"600", color:"#202223", margin:0 }}>Activating Your Plan</h2>
-            <p style={{ fontSize:"16px", color:"#6d7175", margin:0 }}>Unlocking features... Please wait</p>
+          <div style={{
+            position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:99999,
+            display:"flex", flexDirection:"column", alignItems:"center",
+            justifyContent:"center", gap:"20px",
+          }}>
+            <div style={{
+              width:"60px", height:"60px",
+              border:"4px solid #E1E3E5", borderTop:"4px solid #005BD3",
+              borderRadius:"50%", animation:"spin 1s linear infinite",
+            }} />
+            <h2 style={{ fontSize:"24px", fontWeight:"600", color:"#202223", margin:0 }}>
+              Activating Your Plan
+            </h2>
+            <p style={{ fontSize:"16px", color:"#6d7175", margin:0 }}>
+              Unlocking features... Please wait
+            </p>
             <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
           </div>
         )}
 
         {isPendingApproval && !showUnlockLoader && (
-          <div style={{ padding:"12px 20px", backgroundColor:"#E3F2FD", borderBottom:"1px solid #90CAF9", textAlign:"center" }}>
+          <div style={{
+            padding:"12px 20px", backgroundColor:"#E3F2FD",
+            borderBottom:"1px solid #90CAF9", textAlign:"center",
+          }}>
             <span style={{ fontWeight:600 }}>⏳ Subscription upgrade pending billing approval.</span>{" "}
-            <button onClick={() => navigate("/app/subscription")} style={{ background:"none", border:"none", color:"#005BD3", textDecoration:"underline", cursor:"pointer", padding:0, font:"inherit" }}>Complete billing approval</button>
+            <button
+              onClick={() => navigate("/app/subscription")}
+              style={{
+                background:"none", border:"none", color:"#005BD3",
+                textDecoration:"underline", cursor:"pointer", padding:0, font:"inherit",
+              }}
+            >
+              Complete billing approval
+            </button>
           </div>
         )}
 
         {usage && (isApproachingLimit || isAtLimit) && isBillingApproved && !showUnlockLoader && (
-          <div style={{ padding:"12px 20px", backgroundColor:isAtLimit?"#FED3D1":"#FFF4E5", borderBottom:"1px solid #ddd", textAlign:"center" }}>
+          <div style={{
+            padding:"12px 20px",
+            backgroundColor:isAtLimit ? "#FED3D1" : "#FFF4E5",
+            borderBottom:"1px solid #ddd", textAlign:"center",
+          }}>
             <span style={{ fontWeight:600 }}>
               {isAtLimit
                 ? `⚠️ You've reached your ${usage.plan} plan limit (${usage.chats.current}/${usage.chats.max} chats).`
                 : `⚡ You're using ${Math.round(usage.chats.percentage)}% of your ${usage.plan} plan.`}
             </span>{" "}
-            <button onClick={() => navigate("/app/subscription")} style={{ background:"none", border:"none", color:"#005BD3", textDecoration:"underline", cursor:"pointer", padding:0, font:"inherit" }}>
+            <button
+              onClick={() => navigate("/app/subscription")}
+              style={{
+                background:"none", border:"none", color:"#005BD3",
+                textDecoration:"underline", cursor:"pointer", padding:0, font:"inherit",
+              }}
+            >
               {isAtLimit ? "Upgrade now to continue" : "Upgrade your plan"}
             </button>
           </div>
         )}
 
         <div style={{ position:"relative", minHeight:"100vh" }}>
-          <div style={{ filter:isPageLocked?"blur(4px)":"none", pointerEvents:isPageLocked?"none":"auto", userSelect:isPageLocked?"none":"auto", opacity:isPageLocked?"0.5":"1", transition:"filter 0.3s ease, opacity 0.3s ease" }}>
+          <div style={{
+            filter      : isPageLocked ? "blur(4px)" : "none",
+            pointerEvents: isPageLocked ? "none" : "auto",
+            userSelect  : isPageLocked ? "none" : "auto",
+            opacity     : isPageLocked ? "0.5" : "1",
+            transition  : "filter 0.3s ease, opacity 0.3s ease",
+          }}>
             <Outlet />
           </div>
           {isPageLocked && (
