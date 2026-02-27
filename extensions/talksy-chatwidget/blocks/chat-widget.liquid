@@ -237,25 +237,7 @@
 /* ══════════════════════════════
    Chat Message Animations
 ══════════════════════════════ */
-@keyframes msg-in-user {
-  0%   { opacity: 0; transform: translateY(10px) translateX(14px) scale(0.94); }
-  60%  { opacity: 1; transform: translateY(-2px) translateX(0)    scale(1.01); }
-  100% { opacity: 1; transform: translateY(0)    translateX(0)    scale(1);    }
-}
-@keyframes msg-in-bot {
-  0%   { opacity: 0; transform: translateY(10px) translateX(-14px) scale(0.94); }
-  60%  { opacity: 1; transform: translateY(-2px) translateX(0)     scale(1.01); }
-  100% { opacity: 1; transform: translateY(0)    translateX(0)     scale(1);    }
-}
-
-.msg-animate-user {
-  animation: msg-in-user 0.32s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
-  will-change: transform, opacity;
-}
-.msg-animate-bot {
-  animation: msg-in-bot 0.32s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
-  will-change: transform, opacity;
-}
+/* Message animations — inline transitions handle karte hain, yahan sirf chips ke liye */
 </style>
 
 <!-- ══ ANIMATED QUESTIONS CONTAINER ══ -->
@@ -652,14 +634,19 @@
 
     /* 5b. Registered user → send message + typing + auto-reply */
     try {
-      // STEP 1: User ka message turant chat mein dikha (optimistic render)
+      // STEP 1: Polling rok do — koi interference nahi hogi
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+
+      // STEP 2: User message turant dikha (optimistic)
       renderUserMsgLocally(question.text);
 
-      // STEP 2: Typing indicator ON
+      // STEP 3: Typing ON
       const typingId = showTypingIndicator();
 
-      // STEP 3: Background mein message + auto-reply save karo (non-blocking)
-      fetch(`${BASE_URL}/api/animated-questions/send`, {
+      // STEP 4: API call AWAIT karo — yeh backend pe user msg + bot reply dono save karta hai
+      //         Backend 800ms delay ke baad bot reply save karta hai
+      //         Isliye hum await karte hain taaki dono DB mein ho jaayein
+      await fetch(`${BASE_URL}/api/animated-questions/send`, {
         method : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body   : JSON.stringify({
@@ -671,28 +658,25 @@
           questionId : question.id,
           autoReply  : question.defaultAnswer || null
         })
-      }).catch(() => {});
+      });
+      // Note: fetch ke complete hone par user msg + bot reply DONO DB mein hain
 
-      // STEP 4: Backend ka 800ms reply delay + thoda buffer
-      await new Promise(r => setTimeout(r, 1100));
-
-      // STEP 5: Typing band karo, fresh messages fetch karo
+      // STEP 5: Typing hide karo (fallback — renderMsg handles it normally)
       hideTypingIndicator(typingId);
-      await fetchMessages();           // bot reply render hogi
 
-      // STEP 6: rAF ensure karo ki DOM paint complete ho, PHIR chips
+      // STEP 6: Fresh fetch — bot reply typing ki jagah smoothly aayega
+      await fetchMessages();
+
+      // STEP 7: Bot reply animation (0.25s) complete hone do, PHIR related chips
       const children = getChildQuestions(question.id);
       if (children.length > 0) {
-        // Double rAF — guaranteed ke sab messages paint ho chuke hain
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            showChildChips(children, question.id);
-            msgBox.scrollTop = msgBox.scrollHeight;
-          });
-        });
-      } else {
+        await new Promise(r => setTimeout(r, 350));
+        showChildChips(children, question.id);
         msgBox.scrollTop = msgBox.scrollHeight;
       }
+
+      // STEP 8: Polling resume
+      pollInterval = setInterval(fetchMessages, 3500);
 
     } catch (err) {
       console.error('[AQ] send error:', err);
@@ -709,32 +693,44 @@
   function renderUserMsgLocally(text) {
     _pendingLocalText = text;
     const div = document.createElement('div');
-    div.className          = 'msg user msg-animate-user';
-    div.dataset.localText  = text;   // fetchMessages isko dhundh ke remove karega
-    div.innerHTML = `<div class="msg-content" style="background:#F39C12;color:#fff;border:none;">
+    div.className         = 'msg user';
+    div.dataset.localText = text;
+    div.innerHTML = `<div class="msg-content" style="background:#F39C12;color:#fff;border:none;opacity:0;transform:translateY(8px);transition:opacity 0.22s ease-out,transform 0.22s ease-out;">
       <div>${escapeHtml(text)}</div>
     </div>`;
     msgBox.appendChild(div);
-    msgBox.scrollTop = msgBox.scrollHeight;
+    requestAnimationFrame(() => {
+      const mc = div.querySelector('.msg-content');
+      if (mc) { mc.style.opacity = '1'; mc.style.transform = 'translateY(0)'; }
+      msgBox.scrollTo({ top: msgBox.scrollHeight, behavior: 'smooth' });
+    });
   }
 
   /* ── Typing indicator (3 bouncing dots) ── */
   function showTypingIndicator() {
     const id  = 'aq-typing-' + Date.now();
     const div = document.createElement('div');
-    div.className = 'aq-typing-bubble msg msg-animate-bot';
+    div.className = 'aq-typing-bubble msg';
     div.id        = id;
+    div.style.cssText = 'opacity:0;transform:translateY(8px);transition:opacity 0.22s ease-out,transform 0.22s ease-out;';
     div.innerHTML = `<div class="aq-typing-content">
       <div class="aq-typing-dot"></div>
       <div class="aq-typing-dot"></div>
       <div class="aq-typing-dot"></div>
     </div>`;
     msgBox.appendChild(div);
-    msgBox.scrollTop = msgBox.scrollHeight;
+    requestAnimationFrame(() => {
+      div.style.opacity   = '1';
+      div.style.transform = 'translateY(0)';
+      msgBox.scrollTo({ top: msgBox.scrollHeight, behavior: 'smooth' });
+    });
     return id;
   }
 
   function hideTypingIndicator(id) {
+    // Typing ko yahan remove mat karo —
+    // renderMsg khud typing ki jagah bot reply insert karega (no scroll jump)
+    // Sirf agar koi fetchMessages nahi aaya toh fallback remove karo
     const el = document.getElementById(id);
     if (el) el.remove();
   }
@@ -789,14 +785,17 @@
         }).catch(() => {});
 
         try {
-          // STEP 1: Child question text turant chat mein dikha
+          // STEP 1: Polling pause
+          if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+
+          // STEP 2: Child message locally dikha
           renderUserMsgLocally(child.text);
 
-          // STEP 2: Typing ON
+          // STEP 3: Typing ON
           const chipTypingId = showTypingIndicator();
 
-          // STEP 3: Backend pe save (non-blocking)
-          fetch(`${BASE_URL}/api/animated-questions/send`, {
+          // STEP 4: AWAIT fetch — user msg + bot reply dono DB mein save hon
+          await fetch(`${BASE_URL}/api/animated-questions/send`, {
             method : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body   : JSON.stringify({
@@ -808,15 +807,14 @@
               questionId : child.id,
               autoReply  : child.defaultAnswer || null
             })
-          }).catch(() => {});
+          });
 
-          // STEP 4: Wait for bot reply
-          await new Promise(r => setTimeout(r, 1100));
-
-          // STEP 5: Typing band, fresh fetch
+          // STEP 5: Typing hide, messages fetch
           hideTypingIndicator(chipTypingId);
           await fetchMessages();
-          msgBox.scrollTop = msgBox.scrollHeight;
+
+          // STEP 6: Polling resume
+          pollInterval = setInterval(fetchMessages, 3500);
 
         } catch (err) {
           console.error('[AQ child chip] send error:', err);
@@ -824,6 +822,7 @@
             c.disabled = false;
             c.classList.remove('aq-chip-used');
           });
+          if (!pollInterval) pollInterval = setInterval(fetchMessages, 3500);
         }
       });
 
@@ -986,35 +985,63 @@
     const sid = localStorage.getItem(SK.SID); if (!sid) return;
     try {
       const data = await (await fetch(`${BASE_URL}/app/chat/messages?shop=${shop}&sessionId=${sid}`)).json();
-      data.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).forEach(renderMsg);
+      const sorted = data.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+      sorted.forEach(m => renderMsg(m));
     } catch (_) {}
   }
+
   function renderMsg(m) {
     if (seenMsgs.has(m.id)) return;
     seenMsgs.add(m.id);
 
-    // ✅ FIX: Agar yeh user message hai aur same text ka local element exist karta hai
-    // toh pehle local element hata do — duplicate nahi banega
-    if (m.sender === 'user' && m.message) {
+    const isBot = (m.sender === 'admin' || m.sender === 'bot');
+
+    // ── User message: local element in-place update (no DOM jump) ──
+    if (!isBot && m.message) {
       const localEl = msgBox.querySelector(`[data-local-text="${CSS.escape(m.message)}"]`);
       if (localEl) {
-        localEl.remove();
+        localEl.removeAttribute('data-local-text');
+        localEl.dataset.msgId = m.id;
         _pendingLocalText = null;
+        return; // already visible, no scroll needed
       }
     }
 
-    const div = document.createElement("div");
-    const isBot = (m.sender === 'admin' || m.sender === 'bot');
-    div.className = `msg ${isBot ? 'bot' : 'user'} ${isBot ? 'msg-animate-bot' : 'msg-animate-user'}`;
-    const bg  = isBot ? (currentConfig.messageBgColor || "#fff") : "#F39C12";
-    const col = isBot ? "#1e293b" : "#fff";
+    // ── Bot message: replace typing indicator in-place if exists ──
+    // Typing indicator ki jagah pe bot message aayega — zero scroll jump
+    const typingEl = msgBox.querySelector('.aq-typing-bubble');
+    const bg  = isBot ? (currentConfig.messageBgColor || '#fff') : '#F39C12';
+    const col = isBot ? '#1e293b' : '#fff';
     const bdr = isBot ? `1px solid ${currentConfig.widgetBorderColor || '#eee'}` : 'none';
-    div.innerHTML = `<div class="msg-content" style="background:${bg};color:${col};border:${bdr}">
+
+    const div = document.createElement('div');
+    div.className     = `msg ${isBot ? 'bot' : 'user'}`;
+    div.dataset.msgId = m.id;
+    // Start invisible, same height placeholder feel
+    div.innerHTML = `<div class="msg-content" style="background:${bg};color:${col};border:${bdr};opacity:0;transition:opacity 0.28s ease-out;">
       ${m.message ? `<div>${m.message}</div>` : ''}
-      ${m.fileUrl  ? `<img src="${m.fileUrl}" class="msg-image" style="max-width:100%;border-radius:10px;margin-top:6px;display:block;cursor:pointer;" onclick="window.openImagePopup('${m.fileUrl}')" />` : ''}
+      ${m.fileUrl ? `<img src="${m.fileUrl}" class="msg-image" style="max-width:100%;border-radius:10px;margin-top:6px;display:block;cursor:pointer;" onclick="window.openImagePopup('${m.fileUrl}')" />` : ''}
     </div>`;
-    msgBox.appendChild(div);
-    msgBox.scrollTop = msgBox.scrollHeight;
+
+    if (isBot && typingEl) {
+      // Bot reply typing ki exact jagah pe insert karo, phir typing hatao
+      msgBox.insertBefore(div, typingEl);
+      typingEl.remove();
+    } else {
+      msgBox.appendChild(div);
+      // Naya message — scroll to bottom smoothly
+      requestAnimationFrame(() => {
+        msgBox.scrollTo({ top: msgBox.scrollHeight, behavior: 'smooth' });
+      });
+    }
+
+    // Fade in — no translateY, no position change, sirf opacity
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const mc = div.querySelector('.msg-content');
+        if (mc) mc.style.opacity = '1';
+      });
+    });
   }
 
   window.openImagePopup = function(url) {
