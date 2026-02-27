@@ -710,20 +710,12 @@ export default function NeuralChatAdmin() {
 
   // ── Helper: get bubble styles per sender ──
   const getMsgBubbleStyle = (sender) => {
-    if (sender === "admin") {
+    if (sender === "admin" || sender === "bot") {
       return {
-        background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-        color     : "#fff",
-        border    : "none",
+        background  : "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+        color       : "#fff",
+        border      : "none",
         borderRadius: "16px 16px 4px 16px",
-      };
-    }
-    if (sender === "bot") {
-      return {
-        background  : "linear-gradient(135deg, #f0fdf4, #dcfce7)",
-        color       : "#111827",
-        border      : "1px solid #86efac",
-        borderRadius: "16px 16px 16px 4px",
       };
     }
     // user
@@ -1229,31 +1221,34 @@ export default function NeuralChatAdmin() {
                 const isAdmin = msg.sender === "admin";
                 const isBot   = msg.sender === "bot";
 
+                // Both admin and bot appear on RIGHT side
+                const isRight = isAdmin || isBot;
+
                 return (
                   <div
                     key={msg.id || i}
                     style={{
-                      alignSelf : isAdmin ? "flex-end" : "flex-start",
-                      maxWidth  : "65%",
-                      display   : "flex",
+                      alignSelf    : isRight ? "flex-end" : "flex-start",
+                      maxWidth     : "65%",
+                      display      : "flex",
                       flexDirection: "column",
-                      alignItems: isAdmin ? "flex-end" : "flex-start",
+                      alignItems   : isRight ? "flex-end" : "flex-start",
                     }}
                   >
-                    {/* Bot label above bubble */}
+                    {/* Bot label above bubble — right aligned */}
                     {isBot && (
-                      <div style={{ display:"flex", alignItems:"center", gap:"5px", marginBottom:"4px", paddingLeft:"2px" }}>
-                        <span style={{ fontSize:"14px" }}>🤖</span>
+                      <div style={{ display:"flex", alignItems:"center", gap:"5px", marginBottom:"4px", paddingRight:"2px", justifyContent:"flex-end" }}>
                         <span style={{ fontSize:"10px", fontWeight:"700", color:"#059669", background:"#d1fae5", padding:"2px 7px", borderRadius:"4px", letterSpacing:"0.3px" }}>
                           BOT
                         </span>
+                        <span style={{ fontSize:"13px" }}>🤖</span>
                       </div>
                     )}
 
                     <div
                       style={{
-                        padding     : "12px 16px",
-                        boxShadow   : "0 2px 8px rgba(0,0,0,0.06)",
+                        padding  : "12px 16px",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
                         ...bubbleStyle,
                       }}
                     >
@@ -1277,13 +1272,13 @@ export default function NeuralChatAdmin() {
                     {/* Timestamp row */}
                     <div
                       style={{
-                        fontSize   : "11px",
-                        color      : "#9ca3af",
-                        marginTop  : "4px",
-                        display    : "flex",
-                        alignItems : "center",
-                        gap        : "6px",
-                        justifyContent: isAdmin ? "flex-end" : "flex-start",
+                        fontSize      : "11px",
+                        color         : "#9ca3af",
+                        marginTop     : "4px",
+                        display       : "flex",
+                        alignItems    : "center",
+                        gap           : "6px",
+                        justifyContent: isRight ? "flex-end" : "flex-start",
                       }}
                     >
                       {new Date(msg.createdAt).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}
