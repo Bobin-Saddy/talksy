@@ -655,13 +655,20 @@
 
       // STEP 5: Typing band karo, fresh messages fetch karo
       hideTypingIndicator(typingId);
-      await fetchMessages();
-      msgBox.scrollTop = msgBox.scrollHeight;
+      await fetchMessages();           // bot reply render hogi
 
-      // STEP 6: Agar children hain toh chips dikhao
+      // STEP 6: rAF ensure karo ki DOM paint complete ho, PHIR chips
       const children = getChildQuestions(question.id);
       if (children.length > 0) {
-        setTimeout(() => showChildChips(children, question.id), 350);
+        // Double rAF — guaranteed ke sab messages paint ho chuke hain
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            showChildChips(children, question.id);
+            msgBox.scrollTop = msgBox.scrollHeight;
+          });
+        });
+      } else {
+        msgBox.scrollTop = msgBox.scrollHeight;
       }
 
     } catch (err) {
@@ -671,14 +678,17 @@
     }
   }
 
-  /* ── Render user message locally (optimistic — before API returns) ── */
+  /* ── Render user message locally (optimistic) ──
+     ✅ FIX: data-local-text attribute lagao — fetchMessages isko replace karega,
+     duplicate nahi banayega                                                     */
+  let _pendingLocalText = null;   // track karo kaunsa text locally rendered hai
+
   function renderUserMsgLocally(text) {
-    const fakeId = 'local-' + Date.now();
-    seenMsgs.add(fakeId);   // prevent duplicate when fetchMessages runs
+    _pendingLocalText = text;
     const div = document.createElement('div');
-    div.className   = 'msg user';
-    div.dataset.fakeId = fakeId;
-    div.innerHTML   = `<div class="msg-content" style="background:#F39C12;color:#fff;border:none;">
+    div.className          = 'msg user';
+    div.dataset.localText  = text;   // fetchMessages isko dhundh ke remove karega
+    div.innerHTML = `<div class="msg-content" style="background:#F39C12;color:#fff;border:none;">
       <div>${escapeHtml(text)}</div>
     </div>`;
     msgBox.appendChild(div);
@@ -958,6 +968,17 @@
   function renderMsg(m) {
     if (seenMsgs.has(m.id)) return;
     seenMsgs.add(m.id);
+
+    // ✅ FIX: Agar yeh user message hai aur same text ka local element exist karta hai
+    // toh pehle local element hata do — duplicate nahi banega
+    if (m.sender === 'user' && m.message) {
+      const localEl = msgBox.querySelector(`[data-local-text="${CSS.escape(m.message)}"]`);
+      if (localEl) {
+        localEl.remove();
+        _pendingLocalText = null;
+      }
+    }
+
     const div = document.createElement("div");
     const isBot = (m.sender === 'admin' || m.sender === 'bot');
     div.className = `msg ${isBot ? 'bot' : 'user'}`;
