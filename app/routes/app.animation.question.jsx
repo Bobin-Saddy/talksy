@@ -96,7 +96,13 @@ export default function AnimationQuestion() {
   });
 
   const ICONS      = ["💬","🛍️","📦","🔥","✨","🤔","💡","🚀","❓","👋","💳","🎁","🔧","📞","⭐"];
-  const ANIMATIONS = [{value:"float",label:"Float"},{value:"bounce",label:"Bounce"},{value:"pulse",label:"Pulse"},{value:"slide",label:"Slide In"}];
+  const ANIMATIONS = [
+    {value:"none",   label:"🔲 Static (No Animation)"},
+    {value:"float",  label:"🌊 Float (Up/Down)"},
+    {value:"bounce", label:"🏀 Bounce (Spring)"},
+    {value:"pulse",  label:"✨ Pulse (Glow)"},
+    {value:"slide",  label:"➡️ Slide In"},
+  ];
   const CATEGORIES = ["general","products","orders","shipping","returns","payment","support"];
 
   useEffect(() => { if (shop) fetchAll(); else setLoading(false); }, [shop]);

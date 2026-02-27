@@ -200,6 +200,39 @@
   font-size: 14px;
   line-height: 1;
 }
+
+/* ── Typing Indicator ── */
+.aq-typing-bubble {
+  display: flex;
+  align-self: flex-start;
+  margin-bottom: 4px;
+}
+.aq-typing-content {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 16px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 16px 16px 16px 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.aq-typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9ca3af;
+  animation: aq-typing-bounce 1.2s ease-in-out infinite;
+}
+.aq-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.aq-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes aq-typing-bounce {
+  0%, 60%, 100% { transform: translateY(0);    opacity: 0.4; }
+  30%            { transform: translateY(-6px); opacity: 1;   }
+}
+
+/* ── Static bubble (no animation) ── */
+.aq-anim-none { animation: none !important; }
 </style>
 
 <!-- ══ ANIMATED QUESTIONS CONTAINER ══ -->
@@ -606,15 +639,21 @@
         })
       });
 
-      /* Refresh messages */
+      /* Show typing indicator while waiting for bot reply */
+      const typingId = showTypingIndicator();
+
+      /* Wait for backend auto-reply to be saved (800ms delay in backend) */
+      await new Promise(r => setTimeout(r, 950));
+
+      /* Hide typing + refresh messages */
+      hideTypingIndicator(typingId);
       await fetchMessages();
       setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 100);
 
       /* ✅ Show child chips if this parent has children */
       const children = getChildQuestions(question.id);
       if (children.length > 0) {
-        // Small delay so bot auto-reply renders first, then chips appear below
-        setTimeout(() => showChildChips(children, question.id), 900);
+        setTimeout(() => showChildChips(children, question.id), 400);
       }
 
     } catch (err) {
@@ -622,6 +661,27 @@
       const chatInputEl = document.getElementById('chat-input');
       if (chatInputEl) { chatInputEl.value = question.text; chatInputEl.focus(); }
     }
+  }
+
+  /* ── Typing indicator (3 bouncing dots) ── */
+  function showTypingIndicator() {
+    const id  = 'aq-typing-' + Date.now();
+    const div = document.createElement('div');
+    div.className = 'aq-typing-bubble msg';
+    div.id        = id;
+    div.innerHTML = `<div class="aq-typing-content">
+      <div class="aq-typing-dot"></div>
+      <div class="aq-typing-dot"></div>
+      <div class="aq-typing-dot"></div>
+    </div>`;
+    msgBox.appendChild(div);
+    msgBox.scrollTop = msgBox.scrollHeight;
+    return id;
+  }
+
+  function hideTypingIndicator(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
   }
 
   /* ── Show child question chips inside the chat message box ── */
@@ -673,7 +733,7 @@
         }).catch(() => {});
 
         try {
-          // Send child question as user message + get auto-reply
+          // Send child question as user message
           await fetch(`${BASE_URL}/api/animated-questions/send`, {
             method : 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -688,13 +748,19 @@
             })
           });
 
-          // Refresh messages — user message + bot reply dono dikhenge
+          // Show user message immediately, then typing
           await fetchMessages();
-          setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 150);
+          const chipTypingId = showTypingIndicator();
+
+          // Wait for backend bot reply (800ms backend delay + buffer)
+          await new Promise(r => setTimeout(r, 950));
+
+          hideTypingIndicator(chipTypingId);
+          await fetchMessages();
+          setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 100);
 
         } catch (err) {
           console.error('[AQ child chip] send error:', err);
-          // Re-enable chips on failure
           row.querySelectorAll('.aq-child-chip').forEach(c => {
             c.disabled = false;
             c.classList.remove('aq-chip-used');
