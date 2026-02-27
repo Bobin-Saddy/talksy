@@ -233,6 +233,29 @@
 
 /* ── Static bubble (no animation) ── */
 .aq-anim-none { animation: none !important; }
+
+/* ══════════════════════════════
+   Chat Message Animations
+══════════════════════════════ */
+@keyframes msg-in-user {
+  0%   { opacity: 0; transform: translateY(10px) translateX(14px) scale(0.94); }
+  60%  { opacity: 1; transform: translateY(-2px) translateX(0)    scale(1.01); }
+  100% { opacity: 1; transform: translateY(0)    translateX(0)    scale(1);    }
+}
+@keyframes msg-in-bot {
+  0%   { opacity: 0; transform: translateY(10px) translateX(-14px) scale(0.94); }
+  60%  { opacity: 1; transform: translateY(-2px) translateX(0)     scale(1.01); }
+  100% { opacity: 1; transform: translateY(0)    translateX(0)     scale(1);    }
+}
+
+.msg-animate-user {
+  animation: msg-in-user 0.32s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+  will-change: transform, opacity;
+}
+.msg-animate-bot {
+  animation: msg-in-bot 0.32s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+  will-change: transform, opacity;
+}
 </style>
 
 <!-- ══ ANIMATED QUESTIONS CONTAINER ══ -->
@@ -686,7 +709,7 @@
   function renderUserMsgLocally(text) {
     _pendingLocalText = text;
     const div = document.createElement('div');
-    div.className          = 'msg user';
+    div.className          = 'msg user msg-animate-user';
     div.dataset.localText  = text;   // fetchMessages isko dhundh ke remove karega
     div.innerHTML = `<div class="msg-content" style="background:#F39C12;color:#fff;border:none;">
       <div>${escapeHtml(text)}</div>
@@ -699,7 +722,7 @@
   function showTypingIndicator() {
     const id  = 'aq-typing-' + Date.now();
     const div = document.createElement('div');
-    div.className = 'aq-typing-bubble msg';
+    div.className = 'aq-typing-bubble msg msg-animate-bot';
     div.id        = id;
     div.innerHTML = `<div class="aq-typing-content">
       <div class="aq-typing-dot"></div>
@@ -728,7 +751,8 @@
     const wrap = document.createElement('div');
     wrap.className = 'msg';                      // left-aligned like bot messages
     wrap.id        = `aq-chips-${parentId}`;
-    wrap.style.cssText = 'display:flex;flex-direction:column;align-self:flex-start;max-width:92%;margin-bottom:4px;animation:aq-chips-in 0.35s cubic-bezier(.34,1.56,.64,1);';
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-self:flex-start;max-width:92%;margin-bottom:4px;';
+    wrap.classList.add('msg-animate-bot');
 
     // Label
     const label = document.createElement('div');
@@ -981,7 +1005,7 @@
 
     const div = document.createElement("div");
     const isBot = (m.sender === 'admin' || m.sender === 'bot');
-    div.className = `msg ${isBot ? 'bot' : 'user'}`;
+    div.className = `msg ${isBot ? 'bot' : 'user'} ${isBot ? 'msg-animate-bot' : 'msg-animate-user'}`;
     const bg  = isBot ? (currentConfig.messageBgColor || "#fff") : "#F39C12";
     const col = isBot ? "#1e293b" : "#fff";
     const bdr = isBot ? `1px solid ${currentConfig.widgetBorderColor || '#eee'}` : 'none';
