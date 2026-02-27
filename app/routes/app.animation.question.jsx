@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useLoaderData } from "react-router";
+import { useLoaderData, useNavigate } from "react-router";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
-  const { getShopLimits } = await import("../planLimits.server.js");
+  const { getShopLimits } = await import("../utils/planLimits.server.js");
   const { plan } = await getShopLimits(shop);
   return json({ shop, plan });
 };
@@ -72,7 +72,7 @@ const S = {
 };
 
 // ── Upgrade Banner ──
-function UpgradeBanner({ plan, reason }) {
+function UpgradeBanner({ plan, reason, onUpgrade }) {
   return (
     <div style={{
       background  : "linear-gradient(135deg,#7c3aed,#6366f1)",
@@ -93,22 +93,22 @@ function UpgradeBanner({ plan, reason }) {
           You're on the <strong>{plan}</strong> plan. Upgrade to Standard or Premium to unlock this feature.
         </div>
       </div>
-      <a
-        href="/app/subscription"
+      <button
+        onClick={onUpgrade}
         style={{
           background:"#fff", color:"#7c3aed", borderRadius:8, padding:"8px 16px",
-          fontWeight:700, fontSize:13, textDecoration:"none", whiteSpace:"nowrap",
-          boxShadow:"0 2px 8px rgba(0,0,0,0.1)",
+          fontWeight:700, fontSize:13, border:"none", cursor:"pointer",
+          whiteSpace:"nowrap", boxShadow:"0 2px 8px rgba(0,0,0,0.1)",
         }}
       >
         Upgrade Now ✨
-      </a>
+      </button>
     </div>
   );
 }
 
 // ── Plan Limit Banner (question count) ──
-function QuotaBanner({ used, max, plan }) {
+function QuotaBanner({ used, max, plan, onUpgrade }) {
   const isFull = used >= max;
   return (
     <div style={{
@@ -135,16 +135,16 @@ function QuotaBanner({ used, max, plan }) {
         </div>
       </div>
       {isFull && (
-        <a
-          href="/app/subscription"
+        <button
+          onClick={onUpgrade}
           style={{
             background:"linear-gradient(135deg,#7c3aed,#6366f1)", color:"#fff",
             borderRadius:8, padding:"7px 14px", fontWeight:700, fontSize:12,
-            textDecoration:"none", whiteSpace:"nowrap",
+            border:"none", cursor:"pointer", whiteSpace:"nowrap",
           }}
         >
           Upgrade
-        </a>
+        </button>
       )}
     </div>
   );
@@ -163,6 +163,7 @@ const BLANK_FORM = { text:"", icon:"💬", category:"general", displayOrder:0, i
 
 export default function AnimationQuestion() {
   const { shop, plan } = useLoaderData();
+  const navigate = useNavigate();
 
   // ── Plan limits ──
   const planLimits   = AQ_PLAN_LIMITS[plan] || AQ_PLAN_LIMITS.FREE;
@@ -372,7 +373,7 @@ export default function AnimationQuestion() {
 
         {/* ── FREE plan quota banner ── */}
         {maxQ !== -1 && (
-          <QuotaBanner used={totalQCount} max={maxQ} plan={plan} />
+          <QuotaBanner used={totalQCount} max={maxQ} plan={plan} onUpgrade={() => navigate("/app/subscription")} />
         )}
 
         {/* Stats */}
@@ -416,6 +417,7 @@ export default function AnimationQuestion() {
                 <UpgradeBanner
                   plan={plan}
                   reason={`FREE plan limit: You've used all ${maxQ} questions.`}
+                  onUpgrade={() => navigate("/app/subscription")}
                 />
               )}
 
@@ -506,17 +508,17 @@ export default function AnimationQuestion() {
                         <div style={{ fontSize:12, fontWeight:700, color:C.purple, marginBottom:8 }}>
                           Auto-Reply is a paid feature
                         </div>
-                        <a
-                          href="/app/subscription"
+                        <button
+                          onClick={() => navigate("/app/subscription")}
                           style={{
                             background:"linear-gradient(135deg,#7c3aed,#6366f1)",
                             color:"#fff", borderRadius:8, padding:"7px 16px",
-                            fontSize:12, fontWeight:700, textDecoration:"none",
-                            display:"inline-block",
+                            fontSize:12, fontWeight:700, border:"none",
+                            cursor:"pointer", display:"inline-block",
                           }}
                         >
                           Upgrade to Unlock ✨
-                        </a>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -583,18 +585,18 @@ export default function AnimationQuestion() {
               {/* Upgrade CTA below button if at limit */}
               {!editId && isAtLimit && (
                 <div style={{marginTop:12,textAlign:"center"}}>
-                  <a
-                    href="/app/subscription"
+                  <button
+                    onClick={() => navigate("/app/subscription")}
                     style={{
                       display:"inline-flex", alignItems:"center", gap:6,
                       background:"linear-gradient(135deg,#7c3aed,#6366f1)",
                       color:"#fff", borderRadius:9, padding:"10px 20px",
-                      fontWeight:700, fontSize:13, textDecoration:"none",
+                      fontWeight:700, fontSize:13, border:"none", cursor:"pointer",
                       boxShadow:"0 4px 14px rgba(124,58,237,0.35)",
                     }}
                   >
                     ✨ Upgrade to Add More Questions
-                  </a>
+                  </button>
                 </div>
               )}
             </div>
@@ -668,17 +670,17 @@ export default function AnimationQuestion() {
                   </div>
                 </div>
                 {plan === "FREE" && (
-                  <a
-                    href="/app/subscription"
+                  <button
+                    onClick={() => navigate("/app/subscription")}
                     style={{
                       background:"linear-gradient(135deg,#7c3aed,#6366f1)",
                       color:"#fff", borderRadius:8, padding:"8px 14px",
-                      fontSize:12, fontWeight:700, textDecoration:"none",
+                      fontSize:12, fontWeight:700, border:"none", cursor:"pointer",
                       whiteSpace:"nowrap", flexShrink:0,
                     }}
                   >
                     Upgrade ✨
-                  </a>
+                  </button>
                 )}
               </div>
             </div>
