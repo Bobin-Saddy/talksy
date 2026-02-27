@@ -6,7 +6,7 @@ import { authenticate } from "../shopify.server";
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
-  const { getShopLimits } = await import("../utils/planLimits.server.js");
+  const { getShopLimits } = await import("../planLimits.server.js");
   const { plan } = await getShopLimits(shop);
   return json({ shop, plan });
 };
