@@ -549,7 +549,7 @@
       bubble.innerHTML = `
         <span class="aq-bubble-icon">${q.icon || '💬'}</span>
         <span class="aq-bubble-text">${escapeHtml(q.text)}</span>
-        <button class="aq-bubble-close" title="Dismiss" type="button">×</button>
+        <button class="aq-bubble-close" title="Dismiss" type="button"><i class="fa-solid fa-xmark"></i></button>
       `;
 
       /* Click on bubble text → open chat + send question */
