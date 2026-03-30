@@ -18,7 +18,7 @@ import {
 import { CheckIcon, XIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 
-const TEST_MODE = false; // ⚠️ CHANGE TO false FOR PRODUCTION
+const TEST_MODE = true; // ⚠️ CHANGE TO false FOR PRODUCTION
 
 // ── Plan definitions ──────────────────────────────────────
 const PLANS = {

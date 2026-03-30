@@ -183,7 +183,8 @@ function buildEmailHtml({ adminName, customerName, customerEmail, messages, shop
     <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:600px;">
 
       <tr>
-        <td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px 40px;">
+      
+        <td style="background:#E1690E;padding:32px 40px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td>
