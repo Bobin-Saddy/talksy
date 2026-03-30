@@ -109,6 +109,7 @@
   margin-left: 4px;
   line-height: 1;
   transition: background 0.15s;
+  display: none;
 }
 .aq-bubble-close:hover { background: rgba(0,0,0,0.18); }
 
@@ -549,7 +550,7 @@
       bubble.innerHTML = `
         <span class="aq-bubble-icon">${q.icon || '💬'}</span>
         <span class="aq-bubble-text">${escapeHtml(q.text)}</span>
-        <button class="aq-bubble-close" title="Dismiss" type="button"><i class="fa-solid fa-xmark"></i></button>
+        <button class="aq-bubble-close" title="Dismiss" type="button">×</button>
       `;
 
       /* Click on bubble text → open chat + send question */
